@@ -1,2 +1,5 @@
-# spbook
-Accounting without a database. JSON-based bookkeeping in your Google Drive.
+# Spbook
+
+Accounting without a database.
+
+Spbook is a lightweight accounting tool that stores your data as JSON files in your Google Drive.
