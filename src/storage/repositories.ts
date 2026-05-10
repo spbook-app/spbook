@@ -30,6 +30,10 @@ export function getInvoicesByWorkspaceId(
   return database.invoices.where("workspaceId").equals(workspaceId).sortBy("number");
 }
 
+export function getInvoiceById(invoiceId: string, database: SpbookDatabase = db) {
+  return database.invoices.get(invoiceId);
+}
+
 export function getJournalEntriesByWorkspaceId(
   workspaceId: string,
   database: SpbookDatabase = db
@@ -83,6 +87,45 @@ export async function saveDemoInvoiceFlowData(
       await database.parties.put(data.party);
       await database.invoices.put(data.invoice);
       await database.journalEntries.bulkPut(data.journalEntries);
+    }
+  );
+}
+
+export async function saveInvoiceWorkflowData(
+  data: {
+    party: Party;
+    invoice: Invoice;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.parties,
+    database.invoices,
+    database.journalEntries,
+    async () => {
+      await database.parties.put(data.party);
+      await database.invoices.put(data.invoice);
+      await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
+export async function saveInvoicePaymentData(
+  data: {
+    invoice: Invoice;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.invoices,
+    database.journalEntries,
+    async () => {
+      await database.invoices.put(data.invoice);
+      await database.journalEntries.put(data.journalEntry);
     }
   );
 }
