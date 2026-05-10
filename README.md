@@ -54,6 +54,11 @@ Do not deploy the repository root directly. The source `index.html` references
 generated `dist` directory, where Vite rewrites module scripts to built
 `/assets/*.js` files.
 
+Do not add a Pages `wrangler.toml` unless the Cloudflare project configuration
+has been downloaded with Wrangler and reviewed. A hand-written Pages
+`wrangler.toml` can override dashboard settings and cause Cloudflare to skip
+the build command.
+
 Environment variables:
 
 - `VITE_APP_ENV=development` for `dev.spbook.app`
