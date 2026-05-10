@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Spbook icon">
+  <rect width="512" height="512" rx="96" fill="#f5f4ed" />
+  <rect x="96" y="76" width="320" height="360" rx="28" fill="#fbfaf6" stroke="#d8d2c3" stroke-width="16" />
+  <path d="M158 170h196M158 226h196M158 282h128" stroke="#8b4a32" stroke-width="24" stroke-linecap="round" />
+  <path d="M154 358h80l28-42 42 70 28-28h26" fill="none" stroke="#25231f" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
