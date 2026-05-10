@@ -8,19 +8,19 @@ export function validateSupplierInvoice(
   parties: Party[]
 ): ValidationResult {
   const issues: ValidationIssue[] = [];
-  const supplier = getPartyById(parties, supplierInvoice.supplierId);
+  const supplier = getPartyById(parties, supplierInvoice.partyId);
 
   if (!supplier) {
     issues.push({
       code: "supplier_invoice.supplier_missing",
-      message: `Supplier "${supplierInvoice.supplierId}" does not exist.`,
-      path: "supplierId"
+      message: `Party "${supplierInvoice.partyId}" does not exist.`,
+      path: "partyId"
     });
   } else if (!partyHasRole(supplier, "supplier")) {
     issues.push({
       code: "supplier_invoice.party_not_supplier",
-      message: `Party "${supplierInvoice.supplierId}" must have the supplier role.`,
-      path: "supplierId"
+      message: `Party "${supplierInvoice.partyId}" must have the supplier role.`,
+      path: "partyId"
     });
   }
 

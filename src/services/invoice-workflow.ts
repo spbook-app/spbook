@@ -1,17 +1,18 @@
-import type { Invoice, JournalEntry, Party } from "../domain";
+import type { Invoice, JournalEntry } from "../domain";
 import { validateInvoice, validateJournalEntry } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
   getAccountsByWorkspaceId,
   getInvoiceById,
+  getPartiesByWorkspaceId,
+  saveInvoiceJournalEntryData,
   saveInvoicePaymentData,
-  saveInvoiceWorkflowData
 } from "../storage/repositories";
 import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
 
 export type CreateSalesInvoiceInput = {
   workspaceId: string;
-  customerName: string;
+  partyId: string;
   number: string;
   issueDate: string;
   total: string;
@@ -22,11 +23,13 @@ export async function createSalesInvoice(
   input: CreateSalesInvoiceInput,
   database: SpbookDatabase = db
 ) {
-  const accounts = await getAccountsByWorkspaceId(input.workspaceId, database);
-  const party = createCustomerParty(input);
-  const invoice = createIssuedInvoice(input, party.id);
-  const journalEntry = createInvoiceJournalEntry(input, party.id, invoice.id);
-  const invoiceValidation = validateInvoice(invoice, [party]);
+  const [accounts, parties] = await Promise.all([
+    getAccountsByWorkspaceId(input.workspaceId, database),
+    getPartiesByWorkspaceId(input.workspaceId, database)
+  ]);
+  const invoice = createIssuedInvoice(input);
+  const journalEntry = createInvoiceJournalEntry(input, invoice.id);
+  const invoiceValidation = validateInvoice(invoice, parties);
 
   if (!invoiceValidation.ok) {
     throw new Error("Invoice data is invalid.");
@@ -38,7 +41,7 @@ export async function createSalesInvoice(
     throw new Error("Invoice journal entry is invalid.");
   }
 
-  await saveInvoiceWorkflowData({ party, invoice, journalEntry }, database);
+  await saveInvoiceJournalEntryData({ invoice, journalEntry }, database);
 
   return selectInvoiceInOverview(
     await loadWorkspaceOverview(input.workspaceId, database),
@@ -86,25 +89,13 @@ export async function recordInvoicePayment(
   );
 }
 
-function createCustomerParty(input: CreateSalesInvoiceInput): Party {
-  return {
-    id: createEntityId("party"),
-    workspaceId: input.workspaceId,
-    name: input.customerName.trim(),
-    countryCode: "SI",
-    type: "business",
-    roles: ["customer"],
-    active: true
-  };
-}
-
-function createIssuedInvoice(input: CreateSalesInvoiceInput, partyId: string): Invoice {
+function createIssuedInvoice(input: CreateSalesInvoiceInput): Invoice {
   return {
     id: createEntityId("inv"),
     workspaceId: input.workspaceId,
     number: input.number.trim(),
     issueDate: input.issueDate,
-    partyId,
+    partyId: input.partyId,
     currency: input.currency,
     total: input.total,
     status: "issued"
@@ -113,7 +104,6 @@ function createIssuedInvoice(input: CreateSalesInvoiceInput, partyId: string): I
 
 function createInvoiceJournalEntry(
   input: CreateSalesInvoiceInput,
-  partyId: string,
   invoiceId: string
 ): JournalEntry {
   return {
@@ -129,7 +119,7 @@ function createInvoiceJournalEntry(
         side: "debit",
         amount: input.total,
         currency: input.currency,
-        partyId,
+        partyId: input.partyId,
         invoiceId
       },
       {
@@ -137,7 +127,7 @@ function createInvoiceJournalEntry(
         side: "credit",
         amount: input.total,
         currency: input.currency,
-        partyId
+        partyId: input.partyId
       }
     ]
   };

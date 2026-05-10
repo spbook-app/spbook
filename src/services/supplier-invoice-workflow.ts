@@ -1,17 +1,18 @@
-import type { JournalEntry, Party, SupplierInvoice } from "../domain";
+import type { JournalEntry, SupplierInvoice } from "../domain";
 import { validateJournalEntry, validateSupplierInvoice } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
   getAccountsByWorkspaceId,
+  getPartiesByWorkspaceId,
   getSupplierInvoiceById,
   saveSupplierInvoicePaymentData,
-  saveSupplierInvoiceWorkflowData
+  saveSupplierInvoiceJournalEntryData
 } from "../storage/repositories";
 import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
 
 export type CreateSupplierInvoiceInput = {
   workspaceId: string;
-  supplierName: string;
+  partyId: string;
   number: string;
   issueDate: string;
   total: string;
@@ -23,14 +24,16 @@ export async function createSupplierInvoice(
   input: CreateSupplierInvoiceInput,
   database: SpbookDatabase = db
 ) {
-  const accounts = await getAccountsByWorkspaceId(input.workspaceId, database);
-  const supplier = createSupplierParty(input);
-  const supplierInvoice = createReceivedSupplierInvoice(input, supplier.id);
+  const [accounts, parties] = await Promise.all([
+    getAccountsByWorkspaceId(input.workspaceId, database),
+    getPartiesByWorkspaceId(input.workspaceId, database)
+  ]);
+  const supplierInvoice = createReceivedSupplierInvoice(input);
   const journalEntry = createSupplierInvoiceJournalEntry(
     supplierInvoice,
-    supplier.id
+    input.partyId
   );
-  const supplierInvoiceValidation = validateSupplierInvoice(supplierInvoice, [supplier]);
+  const supplierInvoiceValidation = validateSupplierInvoice(supplierInvoice, parties);
 
   if (!supplierInvoiceValidation.ok) {
     throw new Error("Supplier invoice data is invalid.");
@@ -42,10 +45,7 @@ export async function createSupplierInvoice(
     throw new Error("Supplier invoice journal entry is invalid.");
   }
 
-  await saveSupplierInvoiceWorkflowData(
-    { supplier, supplierInvoice, journalEntry },
-    database
-  );
+  await saveSupplierInvoiceJournalEntryData({ supplierInvoice, journalEntry }, database);
 
   return selectSupplierInvoiceInOverview(
     await loadWorkspaceOverview(input.workspaceId, database),
@@ -96,28 +96,15 @@ export async function recordSupplierPayment(
   );
 }
 
-function createSupplierParty(input: CreateSupplierInvoiceInput): Party {
-  return {
-    id: createEntityId("party"),
-    workspaceId: input.workspaceId,
-    name: input.supplierName.trim(),
-    countryCode: "SI",
-    type: "business",
-    roles: ["supplier"],
-    active: true
-  };
-}
-
 function createReceivedSupplierInvoice(
-  input: CreateSupplierInvoiceInput,
-  supplierId: string
+  input: CreateSupplierInvoiceInput
 ): SupplierInvoice {
   return {
     id: createEntityId("sinv"),
     workspaceId: input.workspaceId,
     number: input.number.trim(),
     issueDate: input.issueDate,
-    supplierId,
+    partyId: input.partyId,
     currency: input.currency,
     total: input.total,
     expenseAccountCode: input.expenseAccountCode ?? "4100",
@@ -127,7 +114,7 @@ function createReceivedSupplierInvoice(
 
 function createSupplierInvoiceJournalEntry(
   supplierInvoice: SupplierInvoice,
-  supplierId: string
+  partyId: string
 ): JournalEntry {
   return {
     id: createEntityId("je_supplier_invoice"),
@@ -142,7 +129,7 @@ function createSupplierInvoiceJournalEntry(
         side: "debit",
         amount: supplierInvoice.total,
         currency: supplierInvoice.currency,
-        partyId: supplierId,
+        partyId,
         supplierInvoiceId: supplierInvoice.id
       },
       {
@@ -150,7 +137,7 @@ function createSupplierInvoiceJournalEntry(
         side: "credit",
         amount: supplierInvoice.total,
         currency: supplierInvoice.currency,
-        partyId: supplierId,
+        partyId,
         supplierInvoiceId: supplierInvoice.id
       }
     ]
@@ -173,7 +160,7 @@ function createSupplierPaymentJournalEntry(
         side: "debit",
         amount: supplierInvoice.total,
         currency: supplierInvoice.currency,
-        partyId: supplierInvoice.supplierId,
+        partyId: supplierInvoice.partyId,
         supplierInvoiceId: supplierInvoice.id
       },
       {
@@ -181,7 +168,7 @@ function createSupplierPaymentJournalEntry(
         side: "credit",
         amount: supplierInvoice.total,
         currency: supplierInvoice.currency,
-        partyId: supplierInvoice.supplierId,
+        partyId: supplierInvoice.partyId,
         supplierInvoiceId: supplierInvoice.id
       }
     ]
@@ -200,7 +187,7 @@ function selectSupplierInvoiceInOverview(
     ...overview,
     latestSupplierInvoice: supplierInvoice,
     latestSupplierInvoiceParty:
-      overview.parties.find((party) => party.id === supplierInvoice.supplierId) ??
+      overview.parties.find((party) => party.id === supplierInvoice.partyId) ??
       null
   };
 }

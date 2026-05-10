@@ -67,7 +67,7 @@ export type SupplierInvoice = {
   workspaceId: string;
   number: string;
   issueDate: IsoDateString;
-  supplierId: string;
+  partyId: string;
   currency: CurrencyCode;
   total: MoneyAmount;
   expenseAccountCode: string;

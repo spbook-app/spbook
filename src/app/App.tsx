@@ -4,6 +4,8 @@ import type {
   Invoice,
   JournalEntry,
   Party,
+  PartyRole,
+  PartyType,
   SupplierInvoice,
   Workspace
 } from "../domain";
@@ -17,6 +19,7 @@ import {
   recordOwnerContribution,
   recordOwnerWithdrawal
 } from "../services/owner-transactions-workflow";
+import { createParty } from "../services/party-workflow";
 import {
   createSupplierInvoice,
   recordSupplierPayment
@@ -44,8 +47,10 @@ type AppDataState =
       workspace: Workspace;
       accounts: Account[];
       parties: Party[];
+      invoices: Invoice[];
       invoice: Invoice | null;
       invoiceParty: Party | null;
+      supplierInvoices: SupplierInvoice[];
       supplierInvoice: SupplierInvoice | null;
       supplierInvoiceParty: Party | null;
       journalEntries: JournalEntry[];
@@ -56,6 +61,8 @@ type AppDataState =
       state: "error";
       message: string;
     };
+
+const partyRoles: PartyRole[] = ["customer", "supplier", "tax_authority", "bank", "owner"];
 
 export function App() {
   const appEnvironment = getAppEnvironment();
@@ -75,8 +82,10 @@ export function App() {
           workspace: initialization.workspace,
           accounts: overview.accounts,
           parties: overview.parties,
+          invoices: overview.invoices,
           invoice: overview.latestInvoice,
           invoiceParty: overview.latestInvoiceParty,
+          supplierInvoices: overview.supplierInvoices,
           supplierInvoice: overview.latestSupplierInvoice,
           supplierInvoiceParty: overview.latestSupplierInvoiceParty,
           journalEntries: overview.journalEntries,
@@ -177,6 +186,7 @@ function WorkspaceView({
 
         <div className="content-grid">
           <AccountsTable accounts={data.accounts} />
+          <CounterpartiesPanel data={data} onDataStateChange={onDataStateChange} />
           <InvoiceWorkflowPanel data={data} onDataStateChange={onDataStateChange} />
           <SupplierInvoiceWorkflowPanel
             data={data}
@@ -215,8 +225,10 @@ function WorkspaceSidebar({
         workspace: initialization.workspace,
         accounts: overview.accounts,
         parties: overview.parties,
+        invoices: overview.invoices,
         invoice: overview.latestInvoice,
         invoiceParty: overview.latestInvoiceParty,
+        supplierInvoices: overview.supplierInvoices,
         supplierInvoice: overview.latestSupplierInvoice,
         supplierInvoiceParty: overview.latestSupplierInvoiceParty,
         journalEntries: overview.journalEntries,
@@ -338,6 +350,140 @@ function AccountsTable({ accounts }: { accounts: Account[] }) {
   );
 }
 
+function CounterpartiesPanel({
+  data,
+  onDataStateChange
+}: {
+  data: Extract<AppDataState, { state: "ready" }>;
+  onDataStateChange: (state: AppDataState) => void;
+}) {
+  const [name, setName] = useState("ACME d.o.o.");
+  const [type, setType] = useState<PartyType>("business");
+  const [roles, setRoles] = useState<PartyRole[]>(["customer"]);
+  const [countryCode, setCountryCode] = useState("SI");
+  const [vatId, setVatId] = useState("");
+  const [actionState, setActionState] = useState<"idle" | "saving">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleCreateParty(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setActionState("saving");
+    setErrorMessage(null);
+
+    try {
+      const overview = await createParty({
+        workspaceId: data.workspace.id,
+        name,
+        type,
+        roles,
+        countryCode,
+        vatId
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setName("");
+      setVatId("");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Party was not created.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  function toggleRole(role: PartyRole) {
+    setRoles((currentRoles) =>
+      currentRoles.includes(role)
+        ? currentRoles.filter((currentRole) => currentRole !== role)
+        : [...currentRoles, role]
+    );
+  }
+
+  return (
+    <section className="panel panel-wide" aria-labelledby="counterparties-title">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Parties</p>
+          <h2 id="counterparties-title">Counterparties</h2>
+        </div>
+        <span>{data.parties.length} parties</span>
+      </div>
+
+      <form className="invoice-form" onSubmit={(event) => void handleCreateParty(event)}>
+        <div className="form-row">
+          <label>
+            <span>Name</span>
+            <input
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Type</span>
+            <select value={type} onChange={(event) => setType(event.target.value as PartyType)}>
+              <option value="business">Business</option>
+              <option value="person">Person</option>
+              <option value="government">Government</option>
+            </select>
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Country</span>
+            <input value={countryCode} onChange={(event) => setCountryCode(event.target.value)} />
+          </label>
+          <label>
+            <span>VAT ID</span>
+            <input value={vatId} onChange={(event) => setVatId(event.target.value)} />
+          </label>
+        </div>
+        <div className="role-picker" aria-label="Party roles">
+          {partyRoles.map((role) => (
+            <label key={role}>
+              <input
+                type="checkbox"
+                checked={roles.includes(role)}
+                onChange={() => toggleRole(role)}
+              />
+              <span>{role}</span>
+            </label>
+          ))}
+        </div>
+        <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
+          {actionState === "saving" ? "Creating" : "Create counterparty"}
+        </button>
+      </form>
+
+      <div className="party-list">
+        {data.parties.length === 0 ? <p className="empty-state">No counterparties yet.</p> : null}
+        {data.parties.map((party) => (
+          <article className="party-row" key={party.id}>
+            <div>
+              <strong>{party.name}</strong>
+              <span>
+                {party.type} · {party.countryCode ?? "No country"}
+                {party.vatId ? ` · ${party.vatId}` : ""}
+              </span>
+            </div>
+            <div className="role-list">
+              {party.roles.map((role) => (
+                <span className="role-pill role-posting" key={`${party.id}-${role}`}>
+                  {role}
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
+    </section>
+  );
+}
+
 function InvoiceWorkflowPanel({
   data,
   onDataStateChange
@@ -345,12 +491,28 @@ function InvoiceWorkflowPanel({
   data: Extract<AppDataState, { state: "ready" }>;
   onDataStateChange: (state: AppDataState) => void;
 }) {
-  const [customerName, setCustomerName] = useState("Demo Customer d.o.o.");
+  const customerParties = data.parties.filter(
+    (party) => party.active && party.roles.includes("customer")
+  );
+  const [partyId, setPartyId] = useState(customerParties[0]?.id ?? "");
   const [number, setNumber] = useState("2026-0001");
   const [issueDate, setIssueDate] = useState("2026-05-10");
   const [total, setTotal] = useState("1000.00");
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(data.invoice?.id ?? "");
   const [actionState, setActionState] = useState<"idle" | "saving" | "paying">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const selectedInvoice =
+    data.invoices.find((invoice) => invoice.id === selectedInvoiceId) ??
+    data.invoice ??
+    null;
+  const selectedInvoiceParty = selectedInvoice
+    ? data.parties.find((party) => party.id === selectedInvoice.partyId) ?? null
+    : null;
+  const selectedInvoiceEntries = selectedInvoice
+    ? data.journalEntries.filter((entry) =>
+        entry.lines.some((line) => line.invoiceId === selectedInvoice.id)
+      )
+    : [];
 
   async function handleCreateInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -358,9 +520,13 @@ function InvoiceWorkflowPanel({
     setErrorMessage(null);
 
     try {
+      if (!partyId) {
+        throw new Error("Select a customer counterparty first.");
+      }
+
       const overview = await createSalesInvoice({
         workspaceId: data.workspace.id,
-        customerName,
+        partyId,
         number,
         issueDate,
         total,
@@ -371,6 +537,7 @@ function InvoiceWorkflowPanel({
         ...data,
         ...mapOverviewToReadyState(overview)
       });
+      setSelectedInvoiceId(overview.latestInvoice?.id ?? "");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Invoice was not created.");
     } finally {
@@ -379,18 +546,19 @@ function InvoiceWorkflowPanel({
   }
 
   async function handleRecordPayment() {
-    if (!data.invoice) return;
+    if (!selectedInvoice) return;
 
     setActionState("paying");
     setErrorMessage(null);
 
     try {
-      const overview = await recordInvoicePayment(data.invoice.id);
+      const overview = await recordInvoicePayment(selectedInvoice.id);
 
       onDataStateChange({
         ...data,
         ...mapOverviewToReadyState(overview)
       });
+      setSelectedInvoiceId(overview.latestInvoice?.id ?? selectedInvoice.id);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not recorded.");
     } finally {
@@ -405,17 +573,23 @@ function InvoiceWorkflowPanel({
           <p className="eyebrow">Sales</p>
           <h2 id="invoice-title">Create invoice</h2>
         </div>
-        {data.invoice ? <span className="status-pill">{data.invoice.status}</span> : null}
+        {selectedInvoice ? <span className="status-pill">{selectedInvoice.status}</span> : null}
       </div>
 
       <form className="invoice-form" onSubmit={(event) => void handleCreateInvoice(event)}>
         <label>
           <span>Customer</span>
-          <input
-            required
-            value={customerName}
-            onChange={(event) => setCustomerName(event.target.value)}
-          />
+          <select
+            value={partyId}
+            onChange={(event) => setPartyId(event.target.value)}
+          >
+            <option value="">Select customer</option>
+            {customerParties.map((party) => (
+              <option key={party.id} value={party.id}>
+                {party.name}
+              </option>
+            ))}
+          </select>
         </label>
         <div className="form-row">
           <label>
@@ -456,34 +630,62 @@ function InvoiceWorkflowPanel({
         </button>
       </form>
 
-      {data.invoice ? (
-        <div className="invoice-summary">
+      <div className="document-split">
+        <div className="document-list" aria-label="Issued invoices">
+          {data.invoices.length === 0 ? (
+            <p className="empty-state">No issued invoices yet.</p>
+          ) : null}
+          {data.invoices.map((invoice) => (
+            <button
+              className={`document-list-item ${
+                selectedInvoice?.id === invoice.id ? "document-list-item-active" : ""
+              }`}
+              key={invoice.id}
+              type="button"
+              onClick={() => setSelectedInvoiceId(invoice.id)}
+            >
+              <strong>{invoice.number}</strong>
+              <span>
+                {invoice.total} {invoice.currency} · {invoice.status}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {selectedInvoice ? (
+        <div className="invoice-summary document-detail">
           <dl className="detail-list">
             <div>
-              <dt>Latest invoice</dt>
-              <dd>{data.invoice.number}</dd>
+              <dt>Selected invoice</dt>
+              <dd>{selectedInvoice.number}</dd>
             </div>
             <div>
               <dt>Customer</dt>
-              <dd>{data.invoiceParty?.name ?? "Unknown customer"}</dd>
+              <dd>{selectedInvoiceParty?.name ?? "Unknown customer"}</dd>
+            </div>
+            <div>
+              <dt>Issue date</dt>
+              <dd>{selectedInvoice.issueDate}</dd>
             </div>
             <div>
               <dt>Total</dt>
               <dd>
-                {data.invoice.total} {data.invoice.currency}
+                {selectedInvoice.total} {selectedInvoice.currency}
               </dd>
             </div>
           </dl>
+          <LinkedJournalEntries entries={selectedInvoiceEntries} />
           <button
             className="secondary-button"
             type="button"
-            disabled={actionState !== "idle" || data.invoice.status === "paid"}
+            disabled={actionState !== "idle" || selectedInvoice.status === "paid"}
             onClick={() => void handleRecordPayment()}
           >
-            {data.invoice.status === "paid" ? "Payment recorded" : "Record payment"}
+            {selectedInvoice.status === "paid" ? "Payment recorded" : "Record payment"}
           </button>
         </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
@@ -497,12 +699,32 @@ function SupplierInvoiceWorkflowPanel({
   data: Extract<AppDataState, { state: "ready" }>;
   onDataStateChange: (state: AppDataState) => void;
 }) {
-  const [supplierName, setSupplierName] = useState("Supplier d.o.o.");
+  const supplierParties = data.parties.filter(
+    (party) => party.active && party.roles.includes("supplier")
+  );
+  const [partyId, setPartyId] = useState(supplierParties[0]?.id ?? "");
   const [number, setNumber] = useState("SUP-2026-0001");
   const [issueDate, setIssueDate] = useState("2026-05-10");
   const [total, setTotal] = useState("40.00");
+  const [selectedSupplierInvoiceId, setSelectedSupplierInvoiceId] = useState(
+    data.supplierInvoice?.id ?? ""
+  );
   const [actionState, setActionState] = useState<"idle" | "saving" | "paying">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const selectedSupplierInvoice =
+    data.supplierInvoices.find(
+      (supplierInvoice) => supplierInvoice.id === selectedSupplierInvoiceId
+    ) ??
+    data.supplierInvoice ??
+    null;
+  const selectedSupplierInvoiceParty = selectedSupplierInvoice
+    ? data.parties.find((party) => party.id === selectedSupplierInvoice.partyId) ?? null
+    : null;
+  const selectedSupplierInvoiceEntries = selectedSupplierInvoice
+    ? data.journalEntries.filter((entry) =>
+        entry.lines.some((line) => line.supplierInvoiceId === selectedSupplierInvoice.id)
+      )
+    : [];
 
   async function handleCreateSupplierInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -510,9 +732,13 @@ function SupplierInvoiceWorkflowPanel({
     setErrorMessage(null);
 
     try {
+      if (!partyId) {
+        throw new Error("Select a supplier counterparty first.");
+      }
+
       const overview = await createSupplierInvoice({
         workspaceId: data.workspace.id,
-        supplierName,
+        partyId,
         number,
         issueDate,
         total,
@@ -523,6 +749,7 @@ function SupplierInvoiceWorkflowPanel({
         ...data,
         ...mapOverviewToReadyState(overview)
       });
+      setSelectedSupplierInvoiceId(overview.latestSupplierInvoice?.id ?? "");
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier invoice was not created."
@@ -533,18 +760,21 @@ function SupplierInvoiceWorkflowPanel({
   }
 
   async function handleRecordSupplierPayment() {
-    if (!data.supplierInvoice) return;
+    if (!selectedSupplierInvoice) return;
 
     setActionState("paying");
     setErrorMessage(null);
 
     try {
-      const overview = await recordSupplierPayment(data.supplierInvoice.id);
+      const overview = await recordSupplierPayment(selectedSupplierInvoice.id);
 
       onDataStateChange({
         ...data,
         ...mapOverviewToReadyState(overview)
       });
+      setSelectedSupplierInvoiceId(
+        overview.latestSupplierInvoice?.id ?? selectedSupplierInvoice.id
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not recorded."
@@ -561,8 +791,8 @@ function SupplierInvoiceWorkflowPanel({
           <p className="eyebrow">Purchases</p>
           <h2 id="supplier-invoice-title">Supplier invoice</h2>
         </div>
-        {data.supplierInvoice ? (
-          <span className="status-pill">{data.supplierInvoice.status}</span>
+        {selectedSupplierInvoice ? (
+          <span className="status-pill">{selectedSupplierInvoice.status}</span>
         ) : null}
       </div>
 
@@ -572,11 +802,17 @@ function SupplierInvoiceWorkflowPanel({
       >
         <label>
           <span>Supplier</span>
-          <input
-            required
-            value={supplierName}
-            onChange={(event) => setSupplierName(event.target.value)}
-          />
+          <select
+            value={partyId}
+            onChange={(event) => setPartyId(event.target.value)}
+          >
+            <option value="">Select supplier</option>
+            {supplierParties.map((party) => (
+              <option key={party.id} value={party.id}>
+                {party.name}
+              </option>
+            ))}
+          </select>
         </label>
         <div className="form-row">
           <label>
@@ -617,36 +853,71 @@ function SupplierInvoiceWorkflowPanel({
         </button>
       </form>
 
-      {data.supplierInvoice ? (
-        <div className="invoice-summary">
+      <div className="document-split">
+        <div className="document-list" aria-label="Supplier invoices">
+          {data.supplierInvoices.length === 0 ? (
+            <p className="empty-state">No supplier invoices yet.</p>
+          ) : null}
+          {data.supplierInvoices.map((supplierInvoice) => (
+            <button
+              className={`document-list-item ${
+                selectedSupplierInvoice?.id === supplierInvoice.id
+                  ? "document-list-item-active"
+                  : ""
+              }`}
+              key={supplierInvoice.id}
+              type="button"
+              onClick={() => setSelectedSupplierInvoiceId(supplierInvoice.id)}
+            >
+              <strong>{supplierInvoice.number}</strong>
+              <span>
+                {supplierInvoice.total} {supplierInvoice.currency} ·{" "}
+                {supplierInvoice.status}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {selectedSupplierInvoice ? (
+        <div className="invoice-summary document-detail">
           <dl className="detail-list">
             <div>
-              <dt>Latest supplier invoice</dt>
-              <dd>{data.supplierInvoice.number}</dd>
+              <dt>Selected supplier invoice</dt>
+              <dd>{selectedSupplierInvoice.number}</dd>
             </div>
             <div>
               <dt>Supplier</dt>
-              <dd>{data.supplierInvoiceParty?.name ?? "Unknown supplier"}</dd>
+              <dd>{selectedSupplierInvoiceParty?.name ?? "Unknown supplier"}</dd>
+            </div>
+            <div>
+              <dt>Issue date</dt>
+              <dd>{selectedSupplierInvoice.issueDate}</dd>
+            </div>
+            <div>
+              <dt>Expense account</dt>
+              <dd className="code-cell">{selectedSupplierInvoice.expenseAccountCode}</dd>
             </div>
             <div>
               <dt>Total</dt>
               <dd>
-                {data.supplierInvoice.total} {data.supplierInvoice.currency}
+                {selectedSupplierInvoice.total} {selectedSupplierInvoice.currency}
               </dd>
             </div>
           </dl>
+          <LinkedJournalEntries entries={selectedSupplierInvoiceEntries} />
           <button
             className="secondary-button"
             type="button"
-            disabled={actionState !== "idle" || data.supplierInvoice.status === "paid"}
+            disabled={actionState !== "idle" || selectedSupplierInvoice.status === "paid"}
             onClick={() => void handleRecordSupplierPayment()}
           >
-            {data.supplierInvoice.status === "paid"
+            {selectedSupplierInvoice.status === "paid"
               ? "Supplier payment recorded"
               : "Record supplier payment"}
           </button>
         </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
@@ -753,6 +1024,23 @@ function OwnerTransactionsPanel({
   );
 }
 
+function LinkedJournalEntries({ entries }: { entries: JournalEntry[] }) {
+  return (
+    <div className="linked-entries">
+      <strong>Linked journal entries</strong>
+      {entries.length === 0 ? <p className="empty-state">No linked entries yet.</p> : null}
+      {entries.map((entry) => (
+        <div className="linked-entry" key={entry.id}>
+          <span>{entry.description}</span>
+          <small>
+            {entry.entryDate} · {entry.lines.length} lines
+          </small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function JournalEntriesPanel({ entries }: { entries: JournalEntry[] }) {
   return (
     <section className="panel panel-wide" aria-labelledby="journal-title">
@@ -830,8 +1118,10 @@ function BalancesTable({
 function mapOverviewToReadyState(overview: WorkspaceOverview) {
   return {
     parties: overview.parties,
+    invoices: overview.invoices,
     invoice: overview.latestInvoice,
     invoiceParty: overview.latestInvoiceParty,
+    supplierInvoices: overview.supplierInvoices,
     supplierInvoice: overview.latestSupplierInvoice,
     supplierInvoiceParty: overview.latestSupplierInvoiceParty,
     journalEntries: overview.journalEntries,

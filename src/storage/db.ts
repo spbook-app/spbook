@@ -37,7 +37,7 @@ export class SpbookDatabase extends Dexie {
       accounts: "id, workspaceId, code, parentCode, role, active",
       parties: "id, workspaceId, active",
       invoices: "id, workspaceId, number, partyId, status",
-      supplierInvoices: "id, workspaceId, number, supplierId, status",
+      supplierInvoices: "id, workspaceId, number, partyId, status",
       journalEntries: "id, workspaceId, entryDate, sourceType, sourceId"
     });
   }

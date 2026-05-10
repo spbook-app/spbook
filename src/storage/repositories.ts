@@ -133,6 +133,24 @@ export async function saveInvoiceWorkflowData(
   );
 }
 
+export async function saveInvoiceJournalEntryData(
+  data: {
+    invoice: Invoice;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.invoices,
+    database.journalEntries,
+    async () => {
+      await database.invoices.put(data.invoice);
+      await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
 export async function saveInvoicePaymentData(
   data: {
     invoice: Invoice;
@@ -166,6 +184,24 @@ export async function saveSupplierInvoiceWorkflowData(
     database.journalEntries,
     async () => {
       await database.parties.put(data.supplier);
+      await database.supplierInvoices.put(data.supplierInvoice);
+      await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
+export async function saveSupplierInvoiceJournalEntryData(
+  data: {
+    supplierInvoice: SupplierInvoice;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.supplierInvoices,
+    database.journalEntries,
+    async () => {
       await database.supplierInvoices.put(data.supplierInvoice);
       await database.journalEntries.put(data.journalEntry);
     }

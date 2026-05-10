@@ -64,7 +64,7 @@ export async function loadWorkspaceOverview(
     supplierInvoices,
     latestSupplierInvoice,
     latestSupplierInvoiceParty: latestSupplierInvoice
-      ? parties.find((party) => party.id === latestSupplierInvoice.supplierId) ?? null
+      ? parties.find((party) => party.id === latestSupplierInvoice.partyId) ?? null
       : null,
     journalEntries,
     balances: calculateAccountBalances(journalEntries)

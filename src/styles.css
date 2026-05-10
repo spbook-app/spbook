@@ -378,6 +378,67 @@ td {
   border-top: 1px solid #e4e0d4;
 }
 
+.document-split {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.document-list {
+  display: grid;
+  gap: 8px;
+}
+
+.document-list-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: auto;
+  border: 1px solid #e4e0d4;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #25231f;
+  background: #f5f4ed;
+  text-align: left;
+}
+
+.document-list-item span,
+.linked-entry small {
+  color: #7a756b;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.document-list-item-active {
+  border-color: #b6cda9;
+  background: #eff6ec;
+}
+
+.document-detail {
+  margin-top: 0;
+}
+
+.linked-entries {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e4e0d4;
+  border-radius: 8px;
+  background: #fffefa;
+}
+
+.linked-entry {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid #eee9dd;
+  padding-top: 8px;
+}
+
+.linked-entry:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -394,7 +455,8 @@ td {
   text-transform: uppercase;
 }
 
-.invoice-form input {
+.invoice-form input,
+.invoice-form select {
   width: 100%;
   min-height: 42px;
   border: 1px solid #d8d2c3;
@@ -409,6 +471,59 @@ td {
 .invoice-form input:read-only {
   color: #6a645a;
   background: #f5f4ed;
+}
+
+.role-picker,
+.role-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.role-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid #d8d2c3;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #25231f;
+  background: #fffefa;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: none;
+}
+
+.role-picker input {
+  width: auto;
+  min-height: auto;
+}
+
+.party-list {
+  display: grid;
+  gap: 10px;
+}
+
+.party-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #e4e0d4;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f5f4ed;
+}
+
+.party-row div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.party-row span {
+  color: #7a756b;
+  font-size: 0.84rem;
 }
 
 .button-row {
@@ -570,6 +685,10 @@ td {
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .party-row {
+    display: grid;
   }
 
   .journal-entry header,

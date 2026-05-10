@@ -9,6 +9,7 @@ import {
   recordOwnerContribution,
   recordOwnerWithdrawal
 } from "./owner-transactions-workflow";
+import { createParty } from "./party-workflow";
 import {
   createSupplierInvoice,
   recordSupplierPayment
@@ -24,10 +25,21 @@ describe("invoice workflow", () => {
 
   it("creates an issued invoice with a balanced journal entry", async () => {
     const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"],
+        countryCode: "SI",
+        vatId: "SI12345678"
+      },
+      database
+    );
     const overview = await createSalesInvoice(
       {
         workspaceId: initialization.workspace.id,
-        customerName: "ACME d.o.o.",
+        partyId: partyOverview.parties[0]!.id,
         number: "2026-0002",
         issueDate: "2026-05-10",
         total: "250.00",
@@ -46,10 +58,19 @@ describe("invoice workflow", () => {
 
   it("records payment and marks invoice as paid without duplicating payment", async () => {
     const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      database
+    );
     const issuedOverview = await createSalesInvoice(
       {
         workspaceId: initialization.workspace.id,
-        customerName: "ACME d.o.o.",
+        partyId: partyOverview.parties[0]!.id,
         number: "2026-0003",
         issueDate: "2026-05-10",
         total: "1000.00",
@@ -90,10 +111,19 @@ describe("invoice workflow", () => {
 
   it("creates and pays a supplier invoice", async () => {
     const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "Bank Services d.o.o.",
+        type: "business",
+        roles: ["supplier"]
+      },
+      database
+    );
     const issuedOverview = await createSupplierInvoice(
       {
         workspaceId: initialization.workspace.id,
-        supplierName: "Bank Services d.o.o.",
+        partyId: partyOverview.parties[0]!.id,
         number: "SUP-2026-0001",
         issueDate: "2026-05-10",
         total: "40.00",
@@ -142,6 +172,56 @@ describe("invoice workflow", () => {
     expect(withdrawalOverview.journalEntries).toHaveLength(2);
     expect(balanceFor(withdrawalOverview.balances, "1100")).toBe("225.00");
     expect(balanceFor(withdrawalOverview.balances, "2850")).toBe("-225.00");
+  });
+
+  it("rejects invoice workflows with unsuitable party roles", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const supplierOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "Supplier d.o.o.",
+        type: "business",
+        roles: ["supplier"]
+      },
+      database
+    );
+    const customerOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "Customer d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      database
+    );
+
+    await expect(
+      createSalesInvoice(
+        {
+          workspaceId: initialization.workspace.id,
+          partyId: supplierOverview.parties[0]!.id,
+          number: "2026-0004",
+          issueDate: "2026-05-10",
+          total: "100.00",
+          currency: "EUR"
+        },
+        database
+      )
+    ).rejects.toThrow("Invoice data is invalid.");
+
+    await expect(
+      createSupplierInvoice(
+        {
+          workspaceId: initialization.workspace.id,
+          partyId: customerOverview.parties[0]!.id,
+          number: "SUP-2026-0002",
+          issueDate: "2026-05-10",
+          total: "100.00",
+          currency: "EUR"
+        },
+        database
+      )
+    ).rejects.toThrow("Supplier invoice data is invalid.");
   });
 });
 
