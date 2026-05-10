@@ -49,6 +49,11 @@ The app is designed to deploy as a static Vite build.
 - Build output directory: `dist`
 - Node version: `22`
 
+Do not deploy the repository root directly. The source `index.html` references
+`/src/main.tsx` for Vite development only. Cloudflare Pages must publish the
+generated `dist` directory, where Vite rewrites module scripts to built
+`/assets/*.js` files.
+
 Environment variables:
 
 - `VITE_APP_ENV=development` for `dev.spbook.app`
