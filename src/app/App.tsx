@@ -1,5 +1,7 @@
+import { buildInfo } from "../generated/build-info";
 import { appMeta } from "./app-meta";
 import {
+  formatAppBuildLabel,
   getAppEnvironment,
   getAppEnvironmentLabel,
   shouldShowEnvironmentBadge
@@ -15,7 +17,8 @@ export function App() {
           <p className="eyebrow">{appMeta.status}</p>
           {shouldShowEnvironmentBadge(appEnvironment) ? (
             <span className="environment-badge">
-              {getAppEnvironmentLabel(appEnvironment)}
+              {getAppEnvironmentLabel(appEnvironment)} ·{" "}
+              {formatAppBuildLabel(buildInfo)}
             </span>
           ) : null}
         </div>

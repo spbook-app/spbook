@@ -29,6 +29,9 @@ Run the development server:
 pnpm run dev
 ```
 
+This generates `src/generated/build-info.ts` with the package version, current
+git commit, and build timestamp before starting Vite.
+
 Build for production:
 
 ```sh
@@ -65,3 +68,4 @@ Environment variables:
 - `VITE_APP_ENV=production` for `spbook.app`
 
 Non-production environments show a small environment badge in the app shell.
+The badge includes generated build metadata in the form `version · commit`.

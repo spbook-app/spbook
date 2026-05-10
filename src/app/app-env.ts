@@ -21,3 +21,7 @@ export function getAppEnvironmentLabel(environment = getAppEnvironment()) {
 export function shouldShowEnvironmentBadge(environment = getAppEnvironment()) {
   return environment !== "production";
 }
+
+export function formatAppBuildLabel(build: { version: string; commit: string }) {
+  return `${build.version} · ${build.commit}`;
+}

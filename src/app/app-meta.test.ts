@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatAppBuildLabel,
   getAppEnvironment,
   getAppEnvironmentLabel,
   shouldShowEnvironmentBadge
@@ -22,5 +23,11 @@ describe("appMeta", () => {
     expect(getAppEnvironmentLabel("development")).toBe("Development");
     expect(shouldShowEnvironmentBadge("development")).toBe(true);
     expect(shouldShowEnvironmentBadge("production")).toBe(false);
+  });
+
+  it("formats build labels", () => {
+    expect(formatAppBuildLabel({ version: "0.0.0", commit: "abc1234" })).toBe(
+      "0.0.0 · abc1234"
+    );
   });
 });
