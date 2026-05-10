@@ -1,11 +1,19 @@
 import Dexie, { type Table } from "dexie";
-import type { Account, Invoice, JournalEntry, Party, Workspace } from "../domain";
+import type {
+  Account,
+  Invoice,
+  JournalEntry,
+  Party,
+  SupplierInvoice,
+  Workspace
+} from "../domain";
 
 export class SpbookDatabase extends Dexie {
   workspaces!: Table<Workspace, string>;
   accounts!: Table<Account, string>;
   parties!: Table<Party, string>;
   invoices!: Table<Invoice, string>;
+  supplierInvoices!: Table<SupplierInvoice, string>;
   journalEntries!: Table<JournalEntry, string>;
 
   constructor(name = "spbook") {
@@ -21,6 +29,15 @@ export class SpbookDatabase extends Dexie {
       accounts: "id, workspaceId, code, parentCode, role, active",
       parties: "id, workspaceId, active",
       invoices: "id, workspaceId, number, partyId, status",
+      journalEntries: "id, workspaceId, entryDate, sourceType, sourceId"
+    });
+
+    this.version(3).stores({
+      workspaces: "id, countryCode, baseCurrency, updatedAt",
+      accounts: "id, workspaceId, code, parentCode, role, active",
+      parties: "id, workspaceId, active",
+      invoices: "id, workspaceId, number, partyId, status",
+      supplierInvoices: "id, workspaceId, number, supplierId, status",
       journalEntries: "id, workspaceId, entryDate, sourceType, sourceId"
     });
   }

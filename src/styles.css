@@ -411,6 +411,12 @@ td {
   background: #f5f4ed;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .form-error,
 .empty-state {
   margin: 0;

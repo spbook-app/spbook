@@ -60,6 +60,20 @@ export type Invoice = {
   status: InvoiceStatus;
 };
 
+export type SupplierInvoiceStatus = "received" | "approved" | "paid" | "cancelled";
+
+export type SupplierInvoice = {
+  id: string;
+  workspaceId: string;
+  number: string;
+  issueDate: IsoDateString;
+  supplierId: string;
+  currency: CurrencyCode;
+  total: MoneyAmount;
+  expenseAccountCode: string;
+  status: SupplierInvoiceStatus;
+};
+
 export type JournalLineSide = "debit" | "credit";
 
 export type JournalLine = {

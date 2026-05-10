@@ -1,12 +1,30 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import type { Account, Invoice, JournalEntry, Party, Workspace } from "../domain";
+import type {
+  Account,
+  Invoice,
+  JournalEntry,
+  Party,
+  SupplierInvoice,
+  Workspace
+} from "../domain";
 import { buildInfo } from "../generated/build-info";
 import type { AccountBalance } from "../services/balances";
 import {
   createSalesInvoice,
-  loadWorkspaceOverview,
   recordInvoicePayment
 } from "../services/invoice-workflow";
+import {
+  recordOwnerContribution,
+  recordOwnerWithdrawal
+} from "../services/owner-transactions-workflow";
+import {
+  createSupplierInvoice,
+  recordSupplierPayment
+} from "../services/supplier-invoice-workflow";
+import {
+  loadWorkspaceOverview,
+  type WorkspaceOverview
+} from "../services/workspace-overview";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { clearDatabase } from "../storage/repositories";
 import { appMeta } from "./app-meta";
@@ -28,6 +46,8 @@ type AppDataState =
       parties: Party[];
       invoice: Invoice | null;
       invoiceParty: Party | null;
+      supplierInvoice: SupplierInvoice | null;
+      supplierInvoiceParty: Party | null;
       journalEntries: JournalEntry[];
       balances: AccountBalance[];
       initializedWorkspace: boolean;
@@ -57,6 +77,8 @@ export function App() {
           parties: overview.parties,
           invoice: overview.latestInvoice,
           invoiceParty: overview.latestInvoiceParty,
+          supplierInvoice: overview.latestSupplierInvoice,
+          supplierInvoiceParty: overview.latestSupplierInvoiceParty,
           journalEntries: overview.journalEntries,
           balances: overview.balances,
           initializedWorkspace: initialization.created
@@ -156,6 +178,11 @@ function WorkspaceView({
         <div className="content-grid">
           <AccountsTable accounts={data.accounts} />
           <InvoiceWorkflowPanel data={data} onDataStateChange={onDataStateChange} />
+          <SupplierInvoiceWorkflowPanel
+            data={data}
+            onDataStateChange={onDataStateChange}
+          />
+          <OwnerTransactionsPanel data={data} onDataStateChange={onDataStateChange} />
           <JournalEntriesPanel entries={data.journalEntries} />
           <BalancesTable balances={data.balances} accountNames={accountNames} />
         </div>
@@ -190,6 +217,8 @@ function WorkspaceSidebar({
         parties: overview.parties,
         invoice: overview.latestInvoice,
         invoiceParty: overview.latestInvoiceParty,
+        supplierInvoice: overview.latestSupplierInvoice,
+        supplierInvoiceParty: overview.latestSupplierInvoiceParty,
         journalEntries: overview.journalEntries,
         balances: overview.balances,
         initializedWorkspace: initialization.created
@@ -252,12 +281,12 @@ function MetricStrip({ data }: { data: Extract<AppDataState, { state: "ready" }>
   return (
     <dl className="metric-strip" aria-label="MVP summary">
       <div>
-        <dt>Invoice</dt>
+        <dt>Sales invoice</dt>
         <dd>{data.invoice?.number ?? "Not created"}</dd>
       </div>
       <div>
-        <dt>Status</dt>
-        <dd>{data.invoice?.status ?? "ready"}</dd>
+        <dt>Supplier invoice</dt>
+        <dd>{data.supplierInvoice?.number ?? "Not received"}</dd>
       </div>
       <div>
         <dt>Posting accounts</dt>
@@ -340,11 +369,7 @@ function InvoiceWorkflowPanel({
 
       onDataStateChange({
         ...data,
-        parties: overview.parties,
-        invoice: overview.latestInvoice,
-        invoiceParty: overview.latestInvoiceParty,
-        journalEntries: overview.journalEntries,
-        balances: overview.balances
+        ...mapOverviewToReadyState(overview)
       });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Invoice was not created.");
@@ -364,11 +389,7 @@ function InvoiceWorkflowPanel({
 
       onDataStateChange({
         ...data,
-        parties: overview.parties,
-        invoice: overview.latestInvoice,
-        invoiceParty: overview.latestInvoiceParty,
-        journalEntries: overview.journalEntries,
-        balances: overview.balances
+        ...mapOverviewToReadyState(overview)
       });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not recorded.");
@@ -469,6 +490,269 @@ function InvoiceWorkflowPanel({
   );
 }
 
+function SupplierInvoiceWorkflowPanel({
+  data,
+  onDataStateChange
+}: {
+  data: Extract<AppDataState, { state: "ready" }>;
+  onDataStateChange: (state: AppDataState) => void;
+}) {
+  const [supplierName, setSupplierName] = useState("Supplier d.o.o.");
+  const [number, setNumber] = useState("SUP-2026-0001");
+  const [issueDate, setIssueDate] = useState("2026-05-10");
+  const [total, setTotal] = useState("40.00");
+  const [actionState, setActionState] = useState<"idle" | "saving" | "paying">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleCreateSupplierInvoice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setActionState("saving");
+    setErrorMessage(null);
+
+    try {
+      const overview = await createSupplierInvoice({
+        workspaceId: data.workspace.id,
+        supplierName,
+        number,
+        issueDate,
+        total,
+        currency: data.workspace.baseCurrency
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Supplier invoice was not created."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleRecordSupplierPayment() {
+    if (!data.supplierInvoice) return;
+
+    setActionState("paying");
+    setErrorMessage(null);
+
+    try {
+      const overview = await recordSupplierPayment(data.supplierInvoice.id);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Supplier payment was not recorded."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  return (
+    <section className="panel" aria-labelledby="supplier-invoice-title">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Purchases</p>
+          <h2 id="supplier-invoice-title">Supplier invoice</h2>
+        </div>
+        {data.supplierInvoice ? (
+          <span className="status-pill">{data.supplierInvoice.status}</span>
+        ) : null}
+      </div>
+
+      <form
+        className="invoice-form"
+        onSubmit={(event) => void handleCreateSupplierInvoice(event)}
+      >
+        <label>
+          <span>Supplier</span>
+          <input
+            required
+            value={supplierName}
+            onChange={(event) => setSupplierName(event.target.value)}
+          />
+        </label>
+        <div className="form-row">
+          <label>
+            <span>Number</span>
+            <input
+              required
+              value={number}
+              onChange={(event) => setNumber(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Issue date</span>
+            <input
+              required
+              type="date"
+              value={issueDate}
+              onChange={(event) => setIssueDate(event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Total</span>
+            <input
+              required
+              inputMode="decimal"
+              value={total}
+              onChange={(event) => setTotal(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Currency</span>
+            <input readOnly value={data.workspace.baseCurrency} />
+          </label>
+        </div>
+        <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
+          {actionState === "saving" ? "Receiving" : "Receive invoice"}
+        </button>
+      </form>
+
+      {data.supplierInvoice ? (
+        <div className="invoice-summary">
+          <dl className="detail-list">
+            <div>
+              <dt>Latest supplier invoice</dt>
+              <dd>{data.supplierInvoice.number}</dd>
+            </div>
+            <div>
+              <dt>Supplier</dt>
+              <dd>{data.supplierInvoiceParty?.name ?? "Unknown supplier"}</dd>
+            </div>
+            <div>
+              <dt>Total</dt>
+              <dd>
+                {data.supplierInvoice.total} {data.supplierInvoice.currency}
+              </dd>
+            </div>
+          </dl>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={actionState !== "idle" || data.supplierInvoice.status === "paid"}
+            onClick={() => void handleRecordSupplierPayment()}
+          >
+            {data.supplierInvoice.status === "paid"
+              ? "Supplier payment recorded"
+              : "Record supplier payment"}
+          </button>
+        </div>
+      ) : null}
+
+      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
+    </section>
+  );
+}
+
+function OwnerTransactionsPanel({
+  data,
+  onDataStateChange
+}: {
+  data: Extract<AppDataState, { state: "ready" }>;
+  onDataStateChange: (state: AppDataState) => void;
+}) {
+  const [entryDate, setEntryDate] = useState("2026-05-10");
+  const [amount, setAmount] = useState("300.00");
+  const [actionState, setActionState] = useState<
+    "idle" | "contribution" | "withdrawal"
+  >("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleOwnerTransaction(
+    transactionType: "contribution" | "withdrawal"
+  ) {
+    setActionState(transactionType);
+    setErrorMessage(null);
+
+    try {
+      const input = {
+        workspaceId: data.workspace.id,
+        entryDate,
+        amount,
+        currency: data.workspace.baseCurrency
+      };
+      const overview =
+        transactionType === "contribution"
+          ? await recordOwnerContribution(input)
+          : await recordOwnerWithdrawal(input);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Owner transaction was not recorded."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  return (
+    <section className="panel" aria-labelledby="owner-transactions-title">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Owner</p>
+          <h2 id="owner-transactions-title">Owner transactions</h2>
+        </div>
+      </div>
+
+      <div className="invoice-form">
+        <div className="form-row">
+          <label>
+            <span>Date</span>
+            <input
+              required
+              type="date"
+              value={entryDate}
+              onChange={(event) => setEntryDate(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Amount</span>
+            <input
+              required
+              inputMode="decimal"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="button-row">
+          <button
+            className="primary-button"
+            type="button"
+            disabled={actionState !== "idle"}
+            onClick={() => void handleOwnerTransaction("contribution")}
+          >
+            {actionState === "contribution" ? "Recording" : "Record contribution"}
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={actionState !== "idle"}
+            onClick={() => void handleOwnerTransaction("withdrawal")}
+          >
+            {actionState === "withdrawal" ? "Recording" : "Record withdrawal"}
+          </button>
+        </div>
+      </div>
+
+      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
+    </section>
+  );
+}
+
 function JournalEntriesPanel({ entries }: { entries: JournalEntry[] }) {
   return (
     <section className="panel panel-wide" aria-labelledby="journal-title">
@@ -541,4 +825,16 @@ function BalancesTable({
       </div>
     </section>
   );
+}
+
+function mapOverviewToReadyState(overview: WorkspaceOverview) {
+  return {
+    parties: overview.parties,
+    invoice: overview.latestInvoice,
+    invoiceParty: overview.latestInvoiceParty,
+    supplierInvoice: overview.latestSupplierInvoice,
+    supplierInvoiceParty: overview.latestSupplierInvoiceParty,
+    journalEntries: overview.journalEntries,
+    balances: overview.balances
+  };
 }

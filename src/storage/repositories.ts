@@ -1,4 +1,11 @@
-import type { Account, Invoice, JournalEntry, Party, Workspace } from "../domain";
+import type {
+  Account,
+  Invoice,
+  JournalEntry,
+  Party,
+  SupplierInvoice,
+  Workspace
+} from "../domain";
 import { db, type SpbookDatabase } from "./db";
 
 export function getWorkspaceCount(database: SpbookDatabase = db) {
@@ -32,6 +39,20 @@ export function getInvoicesByWorkspaceId(
 
 export function getInvoiceById(invoiceId: string, database: SpbookDatabase = db) {
   return database.invoices.get(invoiceId);
+}
+
+export function getSupplierInvoicesByWorkspaceId(
+  workspaceId: string,
+  database: SpbookDatabase = db
+) {
+  return database.supplierInvoices.where("workspaceId").equals(workspaceId).sortBy("number");
+}
+
+export function getSupplierInvoiceById(
+  supplierInvoiceId: string,
+  database: SpbookDatabase = db
+) {
+  return database.supplierInvoices.get(supplierInvoiceId);
 }
 
 export function getJournalEntriesByWorkspaceId(
@@ -130,6 +151,63 @@ export async function saveInvoicePaymentData(
   );
 }
 
+export async function saveSupplierInvoiceWorkflowData(
+  data: {
+    supplier: Party;
+    supplierInvoice: SupplierInvoice;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.parties,
+    database.supplierInvoices,
+    database.journalEntries,
+    async () => {
+      await database.parties.put(data.supplier);
+      await database.supplierInvoices.put(data.supplierInvoice);
+      await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
+export async function saveSupplierInvoicePaymentData(
+  data: {
+    supplierInvoice: SupplierInvoice;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.supplierInvoices,
+    database.journalEntries,
+    async () => {
+      await database.supplierInvoices.put(data.supplierInvoice);
+      await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
+export async function savePartyJournalEntryData(
+  data: {
+    party: Party;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.parties,
+    database.journalEntries,
+    async () => {
+      await database.parties.put(data.party);
+      await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
 export async function clearDatabase(database: SpbookDatabase = db) {
   await database.transaction(
     "rw",
@@ -138,10 +216,12 @@ export async function clearDatabase(database: SpbookDatabase = db) {
       database.accounts,
       database.parties,
       database.invoices,
+      database.supplierInvoices,
       database.journalEntries
     ],
     async () => {
       await database.journalEntries.clear();
+      await database.supplierInvoices.clear();
       await database.invoices.clear();
       await database.parties.clear();
       await database.accounts.clear();

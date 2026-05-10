@@ -1,28 +1,13 @@
-import type { Account, Invoice, JournalEntry, Party, Workspace } from "../domain";
+import type { Invoice, JournalEntry, Party } from "../domain";
 import { validateInvoice, validateJournalEntry } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
   getAccountsByWorkspaceId,
-  getFirstWorkspace,
   getInvoiceById,
-  getInvoicesByWorkspaceId,
-  getJournalEntriesByWorkspaceId,
-  getPartiesByWorkspaceId,
   saveInvoicePaymentData,
   saveInvoiceWorkflowData
 } from "../storage/repositories";
-import { calculateAccountBalances, type AccountBalance } from "./balances";
-
-export type WorkspaceOverview = {
-  workspace: Workspace;
-  accounts: Account[];
-  parties: Party[];
-  invoices: Invoice[];
-  latestInvoice: Invoice | null;
-  latestInvoiceParty: Party | null;
-  journalEntries: JournalEntry[];
-  balances: AccountBalance[];
-};
+import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
 
 export type CreateSalesInvoiceInput = {
   workspaceId: string;
@@ -32,38 +17,6 @@ export type CreateSalesInvoiceInput = {
   total: string;
   currency: string;
 };
-
-export async function loadWorkspaceOverview(
-  workspaceId: string,
-  database: SpbookDatabase = db
-): Promise<WorkspaceOverview> {
-  const workspace = await getFirstWorkspace(database);
-
-  if (!workspace || workspace.id !== workspaceId) {
-    throw new Error(`Workspace "${workspaceId}" was not found.`);
-  }
-
-  const [accounts, parties, invoices, journalEntries] = await Promise.all([
-    getAccountsByWorkspaceId(workspaceId, database),
-    getPartiesByWorkspaceId(workspaceId, database),
-    getInvoicesByWorkspaceId(workspaceId, database),
-    getJournalEntriesByWorkspaceId(workspaceId, database)
-  ]);
-  const latestInvoice = invoices.at(-1) ?? null;
-
-  return {
-    workspace,
-    accounts,
-    parties,
-    invoices,
-    latestInvoice,
-    latestInvoiceParty: latestInvoice
-      ? parties.find((party) => party.id === latestInvoice.partyId) ?? null
-      : null,
-    journalEntries,
-    balances: calculateAccountBalances(journalEntries)
-  };
-}
 
 export async function createSalesInvoice(
   input: CreateSalesInvoiceInput,

@@ -3,9 +3,17 @@ import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import {
   createSalesInvoice,
-  loadWorkspaceOverview,
   recordInvoicePayment
 } from "./invoice-workflow";
+import {
+  recordOwnerContribution,
+  recordOwnerWithdrawal
+} from "./owner-transactions-workflow";
+import {
+  createSupplierInvoice,
+  recordSupplierPayment
+} from "./supplier-invoice-workflow";
+import { loadWorkspaceOverview } from "./workspace-overview";
 
 describe("invoice workflow", () => {
   let database: SpbookDatabase;
@@ -78,6 +86,62 @@ describe("invoice workflow", () => {
     await expect(recordInvoicePayment("missing", database)).rejects.toThrow(
       'Invoice "missing" was not found.'
     );
+  });
+
+  it("creates and pays a supplier invoice", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const issuedOverview = await createSupplierInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        supplierName: "Bank Services d.o.o.",
+        number: "SUP-2026-0001",
+        issueDate: "2026-05-10",
+        total: "40.00",
+        currency: "EUR"
+      },
+      database
+    );
+    const paidOverview = await recordSupplierPayment(
+      issuedOverview.latestSupplierInvoice?.id ?? "",
+      database
+    );
+
+    expect(issuedOverview.latestSupplierInvoice?.status).toBe("received");
+    expect(balanceFor(issuedOverview.balances, "4100")).toBe("40.00");
+    expect(balanceFor(issuedOverview.balances, "2200")).toBe("-40.00");
+    expect(paidOverview.latestSupplierInvoice?.status).toBe("paid");
+    expect(balanceFor(paidOverview.balances, "4100")).toBe("40.00");
+    expect(balanceFor(paidOverview.balances, "2200")).toBe("0.00");
+    expect(balanceFor(paidOverview.balances, "1100")).toBe("-40.00");
+  });
+
+  it("records owner contribution and withdrawal", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const contributionOverview = await recordOwnerContribution(
+      {
+        workspaceId: initialization.workspace.id,
+        entryDate: "2026-05-10",
+        amount: "300.00",
+        currency: "EUR"
+      },
+      database
+    );
+    const withdrawalOverview = await recordOwnerWithdrawal(
+      {
+        workspaceId: initialization.workspace.id,
+        entryDate: "2026-05-11",
+        amount: "75.00",
+        currency: "EUR"
+      },
+      database
+    );
+
+    expect(contributionOverview.journalEntries).toHaveLength(1);
+    expect(balanceFor(contributionOverview.balances, "1100")).toBe("300.00");
+    expect(balanceFor(contributionOverview.balances, "2850")).toBe("-300.00");
+    expect(withdrawalOverview.journalEntries).toHaveLength(2);
+    expect(balanceFor(withdrawalOverview.balances, "1100")).toBe("225.00");
+    expect(balanceFor(withdrawalOverview.balances, "2850")).toBe("-225.00");
   });
 });
 
