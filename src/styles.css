@@ -127,6 +127,56 @@ h1 {
   line-height: 1.35;
 }
 
+.demo-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 24px;
+  margin: 32px 0 0;
+  padding-top: 28px;
+  border-top: 1px solid #e4e0d4;
+}
+
+.demo-flow h2 {
+  margin: 0;
+  color: #25231f;
+  font-size: 1rem;
+}
+
+.demo-flow p {
+  margin: 8px 0 0;
+  color: #5d5a54;
+  line-height: 1.5;
+}
+
+.balance-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.balance-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid #e4e0d4;
+  border-radius: 8px;
+  background: #f5f4ed;
+}
+
+.balance-list span {
+  color: #7a756b;
+  font-weight: 700;
+}
+
+.balance-list strong {
+  color: #25231f;
+  font-size: 0.95rem;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     align-items: start;
@@ -144,6 +194,10 @@ h1 {
   }
 
   .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-flow {
     grid-template-columns: 1fr;
   }
 }
