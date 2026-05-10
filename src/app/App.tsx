@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { buildInfo } from "../generated/build-info";
+import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { appMeta } from "./app-meta";
 import {
   formatAppBuildLabel,
@@ -7,8 +9,55 @@ import {
   shouldShowEnvironmentBadge
 } from "./app-env";
 
+type LocalWorkspaceStatus =
+  | {
+      state: "initializing";
+    }
+  | {
+      state: "ready";
+      workspaceName: string;
+      accountsCount: number;
+      created: boolean;
+    }
+  | {
+      state: "error";
+      message: string;
+    };
+
 export function App() {
   const appEnvironment = getAppEnvironment();
+  const [localWorkspaceStatus, setLocalWorkspaceStatus] =
+    useState<LocalWorkspaceStatus>({
+      state: "initializing"
+    });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    initializeDefaultWorkspace()
+      .then((result) => {
+        if (cancelled) return;
+
+        setLocalWorkspaceStatus({
+          state: "ready",
+          workspaceName: result.workspace.name,
+          accountsCount: result.accounts.length,
+          created: result.created
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+
+        setLocalWorkspaceStatus({
+          state: "error",
+          message: error instanceof Error ? error.message : "Unknown storage error"
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="app-shell" aria-labelledby="app-title">
@@ -32,7 +81,7 @@ export function App() {
           </div>
           <div>
             <dt>Storage</dt>
-            <dd>Not initialized yet</dd>
+            <dd>{formatLocalWorkspaceStatus(localWorkspaceStatus)}</dd>
           </div>
           <div>
             <dt>Deployment</dt>
@@ -42,4 +91,18 @@ export function App() {
       </section>
     </main>
   );
+}
+
+function formatLocalWorkspaceStatus(status: LocalWorkspaceStatus) {
+  if (status.state === "initializing") {
+    return "Initializing local workspace";
+  }
+
+  if (status.state === "error") {
+    return `Local storage error: ${status.message}`;
+  }
+
+  const action = status.created ? "Created" : "Loaded";
+
+  return `${action}: ${status.workspaceName}, ${status.accountsCount} accounts`;
 }
