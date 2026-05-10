@@ -11,6 +11,12 @@ Requirements:
 - Node.js 22
 - pnpm 10
 
+Copy local environment defaults:
+
+```sh
+cp .env.example .env.local
+```
+
 Install dependencies:
 
 ```sh
@@ -42,3 +48,10 @@ The app is designed to deploy as a static Vite build.
 - Build command: `pnpm run build`
 - Build output directory: `dist`
 - Node version: `22`
+
+Environment variables:
+
+- `VITE_APP_ENV=development` for `dev.spbook.app`
+- `VITE_APP_ENV=production` for `spbook.app`
+
+Non-production environments show a small environment badge in the app shell.

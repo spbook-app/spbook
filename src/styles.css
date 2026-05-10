@@ -43,13 +43,32 @@ select {
   box-shadow: 0 16px 48px rgb(34 31 26 / 8%);
 }
 
-.eyebrow {
+.intro-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin: 0 0 16px;
+}
+
+.eyebrow {
+  margin: 0;
   color: #8b4a32;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.environment-badge {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid #d8d2c3;
+  border-radius: 999px;
+  color: #5c564d;
+  background: #f5f4ed;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 h1 {
@@ -116,6 +135,12 @@ h1 {
 
   .intro-panel {
     padding: 28px;
+  }
+
+  .intro-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .status-grid {

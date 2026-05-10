@@ -1,10 +1,24 @@
 import { appMeta } from "./app-meta";
+import {
+  getAppEnvironment,
+  getAppEnvironmentLabel,
+  shouldShowEnvironmentBadge
+} from "./app-env";
 
 export function App() {
+  const appEnvironment = getAppEnvironment();
+
   return (
     <main className="app-shell" aria-labelledby="app-title">
       <section className="intro-panel">
-        <p className="eyebrow">{appMeta.status}</p>
+        <div className="intro-header">
+          <p className="eyebrow">{appMeta.status}</p>
+          {shouldShowEnvironmentBadge(appEnvironment) ? (
+            <span className="environment-badge">
+              {getAppEnvironmentLabel(appEnvironment)}
+            </span>
+          ) : null}
+        </div>
         <h1 id="app-title">{appMeta.name}</h1>
         <p className="tagline">{appMeta.tagline}</p>
         <p className="description">{appMeta.description}</p>
