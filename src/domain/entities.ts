@@ -74,6 +74,35 @@ export type SupplierInvoice = {
   status: SupplierInvoiceStatus;
 };
 
+export type BankTransactionStatus = "unmatched" | "matched" | "posted" | "ignored";
+export type BankTransactionMatchType = "invoice" | "supplier_invoice" | "bank_fee";
+
+export type BankAccount = {
+  id: string;
+  workspaceId: string;
+  accountCode: string;
+  name: string;
+  currency: CurrencyCode;
+  iban?: string;
+  partyId?: string;
+  active: boolean;
+};
+
+export type BankTransaction = {
+  id: string;
+  workspaceId: string;
+  bankAccountId: string;
+  bookingDate: IsoDateString;
+  amount: string;
+  currency: CurrencyCode;
+  description: string;
+  reference?: string;
+  status: BankTransactionStatus;
+  matchedDocumentType?: BankTransactionMatchType;
+  matchedDocumentId?: string;
+  journalEntryId?: string;
+};
+
 export type JournalLineSide = "debit" | "credit";
 
 export type JournalLine = {

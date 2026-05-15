@@ -1,0 +1,225 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { createDatabase, type SpbookDatabase } from "../storage/db";
+import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import {
+  createBankAccount,
+  createBankTransaction,
+  matchInvoicePaymentFromBankTransaction,
+  matchSupplierPaymentFromBankTransaction,
+  postBankFeeFromBankTransaction
+} from "./bank-workflow";
+import { createSalesInvoice } from "./invoice-workflow";
+import { createParty } from "./party-workflow";
+import { createSupplierInvoice } from "./supplier-invoice-workflow";
+
+describe("bank workflow", () => {
+  let database: SpbookDatabase;
+
+  beforeEach(() => {
+    database = createDatabase(`spbook_bank_workflow_test_${crypto.randomUUID()}`);
+  });
+
+  it("creates bank accounts and bank transactions", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR",
+        iban: "SI56000000000000000"
+      },
+      database
+    );
+    const transactionOverview = await createBankTransaction(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-15",
+        amount: "1000.00",
+        currency: "EUR",
+        description: "Customer payment"
+      },
+      database
+    );
+
+    expect(transactionOverview.bankAccounts).toHaveLength(1);
+    expect(transactionOverview.bankTransactions).toHaveLength(1);
+    expect(transactionOverview.bankTransactions[0]).toMatchObject({
+      amount: "1000.00",
+      status: "unmatched"
+    });
+  });
+
+  it("matches an incoming bank transaction to an issued invoice", async () => {
+    const context = await createSalesContext("1000.00");
+    const matchedOverview = await matchInvoicePaymentFromBankTransaction(
+      context.invoiceId,
+      context.bankTransactionId,
+      database
+    );
+
+    expect(matchedOverview.latestInvoice?.status).toBe("paid");
+    expect(matchedOverview.bankTransactions[0]?.status).toBe("matched");
+    expect(matchedOverview.bankTransactions[0]?.matchedDocumentType).toBe("invoice");
+    expect(matchedOverview.journalEntries).toHaveLength(2);
+    expect(matchedOverview.journalEntries[1]?.sourceType).toBe("bank_transaction");
+    expect(balanceFor(matchedOverview.balances, "1100")).toBe("1000.00");
+    expect(balanceFor(matchedOverview.balances, "1200")).toBe("0.00");
+  });
+
+  it("matches an outgoing bank transaction to a supplier invoice", async () => {
+    const context = await createSupplierContext("40.00");
+    const matchedOverview = await matchSupplierPaymentFromBankTransaction(
+      context.supplierInvoiceId,
+      context.bankTransactionId,
+      database
+    );
+
+    expect(matchedOverview.latestSupplierInvoice?.status).toBe("paid");
+    expect(matchedOverview.bankTransactions[0]?.status).toBe("matched");
+    expect(matchedOverview.bankTransactions[0]?.matchedDocumentType).toBe(
+      "supplier_invoice"
+    );
+    expect(balanceFor(matchedOverview.balances, "1100")).toBe("-40.00");
+    expect(balanceFor(matchedOverview.balances, "2200")).toBe("0.00");
+  });
+
+  it("posts an outgoing bank transaction as a bank fee", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+    const transactionOverview = await createBankTransaction(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-15",
+        amount: "-3.50",
+        currency: "EUR",
+        description: "Monthly bank fee"
+      },
+      database
+    );
+    const postedOverview = await postBankFeeFromBankTransaction(
+      transactionOverview.bankTransactions[0]!.id,
+      database
+    );
+
+    expect(postedOverview.bankTransactions[0]?.status).toBe("posted");
+    expect(postedOverview.bankTransactions[0]?.matchedDocumentType).toBe("bank_fee");
+    expect(balanceFor(postedOverview.balances, "1100")).toBe("-3.50");
+    expect(balanceFor(postedOverview.balances, "4100")).toBe("3.50");
+  });
+
+  async function createSalesContext(total: string) {
+    const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      database
+    );
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+    const invoiceOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0001",
+        issueDate: "2026-05-15",
+        total,
+        currency: "EUR"
+      },
+      database
+    );
+    const transactionOverview = await createBankTransaction(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-16",
+        amount: total,
+        currency: "EUR",
+        description: "Customer payment"
+      },
+      database
+    );
+
+    return {
+      invoiceId: invoiceOverview.latestInvoice!.id,
+      bankTransactionId: transactionOverview.bankTransactions[0]!.id
+    };
+  }
+
+  async function createSupplierContext(total: string) {
+    const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "Supplier d.o.o.",
+        type: "business",
+        roles: ["supplier"]
+      },
+      database
+    );
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+    const supplierInvoiceOverview = await createSupplierInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "SUP-2026-0001",
+        issueDate: "2026-05-15",
+        total,
+        currency: "EUR"
+      },
+      database
+    );
+    const transactionOverview = await createBankTransaction(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-16",
+        amount: `-${total}`,
+        currency: "EUR",
+        description: "Supplier payment"
+      },
+      database
+    );
+
+    return {
+      supplierInvoiceId: supplierInvoiceOverview.latestSupplierInvoice!.id,
+      bankTransactionId: transactionOverview.bankTransactions[0]!.id
+    };
+  }
+});
+
+function balanceFor(
+  balances: Array<{ accountCode: string; amount: string }>,
+  accountCode: string
+) {
+  return balances.find((balance) => balance.accountCode === accountCode)?.amount;
+}

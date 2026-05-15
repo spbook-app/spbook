@@ -532,6 +532,49 @@ td {
   gap: 10px;
 }
 
+.banking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.transaction-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.transaction-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #e4e0d4;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f5f4ed;
+}
+
+.transaction-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.transaction-row span,
+.transaction-row small {
+  color: #7a756b;
+  font-size: 0.84rem;
+}
+
+.inline-select {
+  display: grid;
+  gap: 7px;
+  color: #7a756b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .form-error,
 .empty-state {
   margin: 0;
@@ -684,6 +727,10 @@ td {
   }
 
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .banking-grid {
     grid-template-columns: 1fr;
   }
 

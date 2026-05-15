@@ -1,5 +1,7 @@
 import type {
   Account,
+  BankAccount,
+  BankTransaction,
   Invoice,
   JournalEntry,
   Party,
@@ -21,6 +23,37 @@ export function getAccountsByWorkspaceId(
   database: SpbookDatabase = db
 ) {
   return database.accounts.where("workspaceId").equals(workspaceId).sortBy("code");
+}
+
+export function getBankAccountsByWorkspaceId(
+  workspaceId: string,
+  database: SpbookDatabase = db
+) {
+  return database.bankAccounts.where("workspaceId").equals(workspaceId).sortBy("name");
+}
+
+export function getBankAccountById(
+  bankAccountId: string,
+  database: SpbookDatabase = db
+) {
+  return database.bankAccounts.get(bankAccountId);
+}
+
+export function getBankTransactionsByWorkspaceId(
+  workspaceId: string,
+  database: SpbookDatabase = db
+) {
+  return database.bankTransactions
+    .where("workspaceId")
+    .equals(workspaceId)
+    .sortBy("bookingDate");
+}
+
+export function getBankTransactionById(
+  bankTransactionId: string,
+  database: SpbookDatabase = db
+) {
+  return database.bankTransactions.get(bankTransactionId);
 }
 
 export function getPartiesByWorkspaceId(
@@ -78,6 +111,20 @@ export async function saveWorkspaceWithAccounts(
 
 export function saveParty(party: Party, database: SpbookDatabase = db) {
   return database.parties.put(party);
+}
+
+export function saveBankAccount(
+  bankAccount: BankAccount,
+  database: SpbookDatabase = db
+) {
+  return database.bankAccounts.put(bankAccount);
+}
+
+export function saveBankTransaction(
+  bankTransaction: BankTransaction,
+  database: SpbookDatabase = db
+) {
+  return database.bankTransactions.put(bankTransaction);
 }
 
 export function saveInvoice(invoice: Invoice, database: SpbookDatabase = db) {
@@ -155,15 +202,20 @@ export async function saveInvoicePaymentData(
   data: {
     invoice: Invoice;
     journalEntry: JournalEntry;
+    bankTransaction?: BankTransaction;
   },
   database: SpbookDatabase = db
 ) {
   await database.transaction(
     "rw",
     database.invoices,
+    database.bankTransactions,
     database.journalEntries,
     async () => {
       await database.invoices.put(data.invoice);
+      if (data.bankTransaction) {
+        await database.bankTransactions.put(data.bankTransaction);
+      }
       await database.journalEntries.put(data.journalEntry);
     }
   );
@@ -212,15 +264,38 @@ export async function saveSupplierInvoicePaymentData(
   data: {
     supplierInvoice: SupplierInvoice;
     journalEntry: JournalEntry;
+    bankTransaction?: BankTransaction;
   },
   database: SpbookDatabase = db
 ) {
   await database.transaction(
     "rw",
     database.supplierInvoices,
+    database.bankTransactions,
     database.journalEntries,
     async () => {
       await database.supplierInvoices.put(data.supplierInvoice);
+      if (data.bankTransaction) {
+        await database.bankTransactions.put(data.bankTransaction);
+      }
+      await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
+export async function saveBankTransactionPostingData(
+  data: {
+    bankTransaction: BankTransaction;
+    journalEntry: JournalEntry;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.bankTransactions,
+    database.journalEntries,
+    async () => {
+      await database.bankTransactions.put(data.bankTransaction);
       await database.journalEntries.put(data.journalEntry);
     }
   );
@@ -250,6 +325,8 @@ export async function clearDatabase(database: SpbookDatabase = db) {
     [
       database.workspaces,
       database.accounts,
+      database.bankAccounts,
+      database.bankTransactions,
       database.parties,
       database.invoices,
       database.supplierInvoices,
@@ -257,6 +334,8 @@ export async function clearDatabase(database: SpbookDatabase = db) {
     ],
     async () => {
       await database.journalEntries.clear();
+      await database.bankTransactions.clear();
+      await database.bankAccounts.clear();
       await database.supplierInvoices.clear();
       await database.invoices.clear();
       await database.parties.clear();

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type {
   Account,
+  BankAccount,
+  BankTransaction,
   Invoice,
   JournalEntry,
   Party,
@@ -12,8 +14,14 @@ import type {
 import { buildInfo } from "../generated/build-info";
 import type { AccountBalance } from "../services/balances";
 import {
-  createSalesInvoice,
-  recordInvoicePayment
+  createBankAccount,
+  createBankTransaction,
+  matchInvoicePaymentFromBankTransaction,
+  matchSupplierPaymentFromBankTransaction,
+  postBankFeeFromBankTransaction
+} from "../services/bank-workflow";
+import {
+  createSalesInvoice
 } from "../services/invoice-workflow";
 import {
   recordOwnerContribution,
@@ -21,8 +29,7 @@ import {
 } from "../services/owner-transactions-workflow";
 import { createParty } from "../services/party-workflow";
 import {
-  createSupplierInvoice,
-  recordSupplierPayment
+  createSupplierInvoice
 } from "../services/supplier-invoice-workflow";
 import {
   loadWorkspaceOverview,
@@ -46,6 +53,8 @@ type AppDataState =
       state: "ready";
       workspace: Workspace;
       accounts: Account[];
+      bankAccounts: BankAccount[];
+      bankTransactions: BankTransaction[];
       parties: Party[];
       invoices: Invoice[];
       invoice: Invoice | null;
@@ -81,6 +90,8 @@ export function App() {
           state: "ready",
           workspace: initialization.workspace,
           accounts: overview.accounts,
+          bankAccounts: overview.bankAccounts,
+          bankTransactions: overview.bankTransactions,
           parties: overview.parties,
           invoices: overview.invoices,
           invoice: overview.latestInvoice,
@@ -187,6 +198,7 @@ function WorkspaceView({
         <div className="content-grid">
           <AccountsTable accounts={data.accounts} />
           <CounterpartiesPanel data={data} onDataStateChange={onDataStateChange} />
+          <BankingPanel data={data} onDataStateChange={onDataStateChange} />
           <InvoiceWorkflowPanel data={data} onDataStateChange={onDataStateChange} />
           <SupplierInvoiceWorkflowPanel
             data={data}
@@ -224,6 +236,8 @@ function WorkspaceSidebar({
         state: "ready",
         workspace: initialization.workspace,
         accounts: overview.accounts,
+        bankAccounts: overview.bankAccounts,
+        bankTransactions: overview.bankTransactions,
         parties: overview.parties,
         invoices: overview.invoices,
         invoice: overview.latestInvoice,
@@ -484,6 +498,238 @@ function CounterpartiesPanel({
   );
 }
 
+function BankingPanel({
+  data,
+  onDataStateChange
+}: {
+  data: Extract<AppDataState, { state: "ready" }>;
+  onDataStateChange: (state: AppDataState) => void;
+}) {
+  const [accountName, setAccountName] = useState("NLB EUR");
+  const [accountCode, setAccountCode] = useState("1100");
+  const [iban, setIban] = useState("");
+  const [transactionBankAccountId, setTransactionBankAccountId] = useState(
+    data.bankAccounts[0]?.id ?? ""
+  );
+  const [bookingDate, setBookingDate] = useState("2026-05-15");
+  const [transactionAmount, setTransactionAmount] = useState("1000.00");
+  const [description, setDescription] = useState("Bank transaction");
+  const [reference, setReference] = useState("");
+  const [actionState, setActionState] = useState<
+    "idle" | "account" | "transaction" | "fee"
+  >("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const selectedBankAccountId = transactionBankAccountId || data.bankAccounts[0]?.id || "";
+
+  async function handleCreateBankAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setActionState("account");
+    setErrorMessage(null);
+
+    try {
+      const overview = await createBankAccount({
+        workspaceId: data.workspace.id,
+        name: accountName,
+        accountCode,
+        currency: data.workspace.baseCurrency,
+        iban
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setTransactionBankAccountId(overview.bankAccounts.at(-1)?.id ?? "");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Bank account was not created."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleCreateBankTransaction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setActionState("transaction");
+    setErrorMessage(null);
+
+    try {
+      if (!selectedBankAccountId) {
+        throw new Error("Create a bank account first.");
+      }
+
+      const overview = await createBankTransaction({
+        workspaceId: data.workspace.id,
+        bankAccountId: selectedBankAccountId,
+        bookingDate,
+        amount: transactionAmount,
+        currency: data.workspace.baseCurrency,
+        description,
+        reference
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Bank transaction was not created."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handlePostBankFee(bankTransactionId: string) {
+    setActionState("fee");
+    setErrorMessage(null);
+
+    try {
+      const overview = await postBankFeeFromBankTransaction(bankTransactionId);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Bank fee was not posted.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  return (
+    <section className="panel panel-wide" aria-labelledby="banking-title">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Banking</p>
+          <h2 id="banking-title">Bank accounts and transactions</h2>
+        </div>
+        <span>{data.bankTransactions.length} transactions</span>
+      </div>
+
+      <div className="banking-grid">
+        <form className="invoice-form" onSubmit={(event) => void handleCreateBankAccount(event)}>
+          <div className="form-row">
+            <label>
+              <span>Account name</span>
+              <input value={accountName} onChange={(event) => setAccountName(event.target.value)} />
+            </label>
+            <label>
+              <span>Account code</span>
+              <select value={accountCode} onChange={(event) => setAccountCode(event.target.value)}>
+                {data.accounts
+                  .filter((account) => account.role === "posting" && account.code.startsWith("11"))
+                  .map((account) => (
+                    <option key={account.id} value={account.code}>
+                      {account.code} · {account.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </div>
+          <label>
+            <span>IBAN</span>
+            <input value={iban} onChange={(event) => setIban(event.target.value)} />
+          </label>
+          <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
+            {actionState === "account" ? "Creating" : "Create bank account"}
+          </button>
+        </form>
+
+        <form className="invoice-form" onSubmit={(event) => void handleCreateBankTransaction(event)}>
+          <div className="form-row">
+            <label>
+              <span>Bank account</span>
+              <select
+                value={selectedBankAccountId}
+                onChange={(event) => setTransactionBankAccountId(event.target.value)}
+              >
+                <option value="">Select bank account</option>
+                {data.bankAccounts.map((bankAccount) => (
+                  <option key={bankAccount.id} value={bankAccount.id}>
+                    {bankAccount.name} · {bankAccount.accountCode}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Booking date</span>
+              <input
+                type="date"
+                value={bookingDate}
+                onChange={(event) => setBookingDate(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              <span>Signed amount</span>
+              <input
+                value={transactionAmount}
+                onChange={(event) => setTransactionAmount(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Reference</span>
+              <input value={reference} onChange={(event) => setReference(event.target.value)} />
+            </label>
+          </div>
+          <label>
+            <span>Description</span>
+            <input value={description} onChange={(event) => setDescription(event.target.value)} />
+          </label>
+          <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
+            {actionState === "transaction" ? "Creating" : "Create bank transaction"}
+          </button>
+        </form>
+      </div>
+
+      <div className="transaction-list">
+        {data.bankTransactions.length === 0 ? (
+          <p className="empty-state">No bank transactions yet.</p>
+        ) : null}
+        {data.bankTransactions.map((bankTransaction) => {
+          const bankAccount = data.bankAccounts.find(
+            (candidate) => candidate.id === bankTransaction.bankAccountId
+          );
+          const canPostFee =
+            bankTransaction.status === "unmatched" && bankTransaction.amount.startsWith("-");
+
+          return (
+            <article className="transaction-row" key={bankTransaction.id}>
+              <div>
+                <strong>
+                  {bankTransaction.amount} {bankTransaction.currency}
+                </strong>
+                <span>
+                  {bankTransaction.bookingDate} · {bankAccount?.name ?? "Unknown account"} ·{" "}
+                  {bankTransaction.status}
+                </span>
+                <small>{bankTransaction.description}</small>
+              </div>
+              {canPostFee ? (
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={actionState !== "idle"}
+                  onClick={() => void handlePostBankFee(bankTransaction.id)}
+                >
+                  Post bank fee
+                </button>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+
+      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
+    </section>
+  );
+}
+
 function InvoiceWorkflowPanel({
   data,
   onDataStateChange
@@ -499,6 +745,8 @@ function InvoiceWorkflowPanel({
   const [issueDate, setIssueDate] = useState("2026-05-10");
   const [total, setTotal] = useState("1000.00");
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(data.invoice?.id ?? "");
+  const [selectedPaymentBankTransactionId, setSelectedPaymentBankTransactionId] =
+    useState("");
   const [actionState, setActionState] = useState<"idle" | "saving" | "paying">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedInvoice =
@@ -513,6 +761,12 @@ function InvoiceWorkflowPanel({
         entry.lines.some((line) => line.invoiceId === selectedInvoice.id)
       )
     : [];
+  const incomingBankTransactions = data.bankTransactions.filter(
+    (bankTransaction) =>
+      bankTransaction.status === "unmatched" && !bankTransaction.amount.startsWith("-")
+  );
+  const selectedIncomingBankTransactionId =
+    selectedPaymentBankTransactionId || incomingBankTransactions[0]?.id || "";
 
   async function handleCreateInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -552,7 +806,14 @@ function InvoiceWorkflowPanel({
     setErrorMessage(null);
 
     try {
-      const overview = await recordInvoicePayment(selectedInvoice.id);
+      if (!selectedIncomingBankTransactionId) {
+        throw new Error("Select an incoming bank transaction first.");
+      }
+
+      const overview = await matchInvoicePaymentFromBankTransaction(
+        selectedInvoice.id,
+        selectedIncomingBankTransactionId
+      );
 
       onDataStateChange({
         ...data,
@@ -675,6 +936,21 @@ function InvoiceWorkflowPanel({
             </div>
           </dl>
           <LinkedJournalEntries entries={selectedInvoiceEntries} />
+          <label className="inline-select">
+            <span>Incoming bank transaction</span>
+            <select
+              value={selectedIncomingBankTransactionId}
+              onChange={(event) => setSelectedPaymentBankTransactionId(event.target.value)}
+            >
+              <option value="">Select transaction</option>
+              {incomingBankTransactions.map((bankTransaction) => (
+                <option key={bankTransaction.id} value={bankTransaction.id}>
+                  {bankTransaction.bookingDate} · {bankTransaction.amount} ·{" "}
+                  {bankTransaction.description}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="secondary-button"
             type="button"
@@ -709,6 +985,10 @@ function SupplierInvoiceWorkflowPanel({
   const [selectedSupplierInvoiceId, setSelectedSupplierInvoiceId] = useState(
     data.supplierInvoice?.id ?? ""
   );
+  const [
+    selectedSupplierPaymentBankTransactionId,
+    setSelectedSupplierPaymentBankTransactionId
+  ] = useState("");
   const [actionState, setActionState] = useState<"idle" | "saving" | "paying">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedSupplierInvoice =
@@ -725,6 +1005,12 @@ function SupplierInvoiceWorkflowPanel({
         entry.lines.some((line) => line.supplierInvoiceId === selectedSupplierInvoice.id)
       )
     : [];
+  const outgoingBankTransactions = data.bankTransactions.filter(
+    (bankTransaction) =>
+      bankTransaction.status === "unmatched" && bankTransaction.amount.startsWith("-")
+  );
+  const selectedOutgoingBankTransactionId =
+    selectedSupplierPaymentBankTransactionId || outgoingBankTransactions[0]?.id || "";
 
   async function handleCreateSupplierInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -766,7 +1052,14 @@ function SupplierInvoiceWorkflowPanel({
     setErrorMessage(null);
 
     try {
-      const overview = await recordSupplierPayment(selectedSupplierInvoice.id);
+      if (!selectedOutgoingBankTransactionId) {
+        throw new Error("Select an outgoing bank transaction first.");
+      }
+
+      const overview = await matchSupplierPaymentFromBankTransaction(
+        selectedSupplierInvoice.id,
+        selectedOutgoingBankTransactionId
+      );
 
       onDataStateChange({
         ...data,
@@ -905,6 +1198,23 @@ function SupplierInvoiceWorkflowPanel({
             </div>
           </dl>
           <LinkedJournalEntries entries={selectedSupplierInvoiceEntries} />
+          <label className="inline-select">
+            <span>Outgoing bank transaction</span>
+            <select
+              value={selectedOutgoingBankTransactionId}
+              onChange={(event) =>
+                setSelectedSupplierPaymentBankTransactionId(event.target.value)
+              }
+            >
+              <option value="">Select transaction</option>
+              {outgoingBankTransactions.map((bankTransaction) => (
+                <option key={bankTransaction.id} value={bankTransaction.id}>
+                  {bankTransaction.bookingDate} · {bankTransaction.amount} ·{" "}
+                  {bankTransaction.description}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="secondary-button"
             type="button"
@@ -1117,6 +1427,8 @@ function BalancesTable({
 
 function mapOverviewToReadyState(overview: WorkspaceOverview) {
   return {
+    bankAccounts: overview.bankAccounts,
+    bankTransactions: overview.bankTransactions,
     parties: overview.parties,
     invoices: overview.invoices,
     invoice: overview.latestInvoice,

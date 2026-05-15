@@ -1,5 +1,7 @@
 import type {
   Account,
+  BankAccount,
+  BankTransaction,
   Invoice,
   JournalEntry,
   Party,
@@ -9,6 +11,8 @@ import type {
 import { db, type SpbookDatabase } from "../storage/db";
 import {
   getAccountsByWorkspaceId,
+  getBankAccountsByWorkspaceId,
+  getBankTransactionsByWorkspaceId,
   getFirstWorkspace,
   getInvoicesByWorkspaceId,
   getJournalEntriesByWorkspaceId,
@@ -20,6 +24,8 @@ import { calculateAccountBalances, type AccountBalance } from "./balances";
 export type WorkspaceOverview = {
   workspace: Workspace;
   accounts: Account[];
+  bankAccounts: BankAccount[];
+  bankTransactions: BankTransaction[];
   parties: Party[];
   invoices: Invoice[];
   latestInvoice: Invoice | null;
@@ -41,9 +47,19 @@ export async function loadWorkspaceOverview(
     throw new Error(`Workspace "${workspaceId}" was not found.`);
   }
 
-  const [accounts, parties, invoices, supplierInvoices, journalEntries] =
+  const [
+    accounts,
+    bankAccounts,
+    bankTransactions,
+    parties,
+    invoices,
+    supplierInvoices,
+    journalEntries
+  ] =
     await Promise.all([
       getAccountsByWorkspaceId(workspaceId, database),
+      getBankAccountsByWorkspaceId(workspaceId, database),
+      getBankTransactionsByWorkspaceId(workspaceId, database),
       getPartiesByWorkspaceId(workspaceId, database),
       getInvoicesByWorkspaceId(workspaceId, database),
       getSupplierInvoicesByWorkspaceId(workspaceId, database),
@@ -55,6 +71,8 @@ export async function loadWorkspaceOverview(
   return {
     workspace,
     accounts,
+    bankAccounts,
+    bankTransactions,
     parties,
     invoices,
     latestInvoice,
