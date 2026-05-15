@@ -1037,6 +1037,9 @@ function BankingPanel({
     ) ??
     data.bankTransactions[0] ??
     null;
+  const canEditSelectedBankTransaction =
+    selectedEditBankTransaction?.status === "unmatched" &&
+    !selectedEditBankTransaction.importSource;
   const [editTransactionBankAccountId, setEditTransactionBankAccountId] = useState(
     selectedEditBankTransaction?.bankAccountId ?? data.bankAccounts[0]?.id ?? ""
   );
@@ -1675,13 +1678,22 @@ function BankingPanel({
             className="invoice-form edit-bank-account-form"
             onSubmit={(event) => void handleUpdateBankTransaction(event)}
           >
+            <BankTransactionDetailPanel
+              bankAccountName={
+                data.bankAccounts.find(
+                  (bankAccount) =>
+                    bankAccount.id === selectedEditBankTransaction.bankAccountId
+                )?.name ?? "Unknown account"
+              }
+              bankTransaction={selectedEditBankTransaction}
+            />
             <div className="form-row">
               <label>
                 <span>Edit bank account</span>
                 <select
                   value={editTransactionBankAccountId}
                   onChange={(event) => setEditTransactionBankAccountId(event.target.value)}
-                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                  disabled={!canEditSelectedBankTransaction}
                 >
                   {activeBankAccounts.map((bankAccount) => (
                     <option key={bankAccount.id} value={bankAccount.id}>
@@ -1695,7 +1707,7 @@ function BankingPanel({
                 <input
                   type="date"
                   value={editBookingDate}
-                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                  disabled={!canEditSelectedBankTransaction}
                   onChange={(event) => setEditBookingDate(event.target.value)}
                 />
               </label>
@@ -1705,7 +1717,7 @@ function BankingPanel({
                 <span>Edit signed amount</span>
                 <input
                   value={editTransactionAmount}
-                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                  disabled={!canEditSelectedBankTransaction}
                   onChange={(event) => setEditTransactionAmount(event.target.value)}
                 />
               </label>
@@ -1713,7 +1725,7 @@ function BankingPanel({
                 <span>Edit reference</span>
                 <input
                   value={editReference}
-                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                  disabled={!canEditSelectedBankTransaction}
                   onChange={(event) => setEditReference(event.target.value)}
                 />
               </label>
@@ -1722,10 +1734,16 @@ function BankingPanel({
               <span>Edit description</span>
               <input
                 value={editDescription}
-                disabled={selectedEditBankTransaction.status !== "unmatched"}
+                disabled={!canEditSelectedBankTransaction}
                 onChange={(event) => setEditDescription(event.target.value)}
               />
             </label>
+            {selectedEditBankTransaction.importSource ? (
+              <p className="field-note">
+                Imported bank statement entries cannot be edited. Match, post, or
+                ignore them instead.
+              </p>
+            ) : null}
             {selectedEditBankTransaction.status !== "unmatched" ? (
               <p className="field-note">
                 Processed bank transactions cannot be edited after matching or posting.
@@ -1735,7 +1753,7 @@ function BankingPanel({
               className="secondary-button"
               type="submit"
               disabled={
-                actionState !== "idle" || selectedEditBankTransaction.status !== "unmatched"
+                actionState !== "idle" || !canEditSelectedBankTransaction
               }
             >
               {actionState === "transaction-update"
@@ -1748,6 +1766,50 @@ function BankingPanel({
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
+  );
+}
+
+function BankTransactionDetailPanel({
+  bankAccountName,
+  bankTransaction
+}: {
+  bankAccountName: string;
+  bankTransaction: BankTransaction;
+}) {
+  const details = [
+    ["Bank account", bankAccountName],
+    ["Booking date", bankTransaction.bookingDate],
+    ["Value date", bankTransaction.valueDate],
+    ["Amount", `${bankTransaction.amount} ${bankTransaction.currency}`],
+    ["Status", bankTransaction.status],
+    ["Description", bankTransaction.description],
+    ["Reference", bankTransaction.reference],
+    ["Counterparty", bankTransaction.counterpartyName],
+    ["Counterparty IBAN", bankTransaction.counterpartyIban],
+    ["Remittance", bankTransaction.remittanceInformation],
+    ["Bank reference", bankTransaction.bankReference],
+    ["Entry reference", bankTransaction.entryReference],
+    ["Import source", bankTransaction.importSource],
+    ["External ID", bankTransaction.externalId]
+  ].filter(([, value]) => Boolean(value));
+
+  return (
+    <div className="transaction-detail-panel">
+      <div className="subsection-header">
+        <div>
+          <h3>Selected transaction details</h3>
+          <p>Bank statement data is shown as read-only text for copying.</p>
+        </div>
+      </div>
+      <dl className="copyable-details">
+        {details.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

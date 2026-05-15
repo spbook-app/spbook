@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { BankTransaction } from "../domain";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { saveBankTransaction } from "../storage/repositories";
 import {
   createBankAccount,
   createBankTransaction,
@@ -228,6 +230,45 @@ describe("bank workflow", () => {
         database
       )
     ).rejects.toThrow(`Bank transaction "${context.bankTransactionId}" is already processed.`);
+  });
+
+  it("rejects editing imported bank transactions", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+    const importedBankTransaction: BankTransaction = {
+      id: `bt_${crypto.randomUUID()}`,
+      workspaceId: initialization.workspace.id,
+      bankAccountId: accountOverview.bankAccounts[0]!.id,
+      bookingDate: "2026-05-15",
+      amount: "1000.00",
+      currency: "EUR",
+      description: "Imported payment",
+      externalId: "camt053:statement:entry",
+      importSource: "camt053",
+      status: "unmatched"
+    };
+    await saveBankTransaction(importedBankTransaction, database);
+
+    await expect(
+      updateBankTransaction(
+        {
+          bankTransactionId: importedBankTransaction.id,
+          bankAccountId: accountOverview.bankAccounts[0]!.id,
+          bookingDate: "2026-05-16",
+          amount: "999.50",
+          description: "Updated imported payment"
+        },
+        database
+      )
+    ).rejects.toThrow("Imported bank statement entries cannot be edited.");
   });
 
   it("matches an incoming bank transaction to an issued invoice", async () => {

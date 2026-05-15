@@ -795,6 +795,41 @@ td {
   overflow-wrap: anywhere;
 }
 
+.transaction-detail-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #e4e0d4;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fffefa;
+}
+
+.copyable-details {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  user-select: text;
+}
+
+.copyable-details div {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.copyable-details dt {
+  color: #7a756b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.copyable-details dd {
+  margin: 0;
+  color: #25231f;
+  overflow-wrap: anywhere;
+}
+
 .inline-select {
   display: grid;
   gap: 7px;
@@ -989,7 +1024,8 @@ td {
   }
 
   .journal-entry header,
-  .journal-entry li {
+  .journal-entry li,
+  .copyable-details div {
     grid-template-columns: 1fr;
   }
 

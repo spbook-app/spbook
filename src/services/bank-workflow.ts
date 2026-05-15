@@ -185,6 +185,7 @@ export async function updateBankTransaction(
   }
 
   ensureUnmatched(existingBankTransaction);
+  ensureManualBankTransaction(existingBankTransaction);
 
   const bankAccount = await getBankAccountById(input.bankAccountId, database);
 
@@ -509,6 +510,12 @@ async function validateBankJournalEntry(
 function ensureUnmatched(bankTransaction: BankTransaction) {
   if (bankTransaction.status !== "unmatched") {
     throw new Error(`Bank transaction "${bankTransaction.id}" is already processed.`);
+  }
+}
+
+function ensureManualBankTransaction(bankTransaction: BankTransaction) {
+  if (bankTransaction.importSource) {
+    throw new Error("Imported bank statement entries cannot be edited.");
   }
 }
 
