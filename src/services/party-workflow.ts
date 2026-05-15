@@ -6,6 +6,7 @@ import {
   getSupplierInvoicesByWorkspaceId,
   saveParty
 } from "../storage/repositories";
+import { isValidIban } from "./bank-workflow";
 import { loadWorkspaceOverview } from "./workspace-overview";
 
 export type CreatePartyInput = {
@@ -15,6 +16,7 @@ export type CreatePartyInput = {
   roles: PartyRole[];
   countryCode?: string;
   vatId?: string;
+  iban?: string;
   addressLine1?: string;
   addressLine2?: string;
   postalCode?: string;
@@ -31,6 +33,7 @@ export type UpdatePartyInput = {
   roles: PartyRole[];
   countryCode?: string;
   vatId?: string;
+  iban?: string;
   addressLine1?: string;
   addressLine2?: string;
   postalCode?: string;
@@ -68,6 +71,7 @@ export async function updateParty(
     name: input.name.trim(),
     countryCode: normalizeOptional(input.countryCode),
     vatId: normalizeOptional(input.vatId),
+    iban: normalizeIban(input.iban),
     addressLine1: normalizeOptional(input.addressLine1),
     addressLine2: normalizeOptional(input.addressLine2),
     postalCode: normalizeOptional(input.postalCode),
@@ -93,6 +97,7 @@ function buildParty(input: CreatePartyInput): Party {
     name: input.name.trim(),
     countryCode: normalizeOptional(input.countryCode),
     vatId: normalizeOptional(input.vatId),
+    iban: normalizeIban(input.iban),
     addressLine1: normalizeOptional(input.addressLine1),
     addressLine2: normalizeOptional(input.addressLine2),
     postalCode: normalizeOptional(input.postalCode),
@@ -147,6 +152,20 @@ function normalizeOptional(value: string | undefined) {
 
 function normalizeEmail(value: string | undefined) {
   return normalizeOptional(value)?.toLowerCase();
+}
+
+function normalizeIban(value: string | undefined) {
+  const normalized = value?.replace(/\s+/g, "").toUpperCase();
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!isValidIban(normalized)) {
+    throw new Error("IBAN is invalid.");
+  }
+
+  return normalized;
 }
 
 function createEntityId(prefix: string) {

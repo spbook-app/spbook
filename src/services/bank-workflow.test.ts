@@ -23,13 +23,24 @@ describe("bank workflow", () => {
 
   it("creates bank accounts and bank transactions", async () => {
     const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB d.d.",
+        type: "business",
+        roles: ["bank"],
+        countryCode: "SI"
+      },
+      database
+    );
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
         name: "NLB EUR",
         accountCode: "1100",
         currency: "EUR",
-        iban: "SI56 1910 0000 0123 438"
+        iban: "SI56 1910 0000 0123 438",
+        partyId: partyOverview.parties[0]!.id
       },
       database
     );
@@ -52,6 +63,33 @@ describe("bank workflow", () => {
       status: "unmatched"
     });
     expect(transactionOverview.bankAccounts[0]?.iban).toBe("SI56191000000123438");
+    expect(transactionOverview.bankAccounts[0]?.partyId).toBe(partyOverview.parties[0]!.id);
+  });
+
+  it("rejects bank account parties without the bank role", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      database
+    );
+
+    await expect(
+      createBankAccount(
+        {
+          workspaceId: initialization.workspace.id,
+          name: "NLB EUR",
+          accountCode: "1100",
+          currency: "EUR",
+          partyId: partyOverview.parties[0]!.id
+        },
+        database
+      )
+    ).rejects.toThrow("Bank account party must have the bank role.");
   });
 
   it("updates bank account parameters", async () => {

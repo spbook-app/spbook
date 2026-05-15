@@ -13,6 +13,7 @@ import {
   getBankAccountById,
   getBankTransactionById,
   getInvoiceById,
+  getPartyById,
   getSupplierInvoiceById,
   saveBankAccount,
   saveBankTransaction,
@@ -65,6 +66,7 @@ export async function createBankAccount(
 ) {
   const accounts = await getAccountsByWorkspaceId(input.workspaceId, database);
   const account = accounts.find((candidate) => candidate.code === input.accountCode);
+  await ensureBankParty(input.workspaceId, input.partyId, database);
 
   if (!account || account.role !== "posting") {
     throw new Error("Bank account must reference an existing posting account.");
@@ -104,6 +106,7 @@ export async function updateBankAccount(
 
   const accounts = await getAccountsByWorkspaceId(existingBankAccount.workspaceId, database);
   const account = accounts.find((candidate) => candidate.code === input.accountCode);
+  await ensureBankParty(existingBankAccount.workspaceId, input.partyId, database);
 
   if (!account || account.role !== "posting") {
     throw new Error("Bank account must reference an existing posting account.");
@@ -226,6 +229,26 @@ async function ensureUniqueBankPostingAccount(
 
   if (duplicate) {
     throw new Error("A bank account already uses this posting account.");
+  }
+}
+
+async function ensureBankParty(
+  workspaceId: string,
+  partyId: string | undefined,
+  database: SpbookDatabase
+) {
+  const normalizedPartyId = normalizeOptional(partyId);
+
+  if (!normalizedPartyId) return;
+
+  const party = await getPartyById(normalizedPartyId, database);
+
+  if (!party || party.workspaceId !== workspaceId) {
+    throw new Error(`Bank party "${normalizedPartyId}" was not found.`);
+  }
+
+  if (!party.roles.includes("bank")) {
+    throw new Error("Bank account party must have the bank role.");
   }
 }
 

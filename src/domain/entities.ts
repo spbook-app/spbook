@@ -41,6 +41,7 @@ export type Party = {
   name: string;
   countryCode?: string;
   vatId?: string;
+  iban?: string;
   addressLine1?: string;
   addressLine2?: string;
   postalCode?: string;

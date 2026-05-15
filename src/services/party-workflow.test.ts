@@ -21,6 +21,7 @@ describe("party workflow", () => {
         roles: ["customer", "supplier"],
         countryCode: "SI",
         vatId: "SI12345678",
+        iban: "SI56 1910 0000 0123 438",
         addressLine1: "Slovenska cesta 1",
         postalCode: "1000",
         city: "Ljubljana",
@@ -37,6 +38,7 @@ describe("party workflow", () => {
       roles: ["customer", "supplier"],
       countryCode: "SI",
       vatId: "SI12345678",
+      iban: "SI56191000000123438",
       addressLine1: "Slovenska cesta 1",
       postalCode: "1000",
       city: "Ljubljana",
@@ -82,6 +84,7 @@ describe("party workflow", () => {
         roles: ["customer", "supplier"],
         countryCode: "SI",
         vatId: "SI87654321",
+        iban: "SI56 1910 0000 0123 438",
         addressLine1: "Dunajska cesta 10",
         postalCode: "1000",
         city: "Ljubljana",
@@ -96,6 +99,7 @@ describe("party workflow", () => {
       name: "ACME Updated d.o.o.",
       roles: ["customer", "supplier"],
       vatId: "SI87654321",
+      iban: "SI56191000000123438",
       addressLine1: "Dunajska cesta 10",
       postalCode: "1000",
       city: "Ljubljana",
@@ -120,6 +124,23 @@ describe("party workflow", () => {
         database
       )
     ).rejects.toThrow("Party email is invalid.");
+  });
+
+  it("rejects invalid IBAN values", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+
+    await expect(
+      createParty(
+        {
+          workspaceId: initialization.workspace.id,
+          name: "ACME d.o.o.",
+          type: "business",
+          roles: ["supplier"],
+          iban: "not-an-iban"
+        },
+        database
+      )
+    ).rejects.toThrow("IBAN is invalid.");
   });
 
   it("keeps required roles for parties used by documents", async () => {

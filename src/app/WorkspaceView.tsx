@@ -446,6 +446,7 @@ function PartyInvoiceDetails({
     <dd className="party-detail">
       <strong>{party.name}</strong>
       {party.vatId ? <span>{party.vatId}</span> : null}
+      {party.iban ? <span>{party.iban}</span> : null}
       {address.length > 0 ? <span>{address.join(", ")}</span> : null}
       {contact ? <span>{contact}</span> : null}
     </dd>
@@ -566,6 +567,7 @@ function CounterpartiesPanel({
   const [roles, setRoles] = useState<PartyRole[]>(["customer"]);
   const [countryCode, setCountryCode] = useState("SI");
   const [vatId, setVatId] = useState("");
+  const [partyIban, setPartyIban] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -582,6 +584,7 @@ function CounterpartiesPanel({
   const [editRoles, setEditRoles] = useState<PartyRole[]>(selectedEditParty?.roles ?? []);
   const [editCountryCode, setEditCountryCode] = useState(selectedEditParty?.countryCode ?? "");
   const [editVatId, setEditVatId] = useState(selectedEditParty?.vatId ?? "");
+  const [editPartyIban, setEditPartyIban] = useState(selectedEditParty?.iban ?? "");
   const [editAddressLine1, setEditAddressLine1] = useState(selectedEditParty?.addressLine1 ?? "");
   const [editAddressLine2, setEditAddressLine2] = useState(selectedEditParty?.addressLine2 ?? "");
   const [editPostalCode, setEditPostalCode] = useState(selectedEditParty?.postalCode ?? "");
@@ -591,6 +594,8 @@ function CounterpartiesPanel({
   const [editActive, setEditActive] = useState(selectedEditParty?.active ?? true);
   const [actionState, setActionState] = useState<"idle" | "saving" | "updating">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const partyIbanValidationMessage = getIbanValidationMessage(partyIban);
+  const editPartyIbanValidationMessage = getIbanValidationMessage(editPartyIban);
 
   useEffect(() => {
     if (!selectedEditParty) return;
@@ -601,6 +606,7 @@ function CounterpartiesPanel({
     setEditRoles(selectedEditParty.roles);
     setEditCountryCode(selectedEditParty.countryCode ?? "");
     setEditVatId(selectedEditParty.vatId ?? "");
+    setEditPartyIban(selectedEditParty.iban ?? "");
     setEditAddressLine1(selectedEditParty.addressLine1 ?? "");
     setEditAddressLine2(selectedEditParty.addressLine2 ?? "");
     setEditPostalCode(selectedEditParty.postalCode ?? "");
@@ -616,6 +622,10 @@ function CounterpartiesPanel({
     setErrorMessage(null);
 
     try {
+      if (partyIbanValidationMessage) {
+        throw new Error(partyIbanValidationMessage);
+      }
+
       const overview = await createParty({
         workspaceId: data.workspace.id,
         name,
@@ -623,6 +633,7 @@ function CounterpartiesPanel({
         roles,
         countryCode,
         vatId,
+        iban: partyIban,
         addressLine1,
         addressLine2,
         postalCode,
@@ -638,6 +649,7 @@ function CounterpartiesPanel({
       setSelectedEditPartyId(overview.parties.at(-1)?.id ?? "");
       setName("");
       setVatId("");
+      setPartyIban("");
       setAddressLine1("");
       setAddressLine2("");
       setPostalCode("");
@@ -677,6 +689,10 @@ function CounterpartiesPanel({
         throw new Error("Select a counterparty first.");
       }
 
+      if (editPartyIbanValidationMessage) {
+        throw new Error(editPartyIbanValidationMessage);
+      }
+
       const overview = await updateParty({
         partyId: selectedEditParty.id,
         name: editName,
@@ -684,6 +700,7 @@ function CounterpartiesPanel({
         roles: editRoles,
         countryCode: editCountryCode,
         vatId: editVatId,
+        iban: editPartyIban,
         addressLine1: editAddressLine1,
         addressLine2: editAddressLine2,
         postalCode: editPostalCode,
@@ -743,6 +760,18 @@ function CounterpartiesPanel({
             <input value={vatId} onChange={(event) => setVatId(event.target.value)} />
           </label>
         </div>
+        <label>
+          <span>IBAN</span>
+          <input
+            aria-invalid={partyIbanValidationMessage ? "true" : "false"}
+            placeholder="SI56 1910 0000 0123 438"
+            value={partyIban}
+            onChange={(event) => setPartyIban(event.target.value)}
+          />
+        </label>
+        {partyIbanValidationMessage ? (
+          <p className="field-error">{partyIbanValidationMessage}</p>
+        ) : null}
         <div className="form-row">
           <label>
             <span>Address line 1</span>
@@ -815,6 +844,7 @@ function CounterpartiesPanel({
               <span>
                 {party.type} · {party.countryCode ?? "No country"}
                 {party.vatId ? ` · ${party.vatId}` : ""}
+                {party.iban ? ` · ${party.iban}` : ""}
                 {party.city ? ` · ${party.city}` : ""}
                 {party.active ? "" : " · inactive"}
               </span>
@@ -869,6 +899,18 @@ function CounterpartiesPanel({
               <input value={editVatId} onChange={(event) => setEditVatId(event.target.value)} />
             </label>
           </div>
+          <label>
+            <span>Edit IBAN</span>
+            <input
+              aria-invalid={editPartyIbanValidationMessage ? "true" : "false"}
+              placeholder="SI56 1910 0000 0123 438"
+              value={editPartyIban}
+              onChange={(event) => setEditPartyIban(event.target.value)}
+            />
+          </label>
+          {editPartyIbanValidationMessage ? (
+            <p className="field-error">{editPartyIbanValidationMessage}</p>
+          ) : null}
           <div className="form-row">
             <label>
               <span>Edit address line 1</span>
@@ -956,9 +998,13 @@ function BankingPanel({
   const bankPostingAccounts = data.accounts.filter(
     (account) => account.role === "posting" && account.code.startsWith("11")
   );
+  const bankParties = data.parties.filter(
+    (party) => party.active && party.roles.includes("bank")
+  );
   const [accountName, setAccountName] = useState("NLB EUR");
   const [accountCode, setAccountCode] = useState(bankPostingAccounts[0]?.code ?? "");
   const [iban, setIban] = useState("");
+  const [bankPartyId, setBankPartyId] = useState(bankParties[0]?.id ?? "");
   const [selectedEditBankAccountId, setSelectedEditBankAccountId] = useState(
     data.bankAccounts[0]?.id ?? ""
   );
@@ -971,6 +1017,9 @@ function BankingPanel({
     selectedEditBankAccount?.accountCode ?? bankPostingAccounts[0]?.code ?? ""
   );
   const [editIban, setEditIban] = useState(selectedEditBankAccount?.iban ?? "");
+  const [editBankPartyId, setEditBankPartyId] = useState(
+    selectedEditBankAccount?.partyId ?? ""
+  );
   const [editActive, setEditActive] = useState(selectedEditBankAccount?.active ?? true);
   const [transactionBankAccountId, setTransactionBankAccountId] = useState(
     data.bankAccounts[0]?.id ?? ""
@@ -1043,6 +1092,7 @@ function BankingPanel({
     setEditAccountName(selectedEditBankAccount.name);
     setEditAccountCode(selectedEditBankAccount.accountCode);
     setEditIban(selectedEditBankAccount.iban ?? "");
+    setEditBankPartyId(selectedEditBankAccount.partyId ?? "");
     setEditActive(selectedEditBankAccount.active);
   }, [selectedEditBankAccount]);
 
@@ -1082,7 +1132,8 @@ function BankingPanel({
         name: accountName,
         accountCode,
         currency: data.workspace.baseCurrency,
-        iban
+        iban,
+        partyId: bankPartyId
       });
 
       onDataStateChange({
@@ -1120,6 +1171,7 @@ function BankingPanel({
         name: editAccountName,
         accountCode: editAccountCode,
         iban: editIban,
+        partyId: editBankPartyId,
         active: editActive
       });
 
@@ -1318,6 +1370,18 @@ function BankingPanel({
             </label>
           </div>
           <label>
+            <span>Bank party</span>
+            <select value={bankPartyId} onChange={(event) => setBankPartyId(event.target.value)}>
+              <option value="">No bank party</option>
+              {bankParties.map((party) => (
+                <option key={party.id} value={party.id}>
+                  {party.name}
+                  {party.iban ? ` · ${party.iban}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             <span>IBAN</span>
             <input
               aria-invalid={ibanValidationMessage ? "true" : "false"}
@@ -1359,6 +1423,12 @@ function BankingPanel({
                 {bankAccount.accountCode} · {bankAccount.currency}
                 {bankAccount.iban ? ` · ${bankAccount.iban}` : ""}
               </span>
+              {bankAccount.partyId ? (
+                <small>
+                  {data.parties.find((party) => party.id === bankAccount.partyId)?.name ??
+                    "Unknown bank party"}
+                </small>
+              ) : null}
               <small>{bankAccount.active ? "active" : "inactive"}</small>
             </button>
           ))}
@@ -1391,6 +1461,21 @@ function BankingPanel({
                 </select>
               </label>
             </div>
+            <label>
+              <span>Edit bank party</span>
+              <select
+                value={editBankPartyId}
+                onChange={(event) => setEditBankPartyId(event.target.value)}
+              >
+                <option value="">No bank party</option>
+                {bankParties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                    {party.iban ? ` · ${party.iban}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label>
               <span>Edit IBAN</span>
               <input
