@@ -451,6 +451,7 @@ function PartyInvoiceDetails({
     party.addressLine1,
     party.addressLine2,
     locality || undefined,
+    party.region,
     party.countryCode
   ].filter(Boolean);
   const contact = [party.contactName, party.email].filter(Boolean).join(" · ");
@@ -458,6 +459,9 @@ function PartyInvoiceDetails({
   return (
     <dd className="party-detail">
       <strong>{party.name}</strong>
+      {party.registrationNumber ? (
+        <span>Register number: {party.registrationNumber}</span>
+      ) : null}
       {party.vatId ? <span>{party.vatId}</span> : null}
       {party.iban ? <span>{party.iban}</span> : null}
       {address.length > 0 ? <span>{address.join(", ")}</span> : null}
@@ -886,12 +890,14 @@ function CounterpartiesPanel({
   const [type, setType] = useState<PartyType>("business");
   const [roles, setRoles] = useState<PartyRole[]>(["customer"]);
   const [countryCode, setCountryCode] = useState("SI");
+  const [registrationNumber, setRegistrationNumber] = useState("");
   const [vatId, setVatId] = useState("");
   const [partyIban, setPartyIban] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
   const [selectedEditPartyId, setSelectedEditPartyId] = useState(data.parties[0]?.id ?? "");
@@ -903,12 +909,16 @@ function CounterpartiesPanel({
   const [editType, setEditType] = useState<PartyType>(selectedEditParty?.type ?? "business");
   const [editRoles, setEditRoles] = useState<PartyRole[]>(selectedEditParty?.roles ?? []);
   const [editCountryCode, setEditCountryCode] = useState(selectedEditParty?.countryCode ?? "");
+  const [editRegistrationNumber, setEditRegistrationNumber] = useState(
+    selectedEditParty?.registrationNumber ?? ""
+  );
   const [editVatId, setEditVatId] = useState(selectedEditParty?.vatId ?? "");
   const [editPartyIban, setEditPartyIban] = useState(selectedEditParty?.iban ?? "");
   const [editAddressLine1, setEditAddressLine1] = useState(selectedEditParty?.addressLine1 ?? "");
   const [editAddressLine2, setEditAddressLine2] = useState(selectedEditParty?.addressLine2 ?? "");
   const [editPostalCode, setEditPostalCode] = useState(selectedEditParty?.postalCode ?? "");
   const [editCity, setEditCity] = useState(selectedEditParty?.city ?? "");
+  const [editRegion, setEditRegion] = useState(selectedEditParty?.region ?? "");
   const [editContactName, setEditContactName] = useState(selectedEditParty?.contactName ?? "");
   const [editEmail, setEditEmail] = useState(selectedEditParty?.email ?? "");
   const [editActive, setEditActive] = useState(selectedEditParty?.active ?? true);
@@ -925,12 +935,14 @@ function CounterpartiesPanel({
     setEditType(selectedEditParty.type);
     setEditRoles(selectedEditParty.roles);
     setEditCountryCode(selectedEditParty.countryCode ?? "");
+    setEditRegistrationNumber(selectedEditParty.registrationNumber ?? "");
     setEditVatId(selectedEditParty.vatId ?? "");
     setEditPartyIban(selectedEditParty.iban ?? "");
     setEditAddressLine1(selectedEditParty.addressLine1 ?? "");
     setEditAddressLine2(selectedEditParty.addressLine2 ?? "");
     setEditPostalCode(selectedEditParty.postalCode ?? "");
     setEditCity(selectedEditParty.city ?? "");
+    setEditRegion(selectedEditParty.region ?? "");
     setEditContactName(selectedEditParty.contactName ?? "");
     setEditEmail(selectedEditParty.email ?? "");
     setEditActive(selectedEditParty.active);
@@ -952,12 +964,14 @@ function CounterpartiesPanel({
         type,
         roles,
         countryCode,
+        registrationNumber,
         vatId,
         iban: partyIban,
         addressLine1,
         addressLine2,
         postalCode,
         city,
+        region,
         contactName,
         email
       });
@@ -968,12 +982,14 @@ function CounterpartiesPanel({
       });
       setSelectedEditPartyId(overview.parties.at(-1)?.id ?? "");
       setName("");
+      setRegistrationNumber("");
       setVatId("");
       setPartyIban("");
       setAddressLine1("");
       setAddressLine2("");
       setPostalCode("");
       setCity("");
+      setRegion("");
       setContactName("");
       setEmail("");
     } catch (error) {
@@ -1019,12 +1035,14 @@ function CounterpartiesPanel({
         type: editType,
         roles: editRoles,
         countryCode: editCountryCode,
+        registrationNumber: editRegistrationNumber,
         vatId: editVatId,
         iban: editPartyIban,
         addressLine1: editAddressLine1,
         addressLine2: editAddressLine2,
         postalCode: editPostalCode,
         city: editCity,
+        region: editRegion,
         contactName: editContactName,
         email: editEmail,
         active: editActive
@@ -1081,6 +1099,13 @@ function CounterpartiesPanel({
           </label>
         </div>
         <label>
+          <span>Registration number</span>
+          <input
+            value={registrationNumber}
+            onChange={(event) => setRegistrationNumber(event.target.value)}
+          />
+        </label>
+        <label>
           <span>IBAN</span>
           <input
             aria-invalid={partyIbanValidationMessage ? "true" : "false"}
@@ -1118,6 +1143,10 @@ function CounterpartiesPanel({
             <input value={city} onChange={(event) => setCity(event.target.value)} />
           </label>
         </div>
+        <label>
+          <span>Region / county</span>
+          <input value={region} onChange={(event) => setRegion(event.target.value)} />
+        </label>
         <div className="form-row">
           <label>
             <span>Contact name</span>
@@ -1163,6 +1192,7 @@ function CounterpartiesPanel({
               <strong>{party.name}</strong>
               <span>
                 {party.type} · {party.countryCode ?? "No country"}
+                {party.registrationNumber ? ` · ${party.registrationNumber}` : ""}
                 {party.vatId ? ` · ${party.vatId}` : ""}
                 {party.iban ? ` · ${party.iban}` : ""}
                 {party.city ? ` · ${party.city}` : ""}
@@ -1220,6 +1250,13 @@ function CounterpartiesPanel({
             </label>
           </div>
           <label>
+            <span>Edit registration number</span>
+            <input
+              value={editRegistrationNumber}
+              onChange={(event) => setEditRegistrationNumber(event.target.value)}
+            />
+          </label>
+          <label>
             <span>Edit IBAN</span>
             <input
               aria-invalid={editPartyIbanValidationMessage ? "true" : "false"}
@@ -1260,6 +1297,10 @@ function CounterpartiesPanel({
               <input value={editCity} onChange={(event) => setEditCity(event.target.value)} />
             </label>
           </div>
+          <label>
+            <span>Edit region / county</span>
+            <input value={editRegion} onChange={(event) => setEditRegion(event.target.value)} />
+          </label>
           <div className="form-row">
             <label>
               <span>Edit contact name</span>

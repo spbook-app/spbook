@@ -15,12 +15,14 @@ export type CreatePartyInput = {
   type: PartyType;
   roles: PartyRole[];
   countryCode?: string;
+  registrationNumber?: string;
   vatId?: string;
   iban?: string;
   addressLine1?: string;
   addressLine2?: string;
   postalCode?: string;
   city?: string;
+  region?: string;
   contactName?: string;
   email?: string;
   active?: boolean;
@@ -32,12 +34,14 @@ export type UpdatePartyInput = {
   type: PartyType;
   roles: PartyRole[];
   countryCode?: string;
+  registrationNumber?: string;
   vatId?: string;
   iban?: string;
   addressLine1?: string;
   addressLine2?: string;
   postalCode?: string;
   city?: string;
+  region?: string;
   contactName?: string;
   email?: string;
   active: boolean;
@@ -70,12 +74,14 @@ export async function updateParty(
     ...existingParty,
     name: input.name.trim(),
     countryCode: normalizeOptional(input.countryCode),
+    registrationNumber: normalizeOptional(input.registrationNumber),
     vatId: normalizeOptional(input.vatId),
     iban: normalizeIban(input.iban),
     addressLine1: normalizeOptional(input.addressLine1),
     addressLine2: normalizeOptional(input.addressLine2),
     postalCode: normalizeOptional(input.postalCode),
     city: normalizeOptional(input.city),
+    region: normalizeOptional(input.region),
     contactName: normalizeOptional(input.contactName),
     email: normalizeEmail(input.email),
     type: input.type,
@@ -96,12 +102,14 @@ function buildParty(input: CreatePartyInput): Party {
     workspaceId: input.workspaceId,
     name: input.name.trim(),
     countryCode: normalizeOptional(input.countryCode),
+    registrationNumber: normalizeOptional(input.registrationNumber),
     vatId: normalizeOptional(input.vatId),
     iban: normalizeIban(input.iban),
     addressLine1: normalizeOptional(input.addressLine1),
     addressLine2: normalizeOptional(input.addressLine2),
     postalCode: normalizeOptional(input.postalCode),
     city: normalizeOptional(input.city),
+    region: normalizeOptional(input.region),
     contactName: normalizeOptional(input.contactName),
     email: normalizeEmail(input.email),
     type: input.type,

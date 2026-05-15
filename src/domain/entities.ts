@@ -40,12 +40,14 @@ export type Party = {
   workspaceId: string;
   name: string;
   countryCode?: string;
+  registrationNumber?: string;
   vatId?: string;
   iban?: string;
   addressLine1?: string;
   addressLine2?: string;
   postalCode?: string;
   city?: string;
+  region?: string;
   contactName?: string;
   email?: string;
   type: PartyType;
