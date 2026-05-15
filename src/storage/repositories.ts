@@ -106,6 +106,13 @@ export function getJournalEntriesByWorkspaceId(
     .sortBy("entryDate");
 }
 
+export function getJournalEntryById(
+  journalEntryId: string,
+  database: SpbookDatabase = db
+) {
+  return database.journalEntries.get(journalEntryId);
+}
+
 export async function saveWorkspaceWithAccounts(
   workspace: Workspace,
   accounts: Account[],
@@ -316,6 +323,34 @@ export async function saveBankTransactionPostingData(
     async () => {
       await database.bankTransactions.put(data.bankTransaction);
       await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
+export async function undoBankTransactionPostingData(
+  data: {
+    bankTransaction: BankTransaction;
+    invoice?: Invoice;
+    supplierInvoice?: SupplierInvoice;
+    journalEntryId: string;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.bankTransactions,
+    database.invoices,
+    database.supplierInvoices,
+    database.journalEntries,
+    async () => {
+      await database.bankTransactions.put(data.bankTransaction);
+      if (data.invoice) {
+        await database.invoices.put(data.invoice);
+      }
+      if (data.supplierInvoice) {
+        await database.supplierInvoices.put(data.supplierInvoice);
+      }
+      await database.journalEntries.delete(data.journalEntryId);
     }
   );
 }

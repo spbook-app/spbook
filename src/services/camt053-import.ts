@@ -4,6 +4,7 @@ import { db, type SpbookDatabase } from "../storage/db";
 import {
   getBankAccountById,
   getBankTransactionsByWorkspaceId,
+  getPartiesByWorkspaceId,
   saveBankTransactions
 } from "../storage/repositories";
 import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
@@ -120,6 +121,7 @@ export async function importCamt053BankTransactions(
       .map((bankTransaction) => bankTransaction.externalId)
       .filter(Boolean)
   );
+  const parties = await getPartiesByWorkspaceId(input.workspaceId, database);
 
   const bankTransactions = statement.entries
     .map((entry) =>
@@ -128,7 +130,8 @@ export async function importCamt053BankTransactions(
         workspaceId: input.workspaceId,
         bankAccountId: input.bankAccountId,
         statementAccountIban: statement.accountIban,
-        statementId: statement.statementId
+        statementId: statement.statementId,
+        partyId: findPartyMatch(parties, entry)?.id
       })
     )
     .filter((bankTransaction) => !existingExternalIds.has(bankTransaction.externalId));
@@ -198,6 +201,7 @@ function toBankTransaction(input: {
   bankAccountId: string;
   statementAccountIban: string;
   statementId: string;
+  partyId?: string;
 }): BankTransaction {
   const externalReference =
     input.entry.accountServicerReference || input.entry.entryReference || input.entry.reference;
@@ -211,6 +215,7 @@ function toBankTransaction(input: {
     currency: input.entry.currency,
     description: input.entry.description,
     reference: input.entry.reference,
+    partyId: input.partyId,
     externalId: [
       "camt053",
       normalizeIban(input.statementAccountIban),
@@ -226,6 +231,29 @@ function toBankTransaction(input: {
     counterpartyIban: input.entry.counterpartyIban,
     status: "unmatched"
   };
+}
+
+function findPartyMatch(
+  parties: Awaited<ReturnType<typeof getPartiesByWorkspaceId>>,
+  entry: Camt053Entry
+) {
+  const normalizedCounterpartyIban = normalizeIban(entry.counterpartyIban);
+
+  if (normalizedCounterpartyIban) {
+    const ibanMatch = parties.find(
+      (party) => normalizeIban(party.iban) === normalizedCounterpartyIban
+    );
+
+    if (ibanMatch) return ibanMatch;
+  }
+
+  const normalizedCounterpartyName = normalizeName(entry.counterpartyName);
+
+  if (!normalizedCounterpartyName || normalizedCounterpartyName === "-") {
+    return undefined;
+  }
+
+  return parties.find((party) => normalizeName(party.name) === normalizedCounterpartyName);
 }
 
 function extractCounterparty(
@@ -323,6 +351,10 @@ function firstMeaningful(values: Array<string | undefined>) {
 
 function normalizeIban(value: string | undefined) {
   return value?.replace(/\s+/g, "").toUpperCase() ?? "";
+}
+
+function normalizeName(value: string | undefined) {
+  return value?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
 }
 
 function createEntityId(prefix: string) {

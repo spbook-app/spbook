@@ -4,6 +4,7 @@ import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { createBankAccount } from "./bank-workflow";
 import { importCamt053BankTransactions, parseCamt053Statement } from "./camt053-import";
+import { createParty } from "./party-workflow";
 
 const sampleStatementDirectory = "../spbook-localdoc/sources/original-xml";
 const sampleStatementPath = `${sampleStatementDirectory}/SI56028430300037670_20260413_1.xml`;
@@ -79,5 +80,45 @@ describe("CAMT.053 import", () => {
       status: "unmatched"
     });
     expect(secondImport.overview.bankTransactions[0]?.entryReference).toBeTruthy();
+  });
+
+  it("links imported entries to existing counterparties by IBAN", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR",
+        iban: "SI56 0284 3030 0037 670"
+      },
+      database
+    );
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB d.d.",
+        type: "business",
+        roles: ["bank"],
+        iban: "SI56 0290 0000 0200 020"
+      },
+      database
+    );
+    const xml = await readFile(
+      `${sampleStatementDirectory}/SI56028430300037670_20260330_1.xml`,
+      "utf8"
+    );
+    const result = await importCamt053BankTransactions(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        xml
+      },
+      database
+    );
+
+    expect(result.overview.bankTransactions.some(
+      (bankTransaction) => bankTransaction.partyId === partyOverview.parties[0]!.id
+    )).toBe(true);
   });
 });

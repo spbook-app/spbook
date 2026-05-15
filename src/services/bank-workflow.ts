@@ -13,13 +13,15 @@ import {
   getBankAccountById,
   getBankTransactionById,
   getInvoiceById,
+  getJournalEntryById,
   getPartyById,
   getSupplierInvoiceById,
   saveBankAccount,
   saveBankTransaction,
   saveBankTransactionPostingData,
   saveInvoicePaymentData,
-  saveSupplierInvoicePaymentData
+  saveSupplierInvoicePaymentData,
+  undoBankTransactionPostingData
 } from "../storage/repositories";
 import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
 
@@ -404,6 +406,62 @@ export async function postBankFeeFromBankTransaction(
   return loadWorkspaceOverview(bankContext.bankTransaction.workspaceId, database);
 }
 
+export async function undoBankTransactionPosting(
+  bankTransactionId: string,
+  database: SpbookDatabase = db
+) {
+  const bankTransaction = await getBankTransactionById(bankTransactionId, database);
+
+  if (!bankTransaction) {
+    throw new Error(`Bank transaction "${bankTransactionId}" was not found.`);
+  }
+
+  if (bankTransaction.status === "unmatched") {
+    throw new Error("Bank transaction is not posted or matched.");
+  }
+
+  if (!bankTransaction.journalEntryId) {
+    throw new Error("Bank transaction has no linked journal entry.");
+  }
+
+  const journalEntry = await getJournalEntryById(bankTransaction.journalEntryId, database);
+
+  if (!journalEntry) {
+    throw new Error(`Journal entry "${bankTransaction.journalEntryId}" was not found.`);
+  }
+
+  const unmatchedBankTransaction: BankTransaction = {
+    ...bankTransaction,
+    status: "unmatched",
+    matchedDocumentType: undefined,
+    matchedDocumentId: undefined,
+    journalEntryId: undefined
+  };
+  const invoice =
+    bankTransaction.matchedDocumentType === "invoice" && bankTransaction.matchedDocumentId
+      ? await getInvoiceById(bankTransaction.matchedDocumentId, database)
+      : undefined;
+  const supplierInvoice =
+    bankTransaction.matchedDocumentType === "supplier_invoice" &&
+    bankTransaction.matchedDocumentId
+      ? await getSupplierInvoiceById(bankTransaction.matchedDocumentId, database)
+      : undefined;
+
+  await undoBankTransactionPostingData(
+    {
+      bankTransaction: unmatchedBankTransaction,
+      invoice: invoice ? { ...invoice, status: "issued" } : undefined,
+      supplierInvoice: supplierInvoice
+        ? { ...supplierInvoice, status: "approved" }
+        : undefined,
+      journalEntryId: journalEntry.id
+    },
+    database
+  );
+
+  return loadWorkspaceOverview(bankTransaction.workspaceId, database);
+}
+
 type BankTransactionContext = {
   bankAccount: BankAccount;
   bankTransaction: BankTransaction;
@@ -506,6 +564,8 @@ function createSupplierPaymentEntry(
 }
 
 function createBankFeeEntry(context: BankTransactionContext): JournalEntry {
+  const partyId = context.bankTransaction.partyId ?? context.bankAccount.partyId;
+
   return {
     id: createEntityId("je_bank_fee"),
     workspaceId: context.bankTransaction.workspaceId,
@@ -519,6 +579,7 @@ function createBankFeeEntry(context: BankTransactionContext): JournalEntry {
         side: "debit",
         amount: context.absoluteAmount,
         currency: context.bankTransaction.currency,
+        partyId,
         bankAccountId: context.bankAccount.id
       },
       {
@@ -526,6 +587,7 @@ function createBankFeeEntry(context: BankTransactionContext): JournalEntry {
         side: "credit",
         amount: context.absoluteAmount,
         currency: context.bankTransaction.currency,
+        partyId,
         bankAccountId: context.bankAccount.id
       }
     ]

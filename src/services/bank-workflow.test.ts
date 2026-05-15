@@ -10,6 +10,7 @@ import {
   matchInvoicePaymentFromBankTransaction,
   matchSupplierPaymentFromBankTransaction,
   postBankFeeFromBankTransaction,
+  undoBankTransactionPosting,
   updateBankAccount,
   updateBankTransaction
 } from "./bank-workflow";
@@ -398,6 +399,46 @@ describe("bank workflow", () => {
     expect(postedOverview.bankTransactions[0]?.matchedDocumentType).toBe("bank_fee");
     expect(balanceFor(postedOverview.balances, "1100")).toBe("-3.50");
     expect(balanceFor(postedOverview.balances, "4100")).toBe("3.50");
+  });
+
+  it("undoes a bank fee posting", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+    const transactionOverview = await createBankTransaction(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-15",
+        amount: "-3.50",
+        currency: "EUR",
+        description: "Monthly bank fee"
+      },
+      database
+    );
+    const postedOverview = await postBankFeeFromBankTransaction(
+      transactionOverview.bankTransactions[0]!.id,
+      database
+    );
+    const undoneOverview = await undoBankTransactionPosting(
+      transactionOverview.bankTransactions[0]!.id,
+      database
+    );
+
+    expect(postedOverview.journalEntries).toHaveLength(1);
+    expect(undoneOverview.bankTransactions[0]).toMatchObject({
+      status: "unmatched",
+      matchedDocumentType: undefined,
+      journalEntryId: undefined
+    });
+    expect(undoneOverview.journalEntries).toHaveLength(0);
   });
 
   async function createSalesContext(total: string) {

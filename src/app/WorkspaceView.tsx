@@ -18,6 +18,7 @@ import {
   matchInvoicePaymentFromBankTransaction,
   matchSupplierPaymentFromBankTransaction,
   postBankFeeFromBankTransaction,
+  undoBankTransactionPosting,
   updateBankAccount,
   updateBankTransaction
 } from "../services/bank-workflow";
@@ -1455,6 +1456,7 @@ function BankingPanel({
     | "transaction"
     | "transaction-update"
     | "fee"
+    | "undo"
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -1810,6 +1812,25 @@ function BankingPanel({
     }
   }
 
+  async function handleUndoBankTransactionPosting(bankTransactionId: string) {
+    setActionState("undo");
+    setErrorMessage(null);
+
+    try {
+      const overview = await undoBankTransactionPosting(bankTransactionId);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedEditBankTransactionId(bankTransactionId);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Posting was not undone.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
   return (
     <section className="panel panel-wide" aria-labelledby="banking-title">
       <div className="panel-header">
@@ -2113,10 +2134,12 @@ function BankingPanel({
                   {bankTransaction.counterpartyName || bankTransaction.externalId ? (
                     <span className="transaction-details">
                       <span>
-                        Counterparty: {bankTransaction.counterpartyName ?? "Unknown"}
+                        Statement counterparty: {bankTransaction.counterpartyName ?? "Unknown"}
                       </span>
                       {bankTransaction.counterpartyIban ? (
-                        <span>Counterparty IBAN: {bankTransaction.counterpartyIban}</span>
+                        <span>
+                          Statement counterparty IBAN: {bankTransaction.counterpartyIban}
+                        </span>
                       ) : null}
                       {bankTransaction.reference ? (
                         <span>Reference: {bankTransaction.reference}</span>
@@ -2168,9 +2191,15 @@ function BankingPanel({
               linkedPartyId={linkedPartyId}
               parties={data.parties}
               suggestedPartyId={selectedStatementCounterpartyCandidate?.id}
+              isPostingBankFee={actionState === "fee"}
+              isUndoingPosting={actionState === "undo"}
               onCreateCounterparty={() => void handleCreateCounterpartyFromBankTransaction()}
+              onPostBankFee={() => void handlePostBankFee(selectedEditBankTransaction.id)}
               onLinkCounterparty={() => void handleLinkBankTransactionParty()}
               onLinkedPartyChange={setLinkedPartyId}
+              onUndoPosting={() =>
+                void handleUndoBankTransactionPosting(selectedEditBankTransaction.id)
+              }
             />
             <div className="form-row">
               <label>
@@ -2264,9 +2293,13 @@ function BankTransactionDetailPanel({
   linkedPartyId,
   parties,
   suggestedPartyId,
+  isPostingBankFee,
+  isUndoingPosting,
   onCreateCounterparty,
+  onPostBankFee,
   onLinkCounterparty,
-  onLinkedPartyChange
+  onLinkedPartyChange,
+  onUndoPosting
 }: {
   bankAccountName: string;
   bankTransaction: BankTransaction;
@@ -2277,9 +2310,13 @@ function BankTransactionDetailPanel({
   linkedPartyId: string;
   parties: Extract<AppDataState, { state: "ready" }>["parties"];
   suggestedPartyId?: string;
+  isPostingBankFee: boolean;
+  isUndoingPosting: boolean;
   onCreateCounterparty: () => void;
+  onPostBankFee: () => void;
   onLinkCounterparty: () => void;
   onLinkedPartyChange: (partyId: string) => void;
+  onUndoPosting: () => void;
 }) {
   const linkedParty = parties.find((party) => party.id === bankTransaction.partyId);
   const details = [
@@ -2291,8 +2328,8 @@ function BankTransactionDetailPanel({
     ["Status", bankTransaction.status],
     ["Description", bankTransaction.description],
     ["Reference", bankTransaction.reference],
-    ["Counterparty", bankTransaction.counterpartyName],
-    ["Counterparty IBAN", bankTransaction.counterpartyIban],
+    ["Statement counterparty", bankTransaction.counterpartyName],
+    ["Statement counterparty IBAN", bankTransaction.counterpartyIban],
     ["Remittance", bankTransaction.remittanceInformation],
     ["Bank reference", bankTransaction.bankReference],
     ["Entry reference", bankTransaction.entryReference],
@@ -2351,6 +2388,28 @@ function BankTransactionDetailPanel({
           ) : null}
         </div>
       ) : null}
+      <div className="transaction-detail-actions">
+        {bankTransaction.status === "unmatched" && bankTransaction.amount.startsWith("-") ? (
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isPostingBankFee}
+            onClick={onPostBankFee}
+          >
+            {isPostingBankFee ? "Posting bank fee" : "Post as bank fee"}
+          </button>
+        ) : null}
+        {bankTransaction.status !== "unmatched" ? (
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isUndoingPosting}
+            onClick={onUndoPosting}
+          >
+            {isUndoingPosting ? "Undoing" : "Undo posting"}
+          </button>
+        ) : null}
+      </div>
       {bankTransaction.importSource && bankTransaction.counterpartyName ? (
         <div className="transaction-detail-actions">
           <button
