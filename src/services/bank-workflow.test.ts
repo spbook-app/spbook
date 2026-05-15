@@ -12,6 +12,7 @@ import {
   updateBankAccount,
   updateBankTransaction
 } from "./bank-workflow";
+import { createWorkspaceAccount } from "./account-workflow";
 import { createSalesInvoice } from "./invoice-workflow";
 import { createParty } from "./party-workflow";
 import { createSupplierInvoice } from "./supplier-invoice-workflow";
@@ -96,6 +97,17 @@ describe("bank workflow", () => {
 
   it("updates bank account parameters", async () => {
     const initialization = await initializeDefaultWorkspace(database);
+    await createWorkspaceAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        code: "1101",
+        name: "Second bank account",
+        role: "posting",
+        parentCode: "11",
+        currency: "EUR"
+      },
+      database
+    );
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,

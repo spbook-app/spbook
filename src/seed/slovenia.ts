@@ -6,7 +6,6 @@ export const DEFAULT_SLOVENIA_WORKSPACE_ID = "ws_si_default";
 export const DEFAULT_SLOVENIA_ACCOUNT_CODES = [
   "11",
   "1100",
-  "1101",
   "12",
   "1200",
   "22",
@@ -42,8 +41,7 @@ export function createDefaultSloveniaAccounts(
 ): Account[] {
   const accounts: Account[] = [
     groupAccount(workspaceId, "11", "Bank accounts"),
-    postingAccount(workspaceId, "1100", "11", "Business bank account A"),
-    postingAccount(workspaceId, "1101", "11", "Business bank account B"),
+    postingAccount(workspaceId, "1100", "11", "Business bank account"),
     groupAccount(workspaceId, "12", "Trade receivables"),
     postingAccount(workspaceId, "1200", "12", "Receivables from customers"),
     groupAccount(workspaceId, "22", "Trade payables"),

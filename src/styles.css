@@ -390,6 +390,14 @@ table {
   font-size: 0.92rem;
 }
 
+tbody tr {
+  cursor: pointer;
+}
+
+.selected-row {
+  background: #eff6ec;
+}
+
 th {
   padding: 0 12px 10px;
   color: #7a756b;
@@ -659,6 +667,23 @@ td {
   margin-bottom: 18px;
 }
 
+.settings-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.file-action {
+  display: grid;
+  gap: 7px;
+  color: #7a756b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .transaction-list {
   display: grid;
   gap: 10px;
@@ -828,6 +853,13 @@ td {
   margin: 0;
   color: #25231f;
   overflow-wrap: anywhere;
+}
+
+.transaction-detail-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .inline-select {

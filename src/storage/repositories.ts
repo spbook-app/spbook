@@ -25,6 +25,10 @@ export function getAccountsByWorkspaceId(
   return database.accounts.where("workspaceId").equals(workspaceId).sortBy("code");
 }
 
+export function getAccountById(accountId: string, database: SpbookDatabase = db) {
+  return database.accounts.get(accountId);
+}
+
 export function getBankAccountsByWorkspaceId(
   workspaceId: string,
   database: SpbookDatabase = db
@@ -111,6 +115,10 @@ export async function saveWorkspaceWithAccounts(
     await database.workspaces.put(workspace);
     await database.accounts.bulkPut(accounts);
   });
+}
+
+export function saveAccount(account: Account, database: SpbookDatabase = db) {
+  return database.accounts.put(account);
 }
 
 export function saveParty(party: Party, database: SpbookDatabase = db) {

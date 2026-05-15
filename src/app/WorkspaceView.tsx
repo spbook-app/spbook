@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
-import type { Account, BankTransaction, JournalEntry, PartyRole, PartyType } from "../domain";
+import type {
+  Account,
+  AccountRole,
+  BankTransaction,
+  JournalEntry,
+  PartyRole,
+  PartyType
+} from "../domain";
 import { buildInfo } from "../generated/build-info";
+import { createWorkspaceAccount, updateWorkspaceAccount } from "../services/account-workflow";
 import type { AccountBalance } from "../services/balances";
 import {
   createBankAccount,
@@ -20,6 +28,11 @@ import {
 } from "../services/owner-transactions-workflow";
 import { createParty, updateParty } from "../services/party-workflow";
 import { createSupplierInvoice } from "../services/supplier-invoice-workflow";
+import {
+  exportWorkspaceBackup,
+  importWorkspaceBackup,
+  parseWorkspaceBackup
+} from "../services/workspace-backup";
 import {
   loadWorkspaceOverview,
   type WorkspaceOverview
@@ -144,7 +157,7 @@ export function WorkspaceView({
           <div className="section-stack">
             <BalancesTable balances={data.balances} accountNames={accountNames} />
             <JournalEntriesPanel entries={data.journalEntries} />
-            <AccountsTable accounts={data.accounts} />
+            <AccountsTable data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
         {activeSection === "settings" ? (
@@ -467,6 +480,29 @@ function getIbanValidationMessage(iban: string) {
   return null;
 }
 
+function isSameStatementCounterparty(
+  partyName: string,
+  partyIban: string | undefined,
+  statementCounterpartyName: string | undefined,
+  statementCounterpartyIban: string | undefined
+) {
+  const normalizedPartyIban = normalizeIbanForCompare(partyIban);
+  const normalizedStatementIban = normalizeIbanForCompare(statementCounterpartyIban);
+
+  if (normalizedPartyIban && normalizedPartyIban === normalizedStatementIban) {
+    return true;
+  }
+
+  return (
+    partyName.trim().toLowerCase() ===
+    statementCounterpartyName?.trim().toLowerCase()
+  );
+}
+
+function normalizeIbanForCompare(iban: string | undefined) {
+  return iban?.replace(/\s+/g, "").toUpperCase() ?? "";
+}
+
 function SettingsPanel({
   data,
   onDataStateChange,
@@ -476,6 +512,62 @@ function SettingsPanel({
   onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {
+  const [backupState, setBackupState] = useState<"idle" | "exporting" | "importing">("idle");
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+
+  async function handleExportBackup() {
+    setBackupState("exporting");
+    setBackupMessage(null);
+    setBackupError(null);
+
+    try {
+      const backup = await exportWorkspaceBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `spbook-backup-${data.workspace.id}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setBackupMessage("Backup exported.");
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backup was not exported.");
+    } finally {
+      setBackupState("idle");
+    }
+  }
+
+  async function handleImportBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+
+    if (!file) return;
+
+    setBackupState("importing");
+    setBackupMessage(null);
+    setBackupError(null);
+
+    try {
+      const backup = parseWorkspaceBackup(await file.text());
+      const overview = await importWorkspaceBackup(backup);
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview),
+        initializedWorkspace: false
+      });
+      setBackupMessage("Backup imported.");
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backup was not imported.");
+    } finally {
+      event.currentTarget.value = "";
+      setBackupState("idle");
+    }
+  }
+
   return (
     <section className="panel" aria-labelledby="settings-title">
       <div className="panel-header">
@@ -506,6 +598,27 @@ function SettingsPanel({
           <dd>{formatAppBuildLabel(buildInfo)}</dd>
         </div>
       </dl>
+      <div className="settings-actions">
+        <button
+          className="primary-button"
+          type="button"
+          disabled={backupState !== "idle"}
+          onClick={() => void handleExportBackup()}
+        >
+          {backupState === "exporting" ? "Exporting" : "Export backup"}
+        </button>
+        <label className="file-action">
+          <span>Import backup</span>
+          <input
+            accept="application/json,.json"
+            disabled={backupState !== "idle"}
+            type="file"
+            onChange={(event) => void handleImportBackup(event)}
+          />
+        </label>
+      </div>
+      {backupMessage ? <p className="field-note">{backupMessage}</p> : null}
+      {backupError ? <p className="form-error">{backupError}</p> : null}
       {showReset ? (
         <WorkspaceStatusCard
           data={data}
@@ -517,7 +630,98 @@ function SettingsPanel({
   );
 }
 
-function AccountsTable({ accounts }: { accounts: Account[] }) {
+function AccountsTable({
+  data,
+  onDataStateChange
+}: {
+  data: Extract<AppDataState, { state: "ready" }>;
+  onDataStateChange: (state: AppDataState) => void;
+}) {
+  const accounts = data.accounts;
+  const groupAccounts = accounts.filter((account) => account.role === "group");
+  const [code, setCode] = useState("1101");
+  const [name, setName] = useState("Second bank account");
+  const [role, setRole] = useState<AccountRole>("posting");
+  const [parentCode, setParentCode] = useState("11");
+  const [currency, setCurrency] = useState(data.workspace.baseCurrency);
+  const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id ?? "");
+  const selectedAccount =
+    accounts.find((account) => account.id === selectedAccountId) ?? accounts[0] ?? null;
+  const [editName, setEditName] = useState(selectedAccount?.name ?? "");
+  const [editParentCode, setEditParentCode] = useState(selectedAccount?.parentCode ?? "");
+  const [editCurrency, setEditCurrency] = useState(selectedAccount?.currency ?? "");
+  const [editActive, setEditActive] = useState(selectedAccount?.active ?? true);
+  const [actionState, setActionState] = useState<"idle" | "creating" | "updating">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedAccount) return;
+
+    setSelectedAccountId(selectedAccount.id);
+    setEditName(selectedAccount.name);
+    setEditParentCode(selectedAccount.parentCode ?? "");
+    setEditCurrency(selectedAccount.currency ?? "");
+    setEditActive(selectedAccount.active);
+  }, [selectedAccount]);
+
+  async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+    setActionState("creating");
+
+    try {
+      const overview = await createWorkspaceAccount({
+        workspaceId: data.workspace.id,
+        code,
+        name,
+        role,
+        parentCode: role === "posting" ? parentCode : undefined,
+        currency: role === "posting" ? currency : undefined
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedAccountId(overview.accounts.find((account) => account.code === code)?.id ?? "");
+      setCode("");
+      setName("");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Account was not created.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleUpdateAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+    setActionState("updating");
+
+    try {
+      if (!selectedAccount) {
+        throw new Error("Select an account first.");
+      }
+
+      const overview = await updateWorkspaceAccount({
+        accountId: selectedAccount.id,
+        name: editName,
+        parentCode: selectedAccount.role === "posting" ? editParentCode : undefined,
+        currency: selectedAccount.role === "posting" ? editCurrency : undefined,
+        active: editActive
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Account was not updated.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
   return (
     <section className="panel panel-wide" aria-labelledby="accounts-title">
       <div className="panel-header">
@@ -527,6 +731,56 @@ function AccountsTable({ accounts }: { accounts: Account[] }) {
         </div>
         <span>{accounts.length} accounts</span>
       </div>
+      <form className="invoice-form" onSubmit={(event) => void handleCreateAccount(event)}>
+        <div className="form-row">
+          <label>
+            <span>Code</span>
+            <input value={code} onChange={(event) => setCode(event.target.value)} />
+          </label>
+          <label>
+            <span>Name</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Role</span>
+            <select
+              value={role}
+              onChange={(event) => setRole(event.target.value as AccountRole)}
+            >
+              <option value="posting">Posting</option>
+              <option value="group">Group</option>
+            </select>
+          </label>
+          <label>
+            <span>Parent group</span>
+            <select
+              value={parentCode}
+              disabled={role !== "posting"}
+              onChange={(event) => setParentCode(event.target.value)}
+            >
+              <option value="">No parent</option>
+              {groupAccounts.map((account) => (
+                <option key={account.id} value={account.code}>
+                  {account.code} · {account.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label>
+          <span>Currency</span>
+          <input
+            disabled={role !== "posting"}
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value)}
+          />
+        </label>
+        <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
+          {actionState === "creating" ? "Creating" : "Create account"}
+        </button>
+      </form>
       <div className="table-wrap">
         <table>
           <thead>
@@ -539,7 +793,11 @@ function AccountsTable({ accounts }: { accounts: Account[] }) {
           </thead>
           <tbody>
             {accounts.map((account) => (
-              <tr key={account.id}>
+              <tr
+                className={selectedAccount?.id === account.id ? "selected-row" : ""}
+                key={account.id}
+                onClick={() => setSelectedAccountId(account.id)}
+              >
                 <td className="code-cell">{account.code}</td>
                 <td>{account.name}</td>
                 <td>
@@ -551,6 +809,68 @@ function AccountsTable({ accounts }: { accounts: Account[] }) {
           </tbody>
         </table>
       </div>
+      {selectedAccount ? (
+        <form
+          className="invoice-form edit-bank-account-form"
+          onSubmit={(event) => void handleUpdateAccount(event)}
+        >
+          <div className="form-row">
+            <label>
+              <span>Code</span>
+              <input disabled value={selectedAccount.code} />
+            </label>
+            <label>
+              <span>Role</span>
+              <input disabled value={selectedAccount.role} />
+            </label>
+          </div>
+          <label>
+            <span>Edit name</span>
+            <input value={editName} onChange={(event) => setEditName(event.target.value)} />
+          </label>
+          <div className="form-row">
+            <label>
+              <span>Edit parent group</span>
+              <select
+                value={editParentCode}
+                disabled={selectedAccount.role !== "posting"}
+                onChange={(event) => setEditParentCode(event.target.value)}
+              >
+                <option value="">No parent</option>
+                {groupAccounts.map((account) => (
+                  <option key={account.id} value={account.code}>
+                    {account.code} · {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Edit currency</span>
+              <input
+                disabled={selectedAccount.role !== "posting"}
+                value={editCurrency}
+                onChange={(event) => setEditCurrency(event.target.value)}
+              />
+            </label>
+          </div>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={editActive}
+              onChange={(event) => setEditActive(event.target.checked)}
+            />
+            <span>Active account</span>
+          </label>
+          <p className="field-note">
+            Account code and role are fixed after creation because journal entries refer to
+            account codes.
+          </p>
+          <button className="secondary-button" type="submit" disabled={actionState !== "idle"}>
+            {actionState === "updating" ? "Saving" : "Save account"}
+          </button>
+        </form>
+      ) : null}
+      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
   );
 }
@@ -1040,6 +1360,21 @@ function BankingPanel({
   const canEditSelectedBankTransaction =
     selectedEditBankTransaction?.status === "unmatched" &&
     !selectedEditBankTransaction.importSource;
+  const selectedStatementCounterpartyExists = selectedEditBankTransaction
+    ? data.parties.some((party) =>
+        isSameStatementCounterparty(
+          party.name,
+          party.iban,
+          selectedEditBankTransaction.counterpartyName,
+          selectedEditBankTransaction.counterpartyIban
+        )
+      )
+    : false;
+  const canCreateCounterpartyFromSelectedTransaction = Boolean(
+    selectedEditBankTransaction?.importSource &&
+      selectedEditBankTransaction.counterpartyName &&
+      !selectedStatementCounterpartyExists
+  );
   const [editTransactionBankAccountId, setEditTransactionBankAccountId] = useState(
     selectedEditBankTransaction?.bankAccountId ?? data.bankAccounts[0]?.id ?? ""
   );
@@ -1060,6 +1395,7 @@ function BankingPanel({
     | "account"
     | "account-update"
     | "statement-import"
+    | "party-create"
     | "transaction"
     | "transaction-update"
     | "fee"
@@ -1311,6 +1647,44 @@ function BankingPanel({
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Bank transaction was not updated."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleCreateCounterpartyFromBankTransaction() {
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditBankTransaction?.counterpartyName) {
+        throw new Error("Selected bank transaction has no counterparty name.");
+      }
+
+      if (selectedStatementCounterpartyExists) {
+        throw new Error("Counterparty already exists.");
+      }
+
+      setActionState("party-create");
+      const overview = await createParty({
+        workspaceId: data.workspace.id,
+        name: selectedEditBankTransaction.counterpartyName,
+        type: "business",
+        roles: [selectedEditBankTransaction.amount.startsWith("-") ? "supplier" : "customer"],
+        countryCode:
+          selectedEditBankTransaction.counterpartyIban?.slice(0, 2) ??
+          data.workspace.countryCode,
+        iban: selectedEditBankTransaction.counterpartyIban
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Counterparty was not created."
       );
     } finally {
       setActionState("idle");
@@ -1686,6 +2060,10 @@ function BankingPanel({
                 )?.name ?? "Unknown account"
               }
               bankTransaction={selectedEditBankTransaction}
+              canCreateCounterparty={canCreateCounterpartyFromSelectedTransaction}
+              counterpartyExists={selectedStatementCounterpartyExists}
+              isCreatingCounterparty={actionState === "party-create"}
+              onCreateCounterparty={() => void handleCreateCounterpartyFromBankTransaction()}
             />
             <div className="form-row">
               <label>
@@ -1771,10 +2149,18 @@ function BankingPanel({
 
 function BankTransactionDetailPanel({
   bankAccountName,
-  bankTransaction
+  bankTransaction,
+  canCreateCounterparty,
+  counterpartyExists,
+  isCreatingCounterparty,
+  onCreateCounterparty
 }: {
   bankAccountName: string;
   bankTransaction: BankTransaction;
+  canCreateCounterparty: boolean;
+  counterpartyExists: boolean;
+  isCreatingCounterparty: boolean;
+  onCreateCounterparty: () => void;
 }) {
   const details = [
     ["Bank account", bankAccountName],
@@ -1809,6 +2195,21 @@ function BankTransactionDetailPanel({
           </div>
         ))}
       </dl>
+      {bankTransaction.importSource && bankTransaction.counterpartyName ? (
+        <div className="transaction-detail-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={!canCreateCounterparty || isCreatingCounterparty}
+            onClick={onCreateCounterparty}
+          >
+            {isCreatingCounterparty ? "Creating counterparty" : "Create counterparty"}
+          </button>
+          {counterpartyExists ? (
+            <p className="field-note">A counterparty with this name or IBAN already exists.</p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

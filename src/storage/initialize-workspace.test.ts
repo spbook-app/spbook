@@ -31,7 +31,7 @@ describe("initializeDefaultWorkspace", () => {
     expect(result.created).toBe(true);
     expect(result.workspace.countryCode).toBe("SI");
     expect(result.workspace.baseCurrency).toBe("EUR");
-    expect(result.accounts).toHaveLength(18);
+    expect(result.accounts).toHaveLength(17);
     expect(await getFirstWorkspace(db)).toEqual(result.workspace);
   });
 
