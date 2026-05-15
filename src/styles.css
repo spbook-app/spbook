@@ -433,6 +433,17 @@ td {
   font-weight: 750;
 }
 
+.party-detail {
+  display: grid;
+  gap: 3px;
+}
+
+.party-detail span {
+  color: #5d5a54;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
 .invoice-form,
 .invoice-summary {
   display: grid;
@@ -667,6 +678,12 @@ td {
   margin-top: 18px;
 }
 
+.statement-import-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
 .subsection-header {
   display: flex;
   align-items: flex-start;
@@ -766,6 +783,16 @@ td {
 .transaction-pick small {
   color: #7a756b;
   font-size: 0.84rem;
+}
+
+.transaction-details {
+  display: grid;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.transaction-details span {
+  overflow-wrap: anywhere;
 }
 
 .inline-select {
@@ -945,6 +972,10 @@ td {
   }
 
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .statement-import-row {
     grid-template-columns: 1fr;
   }
 

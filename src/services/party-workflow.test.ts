@@ -20,7 +20,12 @@ describe("party workflow", () => {
         type: "business",
         roles: ["customer", "supplier"],
         countryCode: "SI",
-        vatId: "SI12345678"
+        vatId: "SI12345678",
+        addressLine1: "Slovenska cesta 1",
+        postalCode: "1000",
+        city: "Ljubljana",
+        contactName: "Ana Novak",
+        email: "INFO@ACME.SI"
       },
       database
     );
@@ -32,6 +37,11 @@ describe("party workflow", () => {
       roles: ["customer", "supplier"],
       countryCode: "SI",
       vatId: "SI12345678",
+      addressLine1: "Slovenska cesta 1",
+      postalCode: "1000",
+      city: "Ljubljana",
+      contactName: "Ana Novak",
+      email: "info@acme.si",
       active: true
     });
   });
@@ -72,6 +82,11 @@ describe("party workflow", () => {
         roles: ["customer", "supplier"],
         countryCode: "SI",
         vatId: "SI87654321",
+        addressLine1: "Dunajska cesta 10",
+        postalCode: "1000",
+        city: "Ljubljana",
+        contactName: "Janez Novak",
+        email: "billing@acme.si",
         active: false
       },
       database
@@ -81,8 +96,30 @@ describe("party workflow", () => {
       name: "ACME Updated d.o.o.",
       roles: ["customer", "supplier"],
       vatId: "SI87654321",
+      addressLine1: "Dunajska cesta 10",
+      postalCode: "1000",
+      city: "Ljubljana",
+      contactName: "Janez Novak",
+      email: "billing@acme.si",
       active: false
     });
+  });
+
+  it("rejects invalid email values", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+
+    await expect(
+      createParty(
+        {
+          workspaceId: initialization.workspace.id,
+          name: "ACME d.o.o.",
+          type: "business",
+          roles: ["customer"],
+          email: "not-an-email"
+        },
+        database
+      )
+    ).rejects.toThrow("Party email is invalid.");
   });
 
   it("keeps required roles for parties used by documents", async () => {

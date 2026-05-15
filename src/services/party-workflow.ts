@@ -15,6 +15,12 @@ export type CreatePartyInput = {
   roles: PartyRole[];
   countryCode?: string;
   vatId?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalCode?: string;
+  city?: string;
+  contactName?: string;
+  email?: string;
   active?: boolean;
 };
 
@@ -25,6 +31,12 @@ export type UpdatePartyInput = {
   roles: PartyRole[];
   countryCode?: string;
   vatId?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalCode?: string;
+  city?: string;
+  contactName?: string;
+  email?: string;
   active: boolean;
 };
 
@@ -56,6 +68,12 @@ export async function updateParty(
     name: input.name.trim(),
     countryCode: normalizeOptional(input.countryCode),
     vatId: normalizeOptional(input.vatId),
+    addressLine1: normalizeOptional(input.addressLine1),
+    addressLine2: normalizeOptional(input.addressLine2),
+    postalCode: normalizeOptional(input.postalCode),
+    city: normalizeOptional(input.city),
+    contactName: normalizeOptional(input.contactName),
+    email: normalizeEmail(input.email),
     type: input.type,
     roles: [...new Set(input.roles)],
     active: input.active
@@ -75,6 +93,12 @@ function buildParty(input: CreatePartyInput): Party {
     name: input.name.trim(),
     countryCode: normalizeOptional(input.countryCode),
     vatId: normalizeOptional(input.vatId),
+    addressLine1: normalizeOptional(input.addressLine1),
+    addressLine2: normalizeOptional(input.addressLine2),
+    postalCode: normalizeOptional(input.postalCode),
+    city: normalizeOptional(input.city),
+    contactName: normalizeOptional(input.contactName),
+    email: normalizeEmail(input.email),
     type: input.type,
     roles: [...new Set(input.roles)],
     active: input.active ?? true
@@ -88,6 +112,10 @@ function validatePartyInput(party: Party) {
 
   if (party.roles.length === 0) {
     throw new Error("At least one party role is required.");
+  }
+
+  if (party.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(party.email)) {
+    throw new Error("Party email is invalid.");
   }
 }
 
@@ -115,6 +143,10 @@ async function ensureUsedPartyRoles(party: Party, database: SpbookDatabase) {
 function normalizeOptional(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function normalizeEmail(value: string | undefined) {
+  return normalizeOptional(value)?.toLowerCase();
 }
 
 function createEntityId(prefix: string) {

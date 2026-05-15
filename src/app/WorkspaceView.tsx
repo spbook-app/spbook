@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import type { Account, BankTransaction, JournalEntry, PartyRole, PartyType } from "../domain";
 import { buildInfo } from "../generated/build-info";
 import type { AccountBalance } from "../services/balances";
@@ -12,6 +12,7 @@ import {
   updateBankAccount,
   updateBankTransaction
 } from "../services/bank-workflow";
+import { importCamt053BankTransactions } from "../services/camt053-import";
 import { createSalesInvoice } from "../services/invoice-workflow";
 import {
   recordOwnerContribution,
@@ -421,6 +422,36 @@ function WorkQueueItem({ label, value }: { label: string; value: number }) {
   );
 }
 
+function PartyInvoiceDetails({
+  party,
+  fallbackLabel
+}: {
+  party: Extract<AppDataState, { state: "ready" }>["parties"][number] | null;
+  fallbackLabel: string;
+}) {
+  if (!party) {
+    return <dd>{fallbackLabel}</dd>;
+  }
+
+  const locality = [party.postalCode, party.city].filter(Boolean).join(" ");
+  const address = [
+    party.addressLine1,
+    party.addressLine2,
+    locality || undefined,
+    party.countryCode
+  ].filter(Boolean);
+  const contact = [party.contactName, party.email].filter(Boolean).join(" · ");
+
+  return (
+    <dd className="party-detail">
+      <strong>{party.name}</strong>
+      {party.vatId ? <span>{party.vatId}</span> : null}
+      {address.length > 0 ? <span>{address.join(", ")}</span> : null}
+      {contact ? <span>{contact}</span> : null}
+    </dd>
+  );
+}
+
 function getIbanValidationMessage(iban: string) {
   const normalized = iban.replace(/\s+/g, "").toUpperCase();
 
@@ -535,6 +566,12 @@ function CounterpartiesPanel({
   const [roles, setRoles] = useState<PartyRole[]>(["customer"]);
   const [countryCode, setCountryCode] = useState("SI");
   const [vatId, setVatId] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [email, setEmail] = useState("");
   const [selectedEditPartyId, setSelectedEditPartyId] = useState(data.parties[0]?.id ?? "");
   const selectedEditParty =
     data.parties.find((party) => party.id === selectedEditPartyId) ??
@@ -545,6 +582,12 @@ function CounterpartiesPanel({
   const [editRoles, setEditRoles] = useState<PartyRole[]>(selectedEditParty?.roles ?? []);
   const [editCountryCode, setEditCountryCode] = useState(selectedEditParty?.countryCode ?? "");
   const [editVatId, setEditVatId] = useState(selectedEditParty?.vatId ?? "");
+  const [editAddressLine1, setEditAddressLine1] = useState(selectedEditParty?.addressLine1 ?? "");
+  const [editAddressLine2, setEditAddressLine2] = useState(selectedEditParty?.addressLine2 ?? "");
+  const [editPostalCode, setEditPostalCode] = useState(selectedEditParty?.postalCode ?? "");
+  const [editCity, setEditCity] = useState(selectedEditParty?.city ?? "");
+  const [editContactName, setEditContactName] = useState(selectedEditParty?.contactName ?? "");
+  const [editEmail, setEditEmail] = useState(selectedEditParty?.email ?? "");
   const [editActive, setEditActive] = useState(selectedEditParty?.active ?? true);
   const [actionState, setActionState] = useState<"idle" | "saving" | "updating">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -558,6 +601,12 @@ function CounterpartiesPanel({
     setEditRoles(selectedEditParty.roles);
     setEditCountryCode(selectedEditParty.countryCode ?? "");
     setEditVatId(selectedEditParty.vatId ?? "");
+    setEditAddressLine1(selectedEditParty.addressLine1 ?? "");
+    setEditAddressLine2(selectedEditParty.addressLine2 ?? "");
+    setEditPostalCode(selectedEditParty.postalCode ?? "");
+    setEditCity(selectedEditParty.city ?? "");
+    setEditContactName(selectedEditParty.contactName ?? "");
+    setEditEmail(selectedEditParty.email ?? "");
     setEditActive(selectedEditParty.active);
   }, [selectedEditParty]);
 
@@ -573,7 +622,13 @@ function CounterpartiesPanel({
         type,
         roles,
         countryCode,
-        vatId
+        vatId,
+        addressLine1,
+        addressLine2,
+        postalCode,
+        city,
+        contactName,
+        email
       });
 
       onDataStateChange({
@@ -583,6 +638,12 @@ function CounterpartiesPanel({
       setSelectedEditPartyId(overview.parties.at(-1)?.id ?? "");
       setName("");
       setVatId("");
+      setAddressLine1("");
+      setAddressLine2("");
+      setPostalCode("");
+      setCity("");
+      setContactName("");
+      setEmail("");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Party was not created.");
     } finally {
@@ -623,6 +684,12 @@ function CounterpartiesPanel({
         roles: editRoles,
         countryCode: editCountryCode,
         vatId: editVatId,
+        addressLine1: editAddressLine1,
+        addressLine2: editAddressLine2,
+        postalCode: editPostalCode,
+        city: editCity,
+        contactName: editContactName,
+        email: editEmail,
         active: editActive
       });
 
@@ -676,6 +743,45 @@ function CounterpartiesPanel({
             <input value={vatId} onChange={(event) => setVatId(event.target.value)} />
           </label>
         </div>
+        <div className="form-row">
+          <label>
+            <span>Address line 1</span>
+            <input
+              value={addressLine1}
+              onChange={(event) => setAddressLine1(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Address line 2</span>
+            <input
+              value={addressLine2}
+              onChange={(event) => setAddressLine2(event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Postal code</span>
+            <input value={postalCode} onChange={(event) => setPostalCode(event.target.value)} />
+          </label>
+          <label>
+            <span>City</span>
+            <input value={city} onChange={(event) => setCity(event.target.value)} />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Contact name</span>
+            <input
+              value={contactName}
+              onChange={(event) => setContactName(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Email</span>
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
+        </div>
         <div className="role-picker" aria-label="Party roles">
           {partyRoles.map((role) => (
             <label key={role}>
@@ -709,6 +815,7 @@ function CounterpartiesPanel({
               <span>
                 {party.type} · {party.countryCode ?? "No country"}
                 {party.vatId ? ` · ${party.vatId}` : ""}
+                {party.city ? ` · ${party.city}` : ""}
                 {party.active ? "" : " · inactive"}
               </span>
             </div>
@@ -760,6 +867,52 @@ function CounterpartiesPanel({
             <label>
               <span>Edit VAT ID</span>
               <input value={editVatId} onChange={(event) => setEditVatId(event.target.value)} />
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              <span>Edit address line 1</span>
+              <input
+                value={editAddressLine1}
+                onChange={(event) => setEditAddressLine1(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Edit address line 2</span>
+              <input
+                value={editAddressLine2}
+                onChange={(event) => setEditAddressLine2(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              <span>Edit postal code</span>
+              <input
+                value={editPostalCode}
+                onChange={(event) => setEditPostalCode(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Edit city</span>
+              <input value={editCity} onChange={(event) => setEditCity(event.target.value)} />
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              <span>Edit contact name</span>
+              <input
+                value={editContactName}
+                onChange={(event) => setEditContactName(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Edit email</span>
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(event) => setEditEmail(event.target.value)}
+              />
             </label>
           </div>
           <div className="role-picker" aria-label="Edit party roles">
@@ -851,9 +1004,16 @@ function BankingPanel({
     selectedEditBankTransaction?.description ?? ""
   );
   const [actionState, setActionState] = useState<
-    "idle" | "account" | "account-update" | "transaction" | "transaction-update" | "fee"
+    | "idle"
+    | "account"
+    | "account-update"
+    | "statement-import"
+    | "transaction"
+    | "transaction-update"
+    | "fee"
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
   const selectedBankAccountId = transactionBankAccountId || data.bankAccounts[0]?.id || "";
   const activeBankAccounts = data.bankAccounts.filter((bankAccount) => bankAccount.active);
   const usedActiveAccountCodes = new Set(
@@ -1006,6 +1166,66 @@ function BankingPanel({
         error instanceof Error ? error.message : "Bank transaction was not created."
       );
     } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleImportStatement(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files ?? []);
+
+    if (files.length === 0) return;
+
+    setActionState("statement-import");
+    setErrorMessage(null);
+    setImportMessage(null);
+
+    try {
+      if (!selectedBankAccountId) {
+        throw new Error("Create or select a bank account first.");
+      }
+
+      let nextOverview: WorkspaceOverview | null = null;
+      let importedCount = 0;
+      let skippedCount = 0;
+      const failedFiles: string[] = [];
+
+      for (const file of files) {
+        try {
+          const result = await importCamt053BankTransactions({
+            workspaceId: data.workspace.id,
+            bankAccountId: selectedBankAccountId,
+            xml: await file.text()
+          });
+
+          nextOverview = result.overview;
+          importedCount += result.importedCount;
+          skippedCount += result.skippedCount;
+        } catch {
+          failedFiles.push(file.name);
+        }
+      }
+
+      if (!nextOverview) {
+        throw new Error("No selected bank statements could be imported.");
+      }
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(nextOverview)
+      });
+      setImportMessage(
+        `Imported ${importedCount} transactions, skipped ${skippedCount} duplicates from ${files.length - failedFiles.length} files.`
+      );
+
+      if (failedFiles.length > 0) {
+        setErrorMessage(`Some files were not imported: ${failedFiles.join(", ")}.`);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Bank statement was not imported."
+      );
+    } finally {
+      event.currentTarget.value = "";
       setActionState("idle");
     }
   }
@@ -1205,6 +1425,46 @@ function BankingPanel({
       <div className="banking-section">
         <div className="subsection-header">
           <div>
+            <h3>Statement import</h3>
+            <p>Import ISO 20022 CAMT.053 XML statements into the selected bank account.</p>
+          </div>
+        </div>
+
+        <div className="statement-import-row">
+          <label>
+            <span>Bank account</span>
+            <select
+              value={selectedBankAccountId}
+              onChange={(event) => setTransactionBankAccountId(event.target.value)}
+            >
+              <option value="">Select bank account</option>
+              {activeBankAccounts.map((bankAccount) => (
+                <option key={bankAccount.id} value={bankAccount.id}>
+                  {bankAccount.name} · {bankAccount.accountCode}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>CAMT.053 XML</span>
+            <input
+              accept=".xml,application/xml,text/xml"
+              disabled={actionState !== "idle" || !selectedBankAccountId}
+              multiple
+              type="file"
+              onChange={(event) => void handleImportStatement(event)}
+            />
+          </label>
+        </div>
+        {actionState === "statement-import" ? (
+          <p className="field-note">Importing bank statement.</p>
+        ) : null}
+        {importMessage ? <p className="field-note">{importMessage}</p> : null}
+      </div>
+
+      <div className="banking-section">
+        <div className="subsection-header">
+          <div>
             <h3>Bank transactions</h3>
             <p>Add signed account movements and match them to documents.</p>
           </div>
@@ -1287,6 +1547,28 @@ function BankingPanel({
                     {bankTransaction.status}
                   </span>
                   <small>{bankTransaction.description}</small>
+                  {bankTransaction.counterpartyName || bankTransaction.externalId ? (
+                    <span className="transaction-details">
+                      <span>
+                        Counterparty: {bankTransaction.counterpartyName ?? "Unknown"}
+                      </span>
+                      {bankTransaction.counterpartyIban ? (
+                        <span>Counterparty IBAN: {bankTransaction.counterpartyIban}</span>
+                      ) : null}
+                      {bankTransaction.reference ? (
+                        <span>Reference: {bankTransaction.reference}</span>
+                      ) : null}
+                      {bankTransaction.remittanceInformation ? (
+                        <span>Remittance: {bankTransaction.remittanceInformation}</span>
+                      ) : null}
+                      {bankTransaction.valueDate ? (
+                        <span>Value date: {bankTransaction.valueDate}</span>
+                      ) : null}
+                      {bankTransaction.bankReference ? (
+                        <span>Bank reference: {bankTransaction.bankReference}</span>
+                      ) : null}
+                    </span>
+                  ) : null}
                 </button>
                 {canPostFee ? (
                   <button
@@ -1576,7 +1858,10 @@ function InvoiceWorkflowPanel({
             </div>
             <div>
               <dt>Customer</dt>
-              <dd>{selectedInvoiceParty?.name ?? "Unknown customer"}</dd>
+              <PartyInvoiceDetails
+                party={selectedInvoiceParty}
+                fallbackLabel="Unknown customer"
+              />
             </div>
             <div>
               <dt>Issue date</dt>
@@ -1834,7 +2119,10 @@ function SupplierInvoiceWorkflowPanel({
             </div>
             <div>
               <dt>Supplier</dt>
-              <dd>{selectedSupplierInvoiceParty?.name ?? "Unknown supplier"}</dd>
+              <PartyInvoiceDetails
+                party={selectedSupplierInvoiceParty}
+                fallbackLabel="Unknown supplier"
+              />
             </div>
             <div>
               <dt>Issue date</dt>

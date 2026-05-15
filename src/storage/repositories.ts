@@ -131,6 +131,13 @@ export function saveBankTransaction(
   return database.bankTransactions.put(bankTransaction);
 }
 
+export function saveBankTransactions(
+  bankTransactions: BankTransaction[],
+  database: SpbookDatabase = db
+) {
+  return database.bankTransactions.bulkPut(bankTransactions);
+}
+
 export function saveInvoice(invoice: Invoice, database: SpbookDatabase = db) {
   return database.invoices.put(invoice);
 }

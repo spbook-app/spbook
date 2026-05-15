@@ -41,6 +41,12 @@ export type Party = {
   name: string;
   countryCode?: string;
   vatId?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalCode?: string;
+  city?: string;
+  contactName?: string;
+  email?: string;
   type: PartyType;
   roles: PartyRole[];
   active: boolean;
@@ -97,6 +103,14 @@ export type BankTransaction = {
   currency: CurrencyCode;
   description: string;
   reference?: string;
+  externalId?: string;
+  importSource?: string;
+  entryReference?: string;
+  bankReference?: string;
+  valueDate?: IsoDateString;
+  remittanceInformation?: string;
+  counterpartyName?: string;
+  counterpartyIban?: string;
   status: BankTransactionStatus;
   matchedDocumentType?: BankTransactionMatchType;
   matchedDocumentId?: string;

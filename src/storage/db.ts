@@ -56,6 +56,18 @@ export class SpbookDatabase extends Dexie {
       supplierInvoices: "id, workspaceId, number, partyId, status",
       journalEntries: "id, workspaceId, entryDate, sourceType, sourceId"
     });
+
+    this.version(5).stores({
+      workspaces: "id, countryCode, baseCurrency, updatedAt",
+      accounts: "id, workspaceId, code, parentCode, role, active",
+      bankAccounts: "id, workspaceId, accountCode, active",
+      bankTransactions:
+        "id, workspaceId, bankAccountId, bookingDate, status, matchedDocumentType, matchedDocumentId, externalId",
+      parties: "id, workspaceId, active",
+      invoices: "id, workspaceId, number, partyId, status",
+      supplierInvoices: "id, workspaceId, number, partyId, status",
+      journalEntries: "id, workspaceId, entryDate, sourceType, sourceId"
+    });
   }
 }
 
