@@ -1,8 +1,15 @@
-import type { BankAccount, BankTransaction, Invoice, JournalEntry, SupplierInvoice } from "../domain";
+import type {
+  BankAccount,
+  BankTransaction,
+  Invoice,
+  JournalEntry,
+  SupplierInvoice
+} from "../domain";
 import { parseMoneyAmount, validateJournalEntry } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
   getAccountsByWorkspaceId,
+  getBankAccountsByWorkspaceId,
   getBankAccountById,
   getBankTransactionById,
   getInvoiceById,
@@ -24,12 +31,30 @@ export type CreateBankAccountInput = {
   partyId?: string;
 };
 
+export type UpdateBankAccountInput = {
+  bankAccountId: string;
+  name: string;
+  accountCode: string;
+  iban?: string;
+  partyId?: string;
+  active: boolean;
+};
+
 export type CreateBankTransactionInput = {
   workspaceId: string;
   bankAccountId: string;
   bookingDate: string;
   amount: string;
   currency: string;
+  description: string;
+  reference?: string;
+};
+
+export type UpdateBankTransactionInput = {
+  bankTransactionId: string;
+  bankAccountId: string;
+  bookingDate: string;
+  amount: string;
   description: string;
   reference?: string;
 };
@@ -45,13 +70,15 @@ export async function createBankAccount(
     throw new Error("Bank account must reference an existing posting account.");
   }
 
+  await ensureUniqueBankPostingAccount(input.workspaceId, input.accountCode, undefined, database);
+
   const bankAccount: BankAccount = {
     id: createEntityId("ba"),
     workspaceId: input.workspaceId,
     name: input.name.trim(),
     accountCode: input.accountCode,
     currency: input.currency,
-    iban: normalizeOptional(input.iban),
+    iban: normalizeIban(input.iban),
     partyId: normalizeOptional(input.partyId),
     active: true
   };
@@ -65,6 +92,50 @@ export async function createBankAccount(
   return loadWorkspaceOverview(input.workspaceId, database);
 }
 
+export async function updateBankAccount(
+  input: UpdateBankAccountInput,
+  database: SpbookDatabase = db
+) {
+  const existingBankAccount = await getBankAccountById(input.bankAccountId, database);
+
+  if (!existingBankAccount) {
+    throw new Error(`Bank account "${input.bankAccountId}" was not found.`);
+  }
+
+  const accounts = await getAccountsByWorkspaceId(existingBankAccount.workspaceId, database);
+  const account = accounts.find((candidate) => candidate.code === input.accountCode);
+
+  if (!account || account.role !== "posting") {
+    throw new Error("Bank account must reference an existing posting account.");
+  }
+
+  if (input.active) {
+    await ensureUniqueBankPostingAccount(
+      existingBankAccount.workspaceId,
+      input.accountCode,
+      existingBankAccount.id,
+      database
+    );
+  }
+
+  const updatedBankAccount: BankAccount = {
+    ...existingBankAccount,
+    name: input.name.trim(),
+    accountCode: input.accountCode,
+    iban: normalizeIban(input.iban),
+    partyId: normalizeOptional(input.partyId),
+    active: input.active
+  };
+
+  if (!updatedBankAccount.name) {
+    throw new Error("Bank account name is required.");
+  }
+
+  await saveBankAccount(updatedBankAccount, database);
+
+  return loadWorkspaceOverview(existingBankAccount.workspaceId, database);
+}
+
 export async function createBankTransaction(
   input: CreateBankTransactionInput,
   database: SpbookDatabase = db
@@ -75,11 +146,8 @@ export async function createBankTransaction(
     throw new Error(`Bank account "${input.bankAccountId}" was not found.`);
   }
 
-  const amount = parseSignedMoneyAmount(input.amount);
-
-  if (amount === 0n) {
-    throw new Error("Bank transaction amount cannot be zero.");
-  }
+  ensureBankAccountWorkspace(bankAccount, input.workspaceId);
+  const amount = parseBankTransactionAmount(input.amount);
 
   const bankTransaction: BankTransaction = {
     id: createEntityId("bt"),
@@ -93,13 +161,72 @@ export async function createBankTransaction(
     status: "unmatched"
   };
 
-  if (!bankTransaction.description) {
-    throw new Error("Bank transaction description is required.");
-  }
+  ensureBankTransactionFields(bankTransaction.bookingDate, bankTransaction.description);
 
   await saveBankTransaction(bankTransaction, database);
 
   return loadWorkspaceOverview(input.workspaceId, database);
+}
+
+export async function updateBankTransaction(
+  input: UpdateBankTransactionInput,
+  database: SpbookDatabase = db
+) {
+  const existingBankTransaction = await getBankTransactionById(
+    input.bankTransactionId,
+    database
+  );
+
+  if (!existingBankTransaction) {
+    throw new Error(`Bank transaction "${input.bankTransactionId}" was not found.`);
+  }
+
+  ensureUnmatched(existingBankTransaction);
+
+  const bankAccount = await getBankAccountById(input.bankAccountId, database);
+
+  if (!bankAccount) {
+    throw new Error(`Bank account "${input.bankAccountId}" was not found.`);
+  }
+
+  ensureBankAccountWorkspace(bankAccount, existingBankTransaction.workspaceId);
+  const amount = parseBankTransactionAmount(input.amount);
+  const updatedBankTransaction: BankTransaction = {
+    ...existingBankTransaction,
+    bankAccountId: input.bankAccountId,
+    bookingDate: input.bookingDate,
+    amount: formatSignedMinorUnits(amount),
+    description: input.description.trim(),
+    reference: normalizeOptional(input.reference)
+  };
+
+  ensureBankTransactionFields(
+    updatedBankTransaction.bookingDate,
+    updatedBankTransaction.description
+  );
+
+  await saveBankTransaction(updatedBankTransaction, database);
+
+  return loadWorkspaceOverview(existingBankTransaction.workspaceId, database);
+}
+
+async function ensureUniqueBankPostingAccount(
+  workspaceId: string,
+  accountCode: string,
+  ignoredBankAccountId: string | undefined,
+  database: SpbookDatabase
+) {
+  const bankAccounts = await getBankAccountsByWorkspaceId(workspaceId, database);
+  const duplicate = bankAccounts.find(
+    (bankAccount) =>
+      bankAccount.active &&
+      bankAccount.accountCode === accountCode &&
+      bankAccount.id !== ignoredBankAccountId
+  );
+
+  if (duplicate) {
+    throw new Error("A bank account already uses this posting account.");
+  }
 }
 
 export async function matchInvoicePaymentFromBankTransaction(
@@ -362,6 +489,32 @@ function ensureUnmatched(bankTransaction: BankTransaction) {
   }
 }
 
+function ensureBankAccountWorkspace(bankAccount: BankAccount, workspaceId: string) {
+  if (bankAccount.workspaceId !== workspaceId) {
+    throw new Error("Bank account belongs to another workspace.");
+  }
+}
+
+function ensureBankTransactionFields(bookingDate: string, description: string) {
+  if (!bookingDate) {
+    throw new Error("Bank transaction booking date is required.");
+  }
+
+  if (!description) {
+    throw new Error("Bank transaction description is required.");
+  }
+}
+
+function parseBankTransactionAmount(amount: string) {
+  const parsedAmount = parseSignedMoneyAmount(amount);
+
+  if (parsedAmount === 0n) {
+    throw new Error("Bank transaction amount cannot be zero.");
+  }
+
+  return parsedAmount;
+}
+
 function ensureSignedAmount(
   bankTransaction: BankTransaction,
   direction: "incoming" | "outgoing"
@@ -432,6 +585,42 @@ function formatSignedMinorUnits(minorUnits: bigint) {
 function normalizeOptional(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function normalizeIban(value: string | undefined) {
+  const normalized = value?.replace(/\s+/g, "").toUpperCase();
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!isValidIban(normalized)) {
+    throw new Error("IBAN is invalid.");
+  }
+
+  return normalized;
+}
+
+export function isValidIban(iban: string) {
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) {
+    return false;
+  }
+
+  const rearranged = `${iban.slice(4)}${iban.slice(0, 4)}`;
+  let remainder = 0;
+
+  for (const character of rearranged) {
+    const value =
+      character >= "A" && character <= "Z"
+        ? `${character.charCodeAt(0) - 55}`
+        : character;
+
+    for (const digit of value) {
+      remainder = (remainder * 10 + Number(digit)) % 97;
+    }
+  }
+
+  return remainder === 1;
 }
 
 function createEntityId(prefix: string) {

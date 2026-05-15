@@ -6,7 +6,9 @@ import {
   createBankTransaction,
   matchInvoicePaymentFromBankTransaction,
   matchSupplierPaymentFromBankTransaction,
-  postBankFeeFromBankTransaction
+  postBankFeeFromBankTransaction,
+  updateBankAccount,
+  updateBankTransaction
 } from "./bank-workflow";
 import { createSalesInvoice } from "./invoice-workflow";
 import { createParty } from "./party-workflow";
@@ -27,7 +29,7 @@ describe("bank workflow", () => {
         name: "NLB EUR",
         accountCode: "1100",
         currency: "EUR",
-        iban: "SI56000000000000000"
+        iban: "SI56 1910 0000 0123 438"
       },
       database
     );
@@ -49,6 +51,145 @@ describe("bank workflow", () => {
       amount: "1000.00",
       status: "unmatched"
     });
+    expect(transactionOverview.bankAccounts[0]?.iban).toBe("SI56191000000123438");
+  });
+
+  it("updates bank account parameters", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR",
+        iban: "SI56 1910 0000 0123 438"
+      },
+      database
+    );
+    const updatedOverview = await updateBankAccount(
+      {
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        name: "NLB Main EUR",
+        accountCode: "1101",
+        iban: "SI56 1910 0000 0123 438",
+        active: true
+      },
+      database
+    );
+
+    expect(updatedOverview.bankAccounts[0]).toMatchObject({
+      name: "NLB Main EUR",
+      accountCode: "1101",
+      iban: "SI56191000000123438",
+      active: true
+    });
+  });
+
+  it("rejects invalid IBAN values", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+
+    await expect(
+      createBankAccount(
+        {
+          workspaceId: initialization.workspace.id,
+          name: "NLB EUR",
+          accountCode: "1100",
+          currency: "EUR",
+          iban: "SI56000000000000000"
+        },
+        database
+      )
+    ).rejects.toThrow("IBAN is invalid.");
+  });
+
+  it("rejects multiple active bank accounts for the same posting account", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+
+    await expect(
+      createBankAccount(
+        {
+          workspaceId: initialization.workspace.id,
+          name: "Another EUR",
+          accountCode: "1100",
+          currency: "EUR"
+        },
+        database
+      )
+    ).rejects.toThrow("A bank account already uses this posting account.");
+  });
+
+  it("updates unmatched bank transactions", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+    const transactionOverview = await createBankTransaction(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-15",
+        amount: "1000.00",
+        currency: "EUR",
+        description: "Customer payment"
+      },
+      database
+    );
+    const updatedOverview = await updateBankTransaction(
+      {
+        bankTransactionId: transactionOverview.bankTransactions[0]!.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-16",
+        amount: "999.50",
+        description: "Updated customer payment",
+        reference: "INV-2026-0001"
+      },
+      database
+    );
+
+    expect(updatedOverview.bankTransactions[0]).toMatchObject({
+      bookingDate: "2026-05-16",
+      amount: "999.50",
+      description: "Updated customer payment",
+      reference: "INV-2026-0001",
+      status: "unmatched"
+    });
+  });
+
+  it("rejects editing processed bank transactions", async () => {
+    const context = await createSalesContext("1000.00");
+    const matchedOverview = await matchInvoicePaymentFromBankTransaction(
+      context.invoiceId,
+      context.bankTransactionId,
+      database
+    );
+
+    await expect(
+      updateBankTransaction(
+        {
+          bankTransactionId: context.bankTransactionId,
+          bankAccountId: matchedOverview.bankAccounts[0]!.id,
+          bookingDate: "2026-05-17",
+          amount: "999.50",
+          description: "Updated payment"
+        },
+        database
+      )
+    ).rejects.toThrow(`Bank transaction "${context.bankTransactionId}" is already processed.`);
   });
 
   it("matches an incoming bank transaction to an issued invoice", async () => {

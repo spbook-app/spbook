@@ -16,9 +16,12 @@ import type { AccountBalance } from "../services/balances";
 import {
   createBankAccount,
   createBankTransaction,
+  isValidIban,
   matchInvoicePaymentFromBankTransaction,
   matchSupplierPaymentFromBankTransaction,
-  postBankFeeFromBankTransaction
+  postBankFeeFromBankTransaction,
+  updateBankAccount,
+  updateBankTransaction
 } from "../services/bank-workflow";
 import {
   createSalesInvoice
@@ -72,6 +75,56 @@ type AppDataState =
     };
 
 const partyRoles: PartyRole[] = ["customer", "supplier", "tax_authority", "bank", "owner"];
+type WorkspaceSection =
+  | "dashboard"
+  | "sales"
+  | "purchases"
+  | "banking"
+  | "counterparties"
+  | "accounting"
+  | "settings";
+
+const workspaceSections: Array<{
+  id: WorkspaceSection;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    description: "Workspace health and open work"
+  },
+  {
+    id: "sales",
+    label: "Sales",
+    description: "Issued invoices and receipts"
+  },
+  {
+    id: "purchases",
+    label: "Purchases",
+    description: "Supplier invoices and payments"
+  },
+  {
+    id: "banking",
+    label: "Banking",
+    description: "Bank accounts and transactions"
+  },
+  {
+    id: "counterparties",
+    label: "Counterparties",
+    description: "Customers, suppliers, banks, owner"
+  },
+  {
+    id: "accounting",
+    label: "Accounting",
+    description: "Journal entries, balances, accounts"
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    description: "Local workspace controls"
+  }
+];
 
 export function App() {
   const appEnvironment = getAppEnvironment();
@@ -174,46 +227,131 @@ function WorkspaceView({
   onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {
+  const [activeSection, setActiveSection] = useState<WorkspaceSection>("dashboard");
   const accountNames = useMemo(
     () => new Map(data.accounts.map((account) => [account.code, account.name])),
     [data.accounts]
   );
+  const activeSectionMeta =
+    workspaceSections.find((section) => section.id === activeSection) ??
+    workspaceSections[0]!;
 
   return (
     <div className="workspace-layout">
       <WorkspaceSidebar
+        activeSection={activeSection}
         data={data}
         onDataStateChange={onDataStateChange}
-        showReset={showReset}
+        onSectionChange={setActiveSection}
       />
-      <section className="workspace-main" aria-label="Workspace overview">
+      <section className="workspace-main" aria-label={activeSectionMeta.label}>
         <header className="page-heading">
-          <p className="eyebrow">{appMeta.status}</p>
-          <h1>{appMeta.tagline}</h1>
-          <p>{appMeta.description}</p>
+          <p className="eyebrow">{activeSectionMeta.label}</p>
+          <h1>{activeSectionMeta.description}</h1>
+          <p>{getSectionLead(activeSection)}</p>
         </header>
 
-        <MetricStrip data={data} />
-
-        <div className="content-grid">
-          <AccountsTable accounts={data.accounts} />
-          <CounterpartiesPanel data={data} onDataStateChange={onDataStateChange} />
-          <BankingPanel data={data} onDataStateChange={onDataStateChange} />
-          <InvoiceWorkflowPanel data={data} onDataStateChange={onDataStateChange} />
-          <SupplierInvoiceWorkflowPanel
+        {activeSection === "dashboard" ? <DashboardView data={data} accountNames={accountNames} /> : null}
+        {activeSection === "sales" ? (
+          <div className="section-stack">
+            <InvoiceWorkflowPanel data={data} onDataStateChange={onDataStateChange} />
+          </div>
+        ) : null}
+        {activeSection === "purchases" ? (
+          <div className="section-stack">
+            <SupplierInvoiceWorkflowPanel
+              data={data}
+              onDataStateChange={onDataStateChange}
+            />
+            <OwnerTransactionsPanel data={data} onDataStateChange={onDataStateChange} />
+          </div>
+        ) : null}
+        {activeSection === "banking" ? (
+          <div className="section-stack">
+            <BankingPanel data={data} onDataStateChange={onDataStateChange} />
+          </div>
+        ) : null}
+        {activeSection === "counterparties" ? (
+          <div className="section-stack">
+            <CounterpartiesPanel data={data} onDataStateChange={onDataStateChange} />
+          </div>
+        ) : null}
+        {activeSection === "accounting" ? (
+          <div className="section-stack">
+            <BalancesTable balances={data.balances} accountNames={accountNames} />
+            <JournalEntriesPanel entries={data.journalEntries} />
+            <AccountsTable accounts={data.accounts} />
+          </div>
+        ) : null}
+        {activeSection === "settings" ? (
+          <SettingsPanel
             data={data}
             onDataStateChange={onDataStateChange}
+            showReset={showReset}
           />
-          <OwnerTransactionsPanel data={data} onDataStateChange={onDataStateChange} />
-          <JournalEntriesPanel entries={data.journalEntries} />
-          <BalancesTable balances={data.balances} accountNames={accountNames} />
-        </div>
+        ) : null}
       </section>
     </div>
   );
 }
 
 function WorkspaceSidebar({
+  activeSection,
+  data,
+  onDataStateChange,
+  onSectionChange
+}: {
+  activeSection: WorkspaceSection;
+  data: Extract<AppDataState, { state: "ready" }>;
+  onDataStateChange: (state: AppDataState) => void;
+  onSectionChange: (section: WorkspaceSection) => void;
+}) {
+  const openItems =
+    data.invoices.filter((invoice) => invoice.status !== "paid").length +
+    data.supplierInvoices.filter((supplierInvoice) => supplierInvoice.status !== "paid").length +
+    data.bankTransactions.filter((bankTransaction) => bankTransaction.status === "unmatched").length;
+
+  return (
+    <aside className="workspace-sidebar" aria-label="Workspace navigation">
+      <div>
+        <p className="eyebrow">Workspace</p>
+        <h2>{data.workspace.name}</h2>
+        <dl className="sidebar-details compact-sidebar-details">
+          <div>
+            <dt>Currency</dt>
+            <dd>{data.workspace.baseCurrency}</dd>
+          </div>
+          <div>
+            <dt>Open work</dt>
+            <dd>{openItems}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <nav className="sidebar-nav" aria-label="Workspace sections">
+        {workspaceSections.map((section) => (
+          <button
+            className={`nav-item ${activeSection === section.id ? "nav-item-active" : ""}`}
+            key={section.id}
+            type="button"
+            onClick={() => onSectionChange(section.id)}
+          >
+            <span>{section.label}</span>
+            <small>{section.description}</small>
+          </button>
+        ))}
+      </nav>
+
+      <WorkspaceStatusCard
+        data={data}
+        onDataStateChange={onDataStateChange}
+        showReset={false}
+      />
+    </aside>
+  );
+}
+
+function WorkspaceStatusCard({
   data,
   onDataStateChange,
   showReset
@@ -260,30 +398,22 @@ function WorkspaceSidebar({
   }
 
   return (
-    <aside className="workspace-sidebar" aria-label="Workspace status">
-      <div>
-        <p className="eyebrow">Workspace</p>
-        <h2>{data.workspace.name}</h2>
-        <dl className="sidebar-details">
-          <div>
-            <dt>Country</dt>
-            <dd>{data.workspace.countryCode}</dd>
-          </div>
-          <div>
-            <dt>Currency</dt>
-            <dd>{data.workspace.baseCurrency}</dd>
-          </div>
-          <div>
-            <dt>Storage</dt>
-            <dd>{data.initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
-          </div>
-          <div>
-            <dt>Accounts</dt>
-            <dd>{data.accounts.length}</dd>
-          </div>
-        </dl>
-      </div>
-      <div className="sidebar-note">
+    <div className="sidebar-status-card">
+      <dl className="sidebar-details">
+        <div>
+          <dt>Country</dt>
+          <dd>{data.workspace.countryCode}</dd>
+        </div>
+        <div>
+          <dt>Storage</dt>
+          <dd>{data.initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
+        </div>
+        <div>
+          <dt>Accounts</dt>
+          <dd>{data.accounts.length}</dd>
+        </div>
+      </dl>
+      <div className="sidebar-note compact-note">
         <strong>Offline-first</strong>
         <span>Data shown here is backed by IndexedDB in this browser.</span>
       </div>
@@ -297,7 +427,7 @@ function WorkspaceSidebar({
           {resetState === "resetting" ? "Resetting" : "Reset local data"}
         </button>
       ) : null}
-    </aside>
+    </div>
   );
 }
 
@@ -323,6 +453,172 @@ function MetricStrip({ data }: { data: Extract<AppDataState, { state: "ready" }>
         <dd>{data.journalEntries.length}</dd>
       </div>
     </dl>
+  );
+}
+
+function getSectionLead(section: WorkspaceSection) {
+  switch (section) {
+    case "dashboard":
+      return appMeta.description;
+    case "sales":
+      return "Create issued invoices, review invoice status, and match incoming bank transactions.";
+    case "purchases":
+      return "Record supplier invoices, owner transactions, and outgoing payments.";
+    case "banking":
+      return "Maintain bank accounts, add signed bank transactions, and post bank fees.";
+    case "counterparties":
+      return "Keep customers, suppliers, banks, owner, and tax authority records in one place.";
+    case "accounting":
+      return "Inspect balances, journal entries, and the seeded chart of accounts.";
+    case "settings":
+      return "Review local workspace status and development-only controls.";
+  }
+}
+
+function DashboardView({
+  data,
+  accountNames
+}: {
+  data: Extract<AppDataState, { state: "ready" }>;
+  accountNames: Map<string, string>;
+}) {
+  const unpaidInvoices = data.invoices.filter((invoice) => invoice.status !== "paid");
+  const unpaidSupplierInvoices = data.supplierInvoices.filter(
+    (supplierInvoice) => supplierInvoice.status !== "paid"
+  );
+  const unmatchedBankTransactions = data.bankTransactions.filter(
+    (bankTransaction) => bankTransaction.status === "unmatched"
+  );
+  const recentJournalEntries = data.journalEntries.slice(-3).reverse();
+
+  return (
+    <div className="section-stack">
+      <MetricStrip data={data} />
+      <div className="dashboard-grid">
+        <section className="panel" aria-labelledby="work-queue-title">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Focus</p>
+              <h2 id="work-queue-title">Open work</h2>
+            </div>
+          </div>
+          <div className="work-queue">
+            <WorkQueueItem label="Unpaid issued invoices" value={unpaidInvoices.length} />
+            <WorkQueueItem
+              label="Unpaid supplier invoices"
+              value={unpaidSupplierInvoices.length}
+            />
+            <WorkQueueItem
+              label="Unmatched bank transactions"
+              value={unmatchedBankTransactions.length}
+            />
+          </div>
+        </section>
+
+        <BalancesTable balances={data.balances.slice(0, 5)} accountNames={accountNames} />
+      </div>
+
+      <section className="panel panel-wide" aria-labelledby="recent-journal-title">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Recent</p>
+            <h2 id="recent-journal-title">Latest journal entries</h2>
+          </div>
+          <span>{recentJournalEntries.length} shown</span>
+        </div>
+        <div className="journal-list">
+          {recentJournalEntries.length === 0 ? (
+            <p className="empty-state">No journal entries yet.</p>
+          ) : null}
+          {recentJournalEntries.map((entry) => (
+            <article className="journal-entry" key={entry.id}>
+              <header>
+                <div>
+                  <strong>{entry.description}</strong>
+                  <span>
+                    {entry.entryDate} · {entry.sourceType}
+                  </span>
+                </div>
+                <code>{entry.lines.length} lines</code>
+              </header>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function WorkQueueItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="work-queue-item">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function getIbanValidationMessage(iban: string) {
+  const normalized = iban.replace(/\s+/g, "").toUpperCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (!isValidIban(normalized)) {
+    return "Enter a valid IBAN, for example SI56 1910 0000 0123 438.";
+  }
+
+  return null;
+}
+
+function SettingsPanel({
+  data,
+  onDataStateChange,
+  showReset
+}: {
+  data: Extract<AppDataState, { state: "ready" }>;
+  onDataStateChange: (state: AppDataState) => void;
+  showReset: boolean;
+}) {
+  return (
+    <section className="panel" aria-labelledby="settings-title">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Local</p>
+          <h2 id="settings-title">Workspace settings</h2>
+        </div>
+      </div>
+      <dl className="detail-list settings-details">
+        <div>
+          <dt>Workspace</dt>
+          <dd>{data.workspace.name}</dd>
+        </div>
+        <div>
+          <dt>Country</dt>
+          <dd>{data.workspace.countryCode}</dd>
+        </div>
+        <div>
+          <dt>Currency</dt>
+          <dd>{data.workspace.baseCurrency}</dd>
+        </div>
+        <div>
+          <dt>Storage</dt>
+          <dd>{data.initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
+        </div>
+        <div>
+          <dt>Build</dt>
+          <dd>{formatAppBuildLabel(buildInfo)}</dd>
+        </div>
+      </dl>
+      {showReset ? (
+        <WorkspaceStatusCard
+          data={data}
+          onDataStateChange={onDataStateChange}
+          showReset={showReset}
+        />
+      ) : null}
+    </section>
   );
 }
 
@@ -505,9 +801,25 @@ function BankingPanel({
   data: Extract<AppDataState, { state: "ready" }>;
   onDataStateChange: (state: AppDataState) => void;
 }) {
+  const bankPostingAccounts = data.accounts.filter(
+    (account) => account.role === "posting" && account.code.startsWith("11")
+  );
   const [accountName, setAccountName] = useState("NLB EUR");
-  const [accountCode, setAccountCode] = useState("1100");
+  const [accountCode, setAccountCode] = useState(bankPostingAccounts[0]?.code ?? "");
   const [iban, setIban] = useState("");
+  const [selectedEditBankAccountId, setSelectedEditBankAccountId] = useState(
+    data.bankAccounts[0]?.id ?? ""
+  );
+  const selectedEditBankAccount =
+    data.bankAccounts.find((bankAccount) => bankAccount.id === selectedEditBankAccountId) ??
+    data.bankAccounts[0] ??
+    null;
+  const [editAccountName, setEditAccountName] = useState(selectedEditBankAccount?.name ?? "");
+  const [editAccountCode, setEditAccountCode] = useState(
+    selectedEditBankAccount?.accountCode ?? bankPostingAccounts[0]?.code ?? ""
+  );
+  const [editIban, setEditIban] = useState(selectedEditBankAccount?.iban ?? "");
+  const [editActive, setEditActive] = useState(selectedEditBankAccount?.active ?? true);
   const [transactionBankAccountId, setTransactionBankAccountId] = useState(
     data.bankAccounts[0]?.id ?? ""
   );
@@ -515,18 +827,97 @@ function BankingPanel({
   const [transactionAmount, setTransactionAmount] = useState("1000.00");
   const [description, setDescription] = useState("Bank transaction");
   const [reference, setReference] = useState("");
+  const [selectedEditBankTransactionId, setSelectedEditBankTransactionId] = useState(
+    data.bankTransactions[0]?.id ?? ""
+  );
+  const selectedEditBankTransaction =
+    data.bankTransactions.find(
+      (bankTransaction) => bankTransaction.id === selectedEditBankTransactionId
+    ) ??
+    data.bankTransactions[0] ??
+    null;
+  const [editTransactionBankAccountId, setEditTransactionBankAccountId] = useState(
+    selectedEditBankTransaction?.bankAccountId ?? data.bankAccounts[0]?.id ?? ""
+  );
+  const [editBookingDate, setEditBookingDate] = useState(
+    selectedEditBankTransaction?.bookingDate ?? "2026-05-15"
+  );
+  const [editTransactionAmount, setEditTransactionAmount] = useState(
+    selectedEditBankTransaction?.amount ?? "1000.00"
+  );
+  const [editReference, setEditReference] = useState(
+    selectedEditBankTransaction?.reference ?? ""
+  );
+  const [editDescription, setEditDescription] = useState(
+    selectedEditBankTransaction?.description ?? ""
+  );
   const [actionState, setActionState] = useState<
-    "idle" | "account" | "transaction" | "fee"
+    "idle" | "account" | "account-update" | "transaction" | "transaction-update" | "fee"
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedBankAccountId = transactionBankAccountId || data.bankAccounts[0]?.id || "";
+  const activeBankAccounts = data.bankAccounts.filter((bankAccount) => bankAccount.active);
+  const usedActiveAccountCodes = new Set(
+    data.bankAccounts
+      .filter((bankAccount) => bankAccount.active)
+      .map((bankAccount) => bankAccount.accountCode)
+  );
+  const createBankAccountOptions = bankPostingAccounts.filter(
+    (account) => !usedActiveAccountCodes.has(account.code)
+  );
+  const editBankAccountOptions = bankPostingAccounts.filter(
+    (account) =>
+      !usedActiveAccountCodes.has(account.code) ||
+      account.code === selectedEditBankAccount?.accountCode
+  );
+  const ibanValidationMessage = getIbanValidationMessage(iban);
+  const editIbanValidationMessage = getIbanValidationMessage(editIban);
+  const canCreateBankAccount =
+    actionState === "idle" &&
+    createBankAccountOptions.length > 0 &&
+    !ibanValidationMessage;
+
+  useEffect(() => {
+    if (!selectedEditBankAccount) return;
+
+    setSelectedEditBankAccountId(selectedEditBankAccount.id);
+    setEditAccountName(selectedEditBankAccount.name);
+    setEditAccountCode(selectedEditBankAccount.accountCode);
+    setEditIban(selectedEditBankAccount.iban ?? "");
+    setEditActive(selectedEditBankAccount.active);
+  }, [selectedEditBankAccount]);
+
+  useEffect(() => {
+    if (createBankAccountOptions.length > 0 && !createBankAccountOptions.some((account) => account.code === accountCode)) {
+      setAccountCode(createBankAccountOptions[0]!.code);
+    }
+  }, [accountCode, createBankAccountOptions]);
+
+  useEffect(() => {
+    if (!selectedEditBankTransaction) return;
+
+    setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
+    setEditTransactionBankAccountId(selectedEditBankTransaction.bankAccountId);
+    setEditBookingDate(selectedEditBankTransaction.bookingDate);
+    setEditTransactionAmount(selectedEditBankTransaction.amount);
+    setEditReference(selectedEditBankTransaction.reference ?? "");
+    setEditDescription(selectedEditBankTransaction.description);
+  }, [selectedEditBankTransaction]);
 
   async function handleCreateBankAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setActionState("account");
     setErrorMessage(null);
 
     try {
+      if (createBankAccountOptions.length === 0) {
+        throw new Error("No unused bank posting accounts are available.");
+      }
+
+      if (ibanValidationMessage) {
+        throw new Error(ibanValidationMessage);
+      }
+
+      setActionState("account");
       const overview = await createBankAccount({
         workspaceId: data.workspace.id,
         name: accountName,
@@ -540,9 +931,47 @@ function BankingPanel({
         ...mapOverviewToReadyState(overview)
       });
       setTransactionBankAccountId(overview.bankAccounts.at(-1)?.id ?? "");
+      setSelectedEditBankAccountId(overview.bankAccounts.at(-1)?.id ?? "");
+      setIban("");
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Bank account was not created."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleUpdateBankAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditBankAccount) {
+        throw new Error("Select a bank account first.");
+      }
+
+      if (editIbanValidationMessage) {
+        throw new Error(editIbanValidationMessage);
+      }
+
+      setActionState("account-update");
+      const overview = await updateBankAccount({
+        bankAccountId: selectedEditBankAccount.id,
+        name: editAccountName,
+        accountCode: editAccountCode,
+        iban: editIban,
+        active: editActive
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedEditBankTransactionId(overview.bankTransactions.at(-1)?.id ?? "");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Bank account was not updated."
       );
     } finally {
       setActionState("idle");
@@ -582,6 +1011,38 @@ function BankingPanel({
     }
   }
 
+  async function handleUpdateBankTransaction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditBankTransaction) {
+        throw new Error("Select a bank transaction first.");
+      }
+
+      setActionState("transaction-update");
+      const overview = await updateBankTransaction({
+        bankTransactionId: selectedEditBankTransaction.id,
+        bankAccountId: editTransactionBankAccountId,
+        bookingDate: editBookingDate,
+        amount: editTransactionAmount,
+        description: editDescription,
+        reference: editReference
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Bank transaction was not updated."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
   async function handlePostBankFee(bankTransactionId: string) {
     setActionState("fee");
     setErrorMessage(null);
@@ -607,10 +1068,19 @@ function BankingPanel({
           <p className="eyebrow">Banking</p>
           <h2 id="banking-title">Bank accounts and transactions</h2>
         </div>
-        <span>{data.bankTransactions.length} transactions</span>
+        <span>
+          {data.bankAccounts.length} accounts · {data.bankTransactions.length} transactions
+        </span>
       </div>
 
-      <div className="banking-grid">
+      <div className="banking-section">
+        <div className="subsection-header">
+          <div>
+            <h3>Bank accounts</h3>
+            <p>Each active bank account uses a dedicated posting account.</p>
+          </div>
+        </div>
+
         <form className="invoice-form" onSubmit={(event) => void handleCreateBankAccount(event)}>
           <div className="form-row">
             <label>
@@ -620,24 +1090,126 @@ function BankingPanel({
             <label>
               <span>Account code</span>
               <select value={accountCode} onChange={(event) => setAccountCode(event.target.value)}>
-                {data.accounts
-                  .filter((account) => account.role === "posting" && account.code.startsWith("11"))
-                  .map((account) => (
-                    <option key={account.id} value={account.code}>
-                      {account.code} · {account.name}
-                    </option>
-                  ))}
+                {createBankAccountOptions.map((account) => (
+                  <option key={account.id} value={account.code}>
+                    {account.code} · {account.name}
+                  </option>
+                ))}
               </select>
             </label>
           </div>
           <label>
             <span>IBAN</span>
-            <input value={iban} onChange={(event) => setIban(event.target.value)} />
+            <input
+              aria-invalid={ibanValidationMessage ? "true" : "false"}
+              placeholder="SI56 1910 0000 0123 438"
+              value={iban}
+              onChange={(event) => setIban(event.target.value)}
+            />
           </label>
-          <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
+          {ibanValidationMessage ? (
+            <p className="field-error">{ibanValidationMessage}</p>
+          ) : null}
+          {createBankAccountOptions.length === 0 ? (
+            <p className="field-note">No unused bank posting accounts are available.</p>
+          ) : null}
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={!canCreateBankAccount}
+          >
             {actionState === "account" ? "Creating" : "Create bank account"}
           </button>
         </form>
+
+        <div className="bank-account-list">
+          {data.bankAccounts.length === 0 ? (
+            <p className="empty-state">No bank accounts yet.</p>
+          ) : null}
+          {data.bankAccounts.map((bankAccount) => (
+            <button
+              className={`bank-account-row ${
+                selectedEditBankAccount?.id === bankAccount.id ? "bank-account-row-active" : ""
+              }`}
+              key={bankAccount.id}
+              type="button"
+              onClick={() => setSelectedEditBankAccountId(bankAccount.id)}
+            >
+              <strong>{bankAccount.name}</strong>
+              <span>
+                {bankAccount.accountCode} · {bankAccount.currency}
+                {bankAccount.iban ? ` · ${bankAccount.iban}` : ""}
+              </span>
+              <small>{bankAccount.active ? "active" : "inactive"}</small>
+            </button>
+          ))}
+        </div>
+
+        {selectedEditBankAccount ? (
+          <form
+            className="invoice-form edit-bank-account-form"
+            onSubmit={(event) => void handleUpdateBankAccount(event)}
+          >
+            <div className="form-row">
+              <label>
+                <span>Edit name</span>
+                <input
+                  value={editAccountName}
+                  onChange={(event) => setEditAccountName(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Edit posting account</span>
+                <select
+                  value={editAccountCode}
+                  onChange={(event) => setEditAccountCode(event.target.value)}
+                >
+                  {editBankAccountOptions.map((account) => (
+                    <option key={account.id} value={account.code}>
+                      {account.code} · {account.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Edit IBAN</span>
+              <input
+                aria-invalid={editIbanValidationMessage ? "true" : "false"}
+                placeholder="SI56 1910 0000 0123 438"
+                value={editIban}
+                onChange={(event) => setEditIban(event.target.value)}
+              />
+            </label>
+            {editIbanValidationMessage ? (
+              <p className="field-error">{editIbanValidationMessage}</p>
+            ) : null}
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={editActive}
+                onChange={(event) => setEditActive(event.target.checked)}
+              />
+              <span>Active bank account</span>
+            </label>
+            <button
+              className="secondary-button"
+              type="submit"
+              disabled={actionState !== "idle" || Boolean(editIbanValidationMessage)}
+            >
+              {actionState === "account-update" ? "Saving" : "Save bank account"}
+            </button>
+          </form>
+        ) : null}
+      </div>
+
+      <div className="banking-section">
+        <div className="subsection-header">
+          <div>
+            <h3>Bank transactions</h3>
+            <p>Add signed account movements and match them to documents.</p>
+          </div>
+        </div>
 
         <form className="invoice-form" onSubmit={(event) => void handleCreateBankTransaction(event)}>
           <div className="form-row">
@@ -648,7 +1220,7 @@ function BankingPanel({
                 onChange={(event) => setTransactionBankAccountId(event.target.value)}
               >
                 <option value="">Select bank account</option>
-                {data.bankAccounts.map((bankAccount) => (
+                {activeBankAccounts.map((bankAccount) => (
                   <option key={bankAccount.id} value={bankAccount.id}>
                     {bankAccount.name} · {bankAccount.accountCode}
                   </option>
@@ -685,44 +1257,127 @@ function BankingPanel({
             {actionState === "transaction" ? "Creating" : "Create bank transaction"}
           </button>
         </form>
-      </div>
 
-      <div className="transaction-list">
-        {data.bankTransactions.length === 0 ? (
-          <p className="empty-state">No bank transactions yet.</p>
-        ) : null}
-        {data.bankTransactions.map((bankTransaction) => {
-          const bankAccount = data.bankAccounts.find(
-            (candidate) => candidate.id === bankTransaction.bankAccountId
-          );
-          const canPostFee =
-            bankTransaction.status === "unmatched" && bankTransaction.amount.startsWith("-");
+        <div className="transaction-list">
+          {data.bankTransactions.length === 0 ? (
+            <p className="empty-state">No bank transactions yet.</p>
+          ) : null}
+          {data.bankTransactions.map((bankTransaction) => {
+            const bankAccount = data.bankAccounts.find(
+              (candidate) => candidate.id === bankTransaction.bankAccountId
+            );
+            const canPostFee =
+              bankTransaction.status === "unmatched" && bankTransaction.amount.startsWith("-");
 
-          return (
-            <article className="transaction-row" key={bankTransaction.id}>
-              <div>
-                <strong>
-                  {bankTransaction.amount} {bankTransaction.currency}
-                </strong>
-                <span>
-                  {bankTransaction.bookingDate} · {bankAccount?.name ?? "Unknown account"} ·{" "}
-                  {bankTransaction.status}
-                </span>
-                <small>{bankTransaction.description}</small>
-              </div>
-              {canPostFee ? (
+            return (
+              <article className="transaction-row" key={bankTransaction.id}>
                 <button
-                  className="secondary-button"
+                  className={`transaction-pick ${
+                    selectedEditBankTransaction?.id === bankTransaction.id
+                      ? "transaction-pick-active"
+                      : ""
+                  }`}
                   type="button"
-                  disabled={actionState !== "idle"}
-                  onClick={() => void handlePostBankFee(bankTransaction.id)}
+                  onClick={() => setSelectedEditBankTransactionId(bankTransaction.id)}
                 >
-                  Post bank fee
+                  <strong>
+                    {bankTransaction.amount} {bankTransaction.currency}
+                  </strong>
+                  <span>
+                    {bankTransaction.bookingDate} · {bankAccount?.name ?? "Unknown account"} ·{" "}
+                    {bankTransaction.status}
+                  </span>
+                  <small>{bankTransaction.description}</small>
                 </button>
-              ) : null}
-            </article>
-          );
-        })}
+                {canPostFee ? (
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={actionState !== "idle"}
+                    onClick={() => void handlePostBankFee(bankTransaction.id)}
+                  >
+                    Post bank fee
+                  </button>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+
+        {selectedEditBankTransaction ? (
+          <form
+            className="invoice-form edit-bank-account-form"
+            onSubmit={(event) => void handleUpdateBankTransaction(event)}
+          >
+            <div className="form-row">
+              <label>
+                <span>Edit bank account</span>
+                <select
+                  value={editTransactionBankAccountId}
+                  onChange={(event) => setEditTransactionBankAccountId(event.target.value)}
+                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                >
+                  {activeBankAccounts.map((bankAccount) => (
+                    <option key={bankAccount.id} value={bankAccount.id}>
+                      {bankAccount.name} · {bankAccount.accountCode}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Edit booking date</span>
+                <input
+                  type="date"
+                  value={editBookingDate}
+                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                  onChange={(event) => setEditBookingDate(event.target.value)}
+                />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
+                <span>Edit signed amount</span>
+                <input
+                  value={editTransactionAmount}
+                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                  onChange={(event) => setEditTransactionAmount(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Edit reference</span>
+                <input
+                  value={editReference}
+                  disabled={selectedEditBankTransaction.status !== "unmatched"}
+                  onChange={(event) => setEditReference(event.target.value)}
+                />
+              </label>
+            </div>
+            <label>
+              <span>Edit description</span>
+              <input
+                value={editDescription}
+                disabled={selectedEditBankTransaction.status !== "unmatched"}
+                onChange={(event) => setEditDescription(event.target.value)}
+              />
+            </label>
+            {selectedEditBankTransaction.status !== "unmatched" ? (
+              <p className="field-note">
+                Processed bank transactions cannot be edited after matching or posting.
+              </p>
+            ) : null}
+            <button
+              className="secondary-button"
+              type="submit"
+              disabled={
+                actionState !== "idle" || selectedEditBankTransaction.status !== "unmatched"
+              }
+            >
+              {actionState === "transaction-update"
+                ? "Saving"
+                : "Save bank transaction"}
+            </button>
+          </form>
+        ) : null}
       </div>
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
