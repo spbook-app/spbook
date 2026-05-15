@@ -30,7 +30,7 @@ import {
   recordOwnerContribution,
   recordOwnerWithdrawal
 } from "../services/owner-transactions-workflow";
-import { createParty } from "../services/party-workflow";
+import { createParty, updateParty } from "../services/party-workflow";
 import {
   createSupplierInvoice
 } from "../services/supplier-invoice-workflow";
@@ -672,8 +672,31 @@ function CounterpartiesPanel({
   const [roles, setRoles] = useState<PartyRole[]>(["customer"]);
   const [countryCode, setCountryCode] = useState("SI");
   const [vatId, setVatId] = useState("");
-  const [actionState, setActionState] = useState<"idle" | "saving">("idle");
+  const [selectedEditPartyId, setSelectedEditPartyId] = useState(data.parties[0]?.id ?? "");
+  const selectedEditParty =
+    data.parties.find((party) => party.id === selectedEditPartyId) ??
+    data.parties[0] ??
+    null;
+  const [editName, setEditName] = useState(selectedEditParty?.name ?? "");
+  const [editType, setEditType] = useState<PartyType>(selectedEditParty?.type ?? "business");
+  const [editRoles, setEditRoles] = useState<PartyRole[]>(selectedEditParty?.roles ?? []);
+  const [editCountryCode, setEditCountryCode] = useState(selectedEditParty?.countryCode ?? "");
+  const [editVatId, setEditVatId] = useState(selectedEditParty?.vatId ?? "");
+  const [editActive, setEditActive] = useState(selectedEditParty?.active ?? true);
+  const [actionState, setActionState] = useState<"idle" | "saving" | "updating">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedEditParty) return;
+
+    setSelectedEditPartyId(selectedEditParty.id);
+    setEditName(selectedEditParty.name);
+    setEditType(selectedEditParty.type);
+    setEditRoles(selectedEditParty.roles);
+    setEditCountryCode(selectedEditParty.countryCode ?? "");
+    setEditVatId(selectedEditParty.vatId ?? "");
+    setEditActive(selectedEditParty.active);
+  }, [selectedEditParty]);
 
   async function handleCreateParty(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -694,6 +717,7 @@ function CounterpartiesPanel({
         ...data,
         ...mapOverviewToReadyState(overview)
       });
+      setSelectedEditPartyId(overview.parties.at(-1)?.id ?? "");
       setName("");
       setVatId("");
     } catch (error) {
@@ -709,6 +733,45 @@ function CounterpartiesPanel({
         ? currentRoles.filter((currentRole) => currentRole !== role)
         : [...currentRoles, role]
     );
+  }
+
+  function toggleEditRole(role: PartyRole) {
+    setEditRoles((currentRoles) =>
+      currentRoles.includes(role)
+        ? currentRoles.filter((currentRole) => currentRole !== role)
+        : [...currentRoles, role]
+    );
+  }
+
+  async function handleUpdateParty(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setActionState("updating");
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditParty) {
+        throw new Error("Select a counterparty first.");
+      }
+
+      const overview = await updateParty({
+        partyId: selectedEditParty.id,
+        name: editName,
+        type: editType,
+        roles: editRoles,
+        countryCode: editCountryCode,
+        vatId: editVatId,
+        active: editActive
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Party was not updated.");
+    } finally {
+      setActionState("idle");
+    }
   }
 
   return (
@@ -770,12 +833,20 @@ function CounterpartiesPanel({
       <div className="party-list">
         {data.parties.length === 0 ? <p className="empty-state">No counterparties yet.</p> : null}
         {data.parties.map((party) => (
-          <article className="party-row" key={party.id}>
+          <button
+            className={`party-row ${
+              selectedEditParty?.id === party.id ? "party-row-active" : ""
+            }`}
+            key={party.id}
+            type="button"
+            onClick={() => setSelectedEditPartyId(party.id)}
+          >
             <div>
               <strong>{party.name}</strong>
               <span>
                 {party.type} · {party.countryCode ?? "No country"}
                 {party.vatId ? ` · ${party.vatId}` : ""}
+                {party.active ? "" : " · inactive"}
               </span>
             </div>
             <div className="role-list">
@@ -785,9 +856,74 @@ function CounterpartiesPanel({
                 </span>
               ))}
             </div>
-          </article>
+          </button>
         ))}
       </div>
+
+      {selectedEditParty ? (
+        <form
+          className="invoice-form edit-party-form"
+          onSubmit={(event) => void handleUpdateParty(event)}
+        >
+          <div className="form-row">
+            <label>
+              <span>Edit name</span>
+              <input
+                required
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Edit type</span>
+              <select
+                value={editType}
+                onChange={(event) => setEditType(event.target.value as PartyType)}
+              >
+                <option value="business">Business</option>
+                <option value="person">Person</option>
+                <option value="government">Government</option>
+              </select>
+            </label>
+          </div>
+          <div className="form-row">
+            <label>
+              <span>Edit country</span>
+              <input
+                value={editCountryCode}
+                onChange={(event) => setEditCountryCode(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Edit VAT ID</span>
+              <input value={editVatId} onChange={(event) => setEditVatId(event.target.value)} />
+            </label>
+          </div>
+          <div className="role-picker" aria-label="Edit party roles">
+            {partyRoles.map((role) => (
+              <label key={`edit-${role}`}>
+                <input
+                  type="checkbox"
+                  checked={editRoles.includes(role)}
+                  onChange={() => toggleEditRole(role)}
+                />
+                <span>{role}</span>
+              </label>
+            ))}
+          </div>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={editActive}
+              onChange={(event) => setEditActive(event.target.checked)}
+            />
+            <span>Active counterparty</span>
+          </label>
+          <button className="secondary-button" type="submit" disabled={actionState !== "idle"}>
+            {actionState === "updating" ? "Saving" : "Save counterparty"}
+          </button>
+        </form>
+      ) : null}
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>

@@ -580,10 +580,19 @@ td {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  width: 100%;
+  min-height: auto;
   border: 1px solid #e4e0d4;
   border-radius: 8px;
   padding: 12px;
+  color: #25231f;
   background: #f5f4ed;
+  text-align: left;
+}
+
+.party-row-active {
+  border-color: #b6cda9;
+  background: #eff6ec;
 }
 
 .party-row div:first-child {
@@ -594,6 +603,13 @@ td {
 .party-row span {
   color: #7a756b;
   font-size: 0.84rem;
+}
+
+.edit-party-form {
+  margin-top: 14px;
+  margin-bottom: 0;
+  padding-top: 14px;
+  border-top: 1px solid #e4e0d4;
 }
 
 .button-row {

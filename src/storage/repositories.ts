@@ -63,6 +63,10 @@ export function getPartiesByWorkspaceId(
   return database.parties.where("workspaceId").equals(workspaceId).sortBy("name");
 }
 
+export function getPartyById(partyId: string, database: SpbookDatabase = db) {
+  return database.parties.get(partyId);
+}
+
 export function getInvoicesByWorkspaceId(
   workspaceId: string,
   database: SpbookDatabase = db

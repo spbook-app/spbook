@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
-import { createParty } from "./party-workflow";
+import { createSalesInvoice } from "./invoice-workflow";
+import { createParty, updateParty } from "./party-workflow";
 
 describe("party workflow", () => {
   let database: SpbookDatabase;
@@ -49,5 +50,75 @@ describe("party workflow", () => {
         database
       )
     ).rejects.toThrow("At least one party role is required.");
+  });
+
+  it("updates a counterparty", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const overview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"],
+        countryCode: "SI"
+      },
+      database
+    );
+    const updatedOverview = await updateParty(
+      {
+        partyId: overview.parties[0]!.id,
+        name: "ACME Updated d.o.o.",
+        type: "business",
+        roles: ["customer", "supplier"],
+        countryCode: "SI",
+        vatId: "SI87654321",
+        active: false
+      },
+      database
+    );
+
+    expect(updatedOverview.parties[0]).toMatchObject({
+      name: "ACME Updated d.o.o.",
+      roles: ["customer", "supplier"],
+      vatId: "SI87654321",
+      active: false
+    });
+  });
+
+  it("keeps required roles for parties used by documents", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const overview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      database
+    );
+    await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: overview.parties[0]!.id,
+        number: "2026-0001",
+        issueDate: "2026-05-15",
+        total: "1000.00",
+        currency: "EUR"
+      },
+      database
+    );
+
+    await expect(
+      updateParty(
+        {
+          partyId: overview.parties[0]!.id,
+          name: "ACME d.o.o.",
+          type: "business",
+          roles: ["supplier"],
+          active: true
+        },
+        database
+      )
+    ).rejects.toThrow("Party with issued invoices must keep the customer role.");
   });
 });
