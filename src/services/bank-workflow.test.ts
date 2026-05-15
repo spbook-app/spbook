@@ -6,6 +6,7 @@ import { saveBankTransaction } from "../storage/repositories";
 import {
   createBankAccount,
   createBankTransaction,
+  linkBankTransactionParty,
   matchInvoicePaymentFromBankTransaction,
   matchSupplierPaymentFromBankTransaction,
   postBankFeeFromBankTransaction,
@@ -281,6 +282,55 @@ describe("bank workflow", () => {
         database
       )
     ).rejects.toThrow("Imported bank statement entries cannot be edited.");
+  });
+
+  it("links an unmatched imported bank transaction to a counterparty", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      database
+    );
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"],
+        iban: "SI56 1910 0000 0123 438"
+      },
+      database
+    );
+    const importedBankTransaction: BankTransaction = {
+      id: `bt_${crypto.randomUUID()}`,
+      workspaceId: initialization.workspace.id,
+      bankAccountId: accountOverview.bankAccounts[0]!.id,
+      bookingDate: "2026-05-15",
+      amount: "1000.00",
+      currency: "EUR",
+      description: "Imported payment",
+      externalId: "camt053:statement:entry",
+      importSource: "camt053",
+      status: "unmatched"
+    };
+    await saveBankTransaction(importedBankTransaction, database);
+
+    const overview = await linkBankTransactionParty(
+      {
+        bankTransactionId: importedBankTransaction.id,
+        partyId: partyOverview.parties[0]!.id
+      },
+      database
+    );
+
+    expect(overview.bankTransactions[0]).toMatchObject({
+      id: importedBankTransaction.id,
+      partyId: partyOverview.parties[0]!.id
+    });
   });
 
   it("matches an incoming bank transaction to an issued invoice", async () => {

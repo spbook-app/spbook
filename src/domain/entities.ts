@@ -106,6 +106,7 @@ export type BankTransaction = {
   currency: CurrencyCode;
   description: string;
   reference?: string;
+  partyId?: string;
   externalId?: string;
   importSource?: string;
   entryReference?: string;

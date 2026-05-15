@@ -60,6 +60,11 @@ export type UpdateBankTransactionInput = {
   reference?: string;
 };
 
+export type LinkBankTransactionPartyInput = {
+  bankTransactionId: string;
+  partyId?: string;
+};
+
 export async function createBankAccount(
   input: CreateBankAccountInput,
   database: SpbookDatabase = db
@@ -210,6 +215,41 @@ export async function updateBankTransaction(
   );
 
   await saveBankTransaction(updatedBankTransaction, database);
+
+  return loadWorkspaceOverview(existingBankTransaction.workspaceId, database);
+}
+
+export async function linkBankTransactionParty(
+  input: LinkBankTransactionPartyInput,
+  database: SpbookDatabase = db
+) {
+  const existingBankTransaction = await getBankTransactionById(
+    input.bankTransactionId,
+    database
+  );
+
+  if (!existingBankTransaction) {
+    throw new Error(`Bank transaction "${input.bankTransactionId}" was not found.`);
+  }
+
+  ensureUnmatched(existingBankTransaction);
+  const partyId = normalizeOptional(input.partyId);
+
+  if (partyId) {
+    const party = await getPartyById(partyId, database);
+
+    if (!party || party.workspaceId !== existingBankTransaction.workspaceId) {
+      throw new Error(`Party "${partyId}" was not found.`);
+    }
+  }
+
+  await saveBankTransaction(
+    {
+      ...existingBankTransaction,
+      partyId
+    },
+    database
+  );
 
   return loadWorkspaceOverview(existingBankTransaction.workspaceId, database);
 }

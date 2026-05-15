@@ -14,6 +14,7 @@ import {
   createBankAccount,
   createBankTransaction,
   isValidIban,
+  linkBankTransactionParty,
   matchInvoicePaymentFromBankTransaction,
   matchSupplierPaymentFromBankTransaction,
   postBankFeeFromBankTransaction,
@@ -1411,6 +1412,16 @@ function BankingPanel({
         )
       )
     : false;
+  const selectedStatementCounterpartyCandidate = selectedEditBankTransaction
+    ? data.parties.find((party) =>
+        isSameStatementCounterparty(
+          party.name,
+          party.iban,
+          selectedEditBankTransaction.counterpartyName,
+          selectedEditBankTransaction.counterpartyIban
+        )
+      ) ?? null
+    : null;
   const canCreateCounterpartyFromSelectedTransaction = Boolean(
     selectedEditBankTransaction?.importSource &&
       selectedEditBankTransaction.counterpartyName &&
@@ -1431,12 +1442,16 @@ function BankingPanel({
   const [editDescription, setEditDescription] = useState(
     selectedEditBankTransaction?.description ?? ""
   );
+  const [linkedPartyId, setLinkedPartyId] = useState(
+    selectedEditBankTransaction?.partyId ?? selectedStatementCounterpartyCandidate?.id ?? ""
+  );
   const [actionState, setActionState] = useState<
     | "idle"
     | "account"
     | "account-update"
     | "statement-import"
     | "party-create"
+    | "party-link"
     | "transaction"
     | "transaction-update"
     | "fee"
@@ -1491,7 +1506,10 @@ function BankingPanel({
     setEditTransactionAmount(selectedEditBankTransaction.amount);
     setEditReference(selectedEditBankTransaction.reference ?? "");
     setEditDescription(selectedEditBankTransaction.description);
-  }, [selectedEditBankTransaction]);
+    setLinkedPartyId(
+      selectedEditBankTransaction.partyId ?? selectedStatementCounterpartyCandidate?.id ?? ""
+    );
+  }, [selectedEditBankTransaction, selectedStatementCounterpartyCandidate?.id]);
 
   async function handleCreateBankAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1717,6 +1735,48 @@ function BankingPanel({
           data.workspace.countryCode,
         iban: selectedEditBankTransaction.counterpartyIban
       });
+      const createdParty = overview.parties.find((party) =>
+        isSameStatementCounterparty(
+          party.name,
+          party.iban,
+          selectedEditBankTransaction.counterpartyName,
+          selectedEditBankTransaction.counterpartyIban
+        )
+      );
+      const linkedOverview = createdParty
+        ? await linkBankTransactionParty({
+            bankTransactionId: selectedEditBankTransaction.id,
+            partyId: createdParty.id
+          })
+        : overview;
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(linkedOverview)
+      });
+      setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Counterparty was not created."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleLinkBankTransactionParty() {
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditBankTransaction) {
+        throw new Error("Select a bank transaction first.");
+      }
+
+      setActionState("party-link");
+      const overview = await linkBankTransactionParty({
+        bankTransactionId: selectedEditBankTransaction.id,
+        partyId: linkedPartyId
+      });
 
       onDataStateChange({
         ...data,
@@ -1725,7 +1785,7 @@ function BankingPanel({
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Counterparty was not created."
+        error instanceof Error ? error.message : "Counterparty was not linked."
       );
     } finally {
       setActionState("idle");
@@ -2103,8 +2163,14 @@ function BankingPanel({
               bankTransaction={selectedEditBankTransaction}
               canCreateCounterparty={canCreateCounterpartyFromSelectedTransaction}
               counterpartyExists={selectedStatementCounterpartyExists}
+              isLinkingCounterparty={actionState === "party-link"}
               isCreatingCounterparty={actionState === "party-create"}
+              linkedPartyId={linkedPartyId}
+              parties={data.parties}
+              suggestedPartyId={selectedStatementCounterpartyCandidate?.id}
               onCreateCounterparty={() => void handleCreateCounterpartyFromBankTransaction()}
+              onLinkCounterparty={() => void handleLinkBankTransactionParty()}
+              onLinkedPartyChange={setLinkedPartyId}
             />
             <div className="form-row">
               <label>
@@ -2193,18 +2259,32 @@ function BankTransactionDetailPanel({
   bankTransaction,
   canCreateCounterparty,
   counterpartyExists,
+  isLinkingCounterparty,
   isCreatingCounterparty,
-  onCreateCounterparty
+  linkedPartyId,
+  parties,
+  suggestedPartyId,
+  onCreateCounterparty,
+  onLinkCounterparty,
+  onLinkedPartyChange
 }: {
   bankAccountName: string;
   bankTransaction: BankTransaction;
   canCreateCounterparty: boolean;
   counterpartyExists: boolean;
+  isLinkingCounterparty: boolean;
   isCreatingCounterparty: boolean;
+  linkedPartyId: string;
+  parties: Extract<AppDataState, { state: "ready" }>["parties"];
+  suggestedPartyId?: string;
   onCreateCounterparty: () => void;
+  onLinkCounterparty: () => void;
+  onLinkedPartyChange: (partyId: string) => void;
 }) {
+  const linkedParty = parties.find((party) => party.id === bankTransaction.partyId);
   const details = [
     ["Bank account", bankAccountName],
+    ["Linked counterparty", linkedParty?.name],
     ["Booking date", bankTransaction.bookingDate],
     ["Value date", bankTransaction.valueDate],
     ["Amount", `${bankTransaction.amount} ${bankTransaction.currency}`],
@@ -2236,6 +2316,41 @@ function BankTransactionDetailPanel({
           </div>
         ))}
       </dl>
+      {bankTransaction.importSource ? (
+        <div className="transaction-detail-actions">
+          <label className="inline-select">
+            <span>Link counterparty</span>
+            <select
+              value={linkedPartyId}
+              disabled={bankTransaction.status !== "unmatched" || isLinkingCounterparty}
+              onChange={(event) => onLinkedPartyChange(event.target.value)}
+            >
+              <option value="">No linked counterparty</option>
+              {parties
+                .filter((party) => party.active)
+                .map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                    {party.iban ? ` · ${party.iban}` : ""}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={bankTransaction.status !== "unmatched" || isLinkingCounterparty}
+            onClick={onLinkCounterparty}
+          >
+            {isLinkingCounterparty ? "Linking" : "Link counterparty"}
+          </button>
+          {suggestedPartyId && !bankTransaction.partyId ? (
+            <p className="field-note">
+              Suggested by matching statement counterparty name or IBAN.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {bankTransaction.importSource && bankTransaction.counterpartyName ? (
         <div className="transaction-detail-actions">
           <button
