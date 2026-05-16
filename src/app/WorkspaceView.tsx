@@ -7,7 +7,6 @@ import type {
   PartyRole,
   PartyType
 } from "../domain";
-import { buildInfo } from "../generated/build-info";
 import { createWorkspaceAccount, updateWorkspaceAccount } from "../services/account-workflow";
 import type { AccountBalance } from "../services/balances";
 import {
@@ -41,72 +40,18 @@ import {
   deleteSupplierInvoice,
   updateSupplierInvoice
 } from "../services/supplier-invoice-workflow";
+import { mapOverviewToReadyState } from "../shared/lib/workspace-overview";
+import type { WorkspaceOverview } from "../services/workspace-overview";
 import {
-  exportWorkspaceBackup,
-  importWorkspaceBackup,
-  parseWorkspaceBackup
-} from "../services/workspace-backup";
-import {
-  loadWorkspaceOverview,
-  type WorkspaceOverview
-} from "../services/workspace-overview";
-import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
-import { clearDatabase } from "../storage/repositories";
-import { appMeta } from "./app-meta";
-import { formatAppBuildLabel } from "./app-env";
+  getSectionLead,
+  type WorkspaceSection,
+  workspaceSections
+} from "../pages/workspace/model";
+import { SettingsPanel } from "../widgets/settings/SettingsPanel";
+import { WorkspaceSidebar } from "../widgets/workspace-sidebar/WorkspaceSidebar";
 import type { AppDataState } from "./App";
 
 const partyRoles: PartyRole[] = ["customer", "supplier", "tax_authority", "bank", "owner"];
-type WorkspaceSection =
-  | "dashboard"
-  | "sales"
-  | "purchases"
-  | "banking"
-  | "counterparties"
-  | "accounting"
-  | "settings";
-
-const workspaceSections: Array<{
-  id: WorkspaceSection;
-  label: string;
-  description: string;
-}> = [
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    description: "Workspace health and open work"
-  },
-  {
-    id: "sales",
-    label: "Sales",
-    description: "Issued invoices and receipts"
-  },
-  {
-    id: "purchases",
-    label: "Purchases",
-    description: "Supplier invoices and payments"
-  },
-  {
-    id: "banking",
-    label: "Banking",
-    description: "Bank accounts and transactions"
-  },
-  {
-    id: "counterparties",
-    label: "Counterparties",
-    description: "Customers, suppliers, banks, owner"
-  },
-  {
-    id: "accounting",
-    label: "Accounting",
-    description: "Journal entries, balances, accounts"
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    description: "Local workspace controls"
-  }
-];
 
 export function WorkspaceView({
   data,
@@ -185,142 +130,6 @@ export function WorkspaceView({
   );
 }
 
-function WorkspaceSidebar({
-  activeSection,
-  data,
-  onDataStateChange,
-  onSectionChange
-}: {
-  activeSection: WorkspaceSection;
-  data: Extract<AppDataState, { state: "ready" }>;
-  onDataStateChange: (state: AppDataState) => void;
-  onSectionChange: (section: WorkspaceSection) => void;
-}) {
-  const openItems =
-    data.invoices.filter((invoice) => invoice.status !== "paid").length +
-    data.supplierInvoices.filter((supplierInvoice) => supplierInvoice.status !== "paid").length +
-    data.bankTransactions.filter((bankTransaction) => bankTransaction.status === "unmatched").length;
-
-  return (
-    <aside className="workspace-sidebar" aria-label="Workspace navigation">
-      <div>
-        <p className="eyebrow">Workspace</p>
-        <h2>{data.workspace.name}</h2>
-        <dl className="sidebar-details compact-sidebar-details">
-          <div>
-            <dt>Currency</dt>
-            <dd>{data.workspace.baseCurrency}</dd>
-          </div>
-          <div>
-            <dt>Open work</dt>
-            <dd>{openItems}</dd>
-          </div>
-        </dl>
-      </div>
-
-      <nav className="sidebar-nav" aria-label="Workspace sections">
-        {workspaceSections.map((section) => (
-          <button
-            className={`nav-item ${activeSection === section.id ? "nav-item-active" : ""}`}
-            key={section.id}
-            type="button"
-            onClick={() => onSectionChange(section.id)}
-          >
-            <span>{section.label}</span>
-            <small>{section.description}</small>
-          </button>
-        ))}
-      </nav>
-
-      <WorkspaceStatusCard
-        data={data}
-        onDataStateChange={onDataStateChange}
-        showReset={false}
-      />
-    </aside>
-  );
-}
-
-function WorkspaceStatusCard({
-  data,
-  onDataStateChange,
-  showReset
-}: {
-  data: Extract<AppDataState, { state: "ready" }>;
-  onDataStateChange: (state: AppDataState) => void;
-  showReset: boolean;
-}) {
-  const [resetState, setResetState] = useState<"idle" | "resetting">("idle");
-
-  async function handleReset() {
-    setResetState("resetting");
-
-    try {
-      await clearDatabase();
-      const initialization = await initializeDefaultWorkspace();
-      const overview = await loadWorkspaceOverview(initialization.workspace.id);
-
-      onDataStateChange({
-        state: "ready",
-        workspace: initialization.workspace,
-        accounts: overview.accounts,
-        bankAccounts: overview.bankAccounts,
-        bankTransactions: overview.bankTransactions,
-        parties: overview.parties,
-        invoices: overview.invoices,
-        invoice: overview.latestInvoice,
-        invoiceParty: overview.latestInvoiceParty,
-        supplierInvoices: overview.supplierInvoices,
-        supplierInvoice: overview.latestSupplierInvoice,
-        supplierInvoiceParty: overview.latestSupplierInvoiceParty,
-        journalEntries: overview.journalEntries,
-        balances: overview.balances,
-        initializedWorkspace: initialization.created
-      });
-    } catch (error) {
-      onDataStateChange({
-        state: "error",
-        message: error instanceof Error ? error.message : "Unknown reset error"
-      });
-    } finally {
-      setResetState("idle");
-    }
-  }
-
-  return (
-    <div className="sidebar-status-card">
-      <dl className="sidebar-details">
-        <div>
-          <dt>Country</dt>
-          <dd>{data.workspace.countryCode}</dd>
-        </div>
-        <div>
-          <dt>Storage</dt>
-          <dd>{data.initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
-        </div>
-        <div>
-          <dt>Accounts</dt>
-          <dd>{data.accounts.length}</dd>
-        </div>
-      </dl>
-      <div className="sidebar-note compact-note">
-        <strong>Offline-first</strong>
-        <span>Data shown here is backed by IndexedDB in this browser.</span>
-      </div>
-      {showReset ? (
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={resetState === "resetting"}
-          onClick={() => void handleReset()}
-        >
-          {resetState === "resetting" ? "Resetting" : "Reset local data"}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 function MetricStrip({ data }: { data: Extract<AppDataState, { state: "ready" }> }) {
   const postingAccounts = data.accounts.filter((account) => account.role === "posting");
 
@@ -344,25 +153,6 @@ function MetricStrip({ data }: { data: Extract<AppDataState, { state: "ready" }>
       </div>
     </dl>
   );
-}
-
-function getSectionLead(section: WorkspaceSection) {
-  switch (section) {
-    case "dashboard":
-      return appMeta.description;
-    case "sales":
-      return "Create issued invoices, review invoice status, and match incoming bank transactions.";
-    case "purchases":
-      return "Record supplier invoices, owner transactions, and outgoing payments.";
-    case "banking":
-      return "Maintain bank accounts, add signed bank transactions, and post bank fees.";
-    case "counterparties":
-      return "Keep customers, suppliers, banks, owner, and tax authority records in one place.";
-    case "accounting":
-      return "Inspect balances, journal entries, and the seeded chart of accounts.";
-    case "settings":
-      return "Review local workspace status and development-only controls.";
-  }
 }
 
 function DashboardView({
@@ -528,133 +318,6 @@ function absoluteBankTransactionAmount(bankTransaction: BankTransaction) {
   return bankTransaction.amount.startsWith("-")
     ? bankTransaction.amount.slice(1)
     : bankTransaction.amount;
-}
-
-function SettingsPanel({
-  data,
-  onDataStateChange,
-  showReset
-}: {
-  data: Extract<AppDataState, { state: "ready" }>;
-  onDataStateChange: (state: AppDataState) => void;
-  showReset: boolean;
-}) {
-  const [backupState, setBackupState] = useState<"idle" | "exporting" | "importing">("idle");
-  const [backupMessage, setBackupMessage] = useState<string | null>(null);
-  const [backupError, setBackupError] = useState<string | null>(null);
-
-  async function handleExportBackup() {
-    setBackupState("exporting");
-    setBackupMessage(null);
-    setBackupError(null);
-
-    try {
-      const backup = await exportWorkspaceBackup();
-      const blob = new Blob([JSON.stringify(backup, null, 2)], {
-        type: "application/json"
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `spbook-backup-${data.workspace.id}-${new Date()
-        .toISOString()
-        .slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setBackupMessage("Backup exported.");
-    } catch (error) {
-      setBackupError(error instanceof Error ? error.message : "Backup was not exported.");
-    } finally {
-      setBackupState("idle");
-    }
-  }
-
-  async function handleImportBackup(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
-
-    if (!file) return;
-
-    setBackupState("importing");
-    setBackupMessage(null);
-    setBackupError(null);
-
-    try {
-      const backup = parseWorkspaceBackup(await file.text());
-      const overview = await importWorkspaceBackup(backup);
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview),
-        initializedWorkspace: false
-      });
-      setBackupMessage("Backup imported.");
-    } catch (error) {
-      setBackupError(error instanceof Error ? error.message : "Backup was not imported.");
-    } finally {
-      event.currentTarget.value = "";
-      setBackupState("idle");
-    }
-  }
-
-  return (
-    <section className="panel" aria-labelledby="settings-title">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Local</p>
-          <h2 id="settings-title">Workspace settings</h2>
-        </div>
-      </div>
-      <dl className="detail-list settings-details">
-        <div>
-          <dt>Workspace</dt>
-          <dd>{data.workspace.name}</dd>
-        </div>
-        <div>
-          <dt>Country</dt>
-          <dd>{data.workspace.countryCode}</dd>
-        </div>
-        <div>
-          <dt>Currency</dt>
-          <dd>{data.workspace.baseCurrency}</dd>
-        </div>
-        <div>
-          <dt>Storage</dt>
-          <dd>{data.initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
-        </div>
-        <div>
-          <dt>Build</dt>
-          <dd>{formatAppBuildLabel(buildInfo)}</dd>
-        </div>
-      </dl>
-      <div className="settings-actions">
-        <button
-          className="primary-button"
-          type="button"
-          disabled={backupState !== "idle"}
-          onClick={() => void handleExportBackup()}
-        >
-          {backupState === "exporting" ? "Exporting" : "Export backup"}
-        </button>
-        <label className="file-action">
-          <span>Import backup</span>
-          <input
-            accept="application/json,.json"
-            disabled={backupState !== "idle"}
-            type="file"
-            onChange={(event) => void handleImportBackup(event)}
-          />
-        </label>
-      </div>
-      {backupMessage ? <p className="field-note">{backupMessage}</p> : null}
-      {backupError ? <p className="form-error">{backupError}</p> : null}
-      {showReset ? (
-        <WorkspaceStatusCard
-          data={data}
-          onDataStateChange={onDataStateChange}
-          showReset={showReset}
-        />
-      ) : null}
-    </section>
-  );
 }
 
 function AccountsTable({
@@ -3734,20 +3397,4 @@ function BalancesTable({
       </div>
     </section>
   );
-}
-
-function mapOverviewToReadyState(overview: WorkspaceOverview) {
-  return {
-    bankAccounts: overview.bankAccounts,
-    bankTransactions: overview.bankTransactions,
-    parties: overview.parties,
-    invoices: overview.invoices,
-    invoice: overview.latestInvoice,
-    invoiceParty: overview.latestInvoiceParty,
-    supplierInvoices: overview.supplierInvoices,
-    supplierInvoice: overview.latestSupplierInvoice,
-    supplierInvoiceParty: overview.latestSupplierInvoiceParty,
-    journalEntries: overview.journalEntries,
-    balances: overview.balances
-  };
 }
