@@ -11,12 +11,10 @@ import { loadWorkspaceOverview } from "../../services/workspace-overview";
 
 export function WorkspaceSidebar({
   activeSection,
-  data,
-  onDataStateChange
+  data
 }: {
   activeSection: WorkspaceSection;
   data: Extract<AppDataState, { state: "ready" }>;
-  onDataStateChange: (state: AppDataState) => void;
 }) {
   const openItems =
     data.invoices.filter((invoice) => invoice.status !== "paid").length +
@@ -25,41 +23,58 @@ export function WorkspaceSidebar({
 
   return (
     <aside className="workspace-sidebar" aria-label="Workspace navigation">
-      <div>
-        <p className="eyebrow">Workspace</p>
-        <h2>{data.workspace.name}</h2>
-        <dl className="sidebar-details compact-sidebar-details">
-          <div>
-            <dt>Currency</dt>
-            <dd>{data.workspace.baseCurrency}</dd>
-          </div>
-          <div>
-            <dt>Open work</dt>
-            <dd>{openItems}</dd>
-          </div>
-        </dl>
+      <div className="sidebar-workspace-summary">
+        <strong>{data.workspace.name}</strong>
+        <span>{openItems} open</span>
       </div>
 
       <nav className="sidebar-nav" aria-label="Workspace sections">
-        {workspaceSections.map((section) => (
-          <Link
-            className={`nav-item ${activeSection === section.id ? "nav-item-active" : ""}`}
-            key={section.id}
-            to={section.path}
-          >
-            <span>{section.label}</span>
-            <small>{section.description}</small>
-          </Link>
-        ))}
-      </nav>
+        {workspaceSections.map((section) => {
+          const sectionCount = getSectionOpenCount(section.id, data);
 
-      <WorkspaceStatusCard
-        data={data}
-        onDataStateChange={onDataStateChange}
-        showReset={false}
-      />
+          return (
+            <Link
+              aria-label={section.label}
+              className={`nav-item ${activeSection === section.id ? "nav-item-active" : ""}`}
+              key={section.id}
+              title={section.description}
+              to={section.path}
+            >
+              <span className="nav-key" aria-hidden="true">
+                {getSectionAbbreviation(section.label)}
+              </span>
+              <span className="nav-label">{section.label}</span>
+              {sectionCount > 0 ? <small>{sectionCount}</small> : null}
+            </Link>
+          );
+        })}
+      </nav>
     </aside>
   );
+}
+
+function getSectionOpenCount(
+  sectionId: WorkspaceSection,
+  data: Extract<AppDataState, { state: "ready" }>
+) {
+  switch (sectionId) {
+    case "sales":
+      return data.invoices.filter((invoice) => invoice.status !== "paid").length;
+    case "purchases":
+      return data.supplierInvoices.filter(
+        (supplierInvoice) => supplierInvoice.status !== "paid"
+      ).length;
+    case "banking":
+      return data.bankTransactions.filter(
+        (bankTransaction) => bankTransaction.status === "unmatched"
+      ).length;
+    default:
+      return 0;
+  }
+}
+
+function getSectionAbbreviation(label: string) {
+  return label.slice(0, 2).toUpperCase();
 }
 
 export function WorkspaceStatusCard({

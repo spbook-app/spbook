@@ -80,12 +80,8 @@ export function BankingAccountsView({
 
 function BankAccountListPage({ data }: { data: ReadyAppData }) {
   return (
-    <section className="panel panel-wide" aria-labelledby="bank-accounts-title">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Banking</p>
-          <h2 id="bank-accounts-title">Bank accounts</h2>
-        </div>
+    <section className="panel panel-wide" aria-label="Bank accounts">
+      <div className="panel-actions">
         <Link className="primary-button" to="/workspace/banking/accounts/new">
           Create bank account
         </Link>
@@ -206,7 +202,6 @@ function BankAccountCreatePage({
     <section className="panel panel-wide" aria-labelledby="create-bank-account-title">
       <div className="panel-header">
         <div>
-          <p className="eyebrow">Banking</p>
           <h2 id="create-bank-account-title">Create bank account</h2>
         </div>
         <Link className="secondary-button" to="/workspace/banking/accounts">
@@ -310,7 +305,6 @@ function BankAccountDetailPage({
     <section className="panel panel-wide" aria-labelledby="bank-account-detail-title">
       <div className="panel-header">
         <div>
-          <p className="eyebrow">Banking</p>
           <h2 id="bank-account-detail-title">{bankAccount.name}</h2>
         </div>
         <span className="status-pill">{bankAccount.active ? "active" : "inactive"}</span>
@@ -513,7 +507,6 @@ function BankAccountNotFound({ bankAccountId }: { bankAccountId: string }) {
     <section className="panel" aria-labelledby="bank-account-not-found-title">
       <div className="panel-header">
         <div>
-          <p className="eyebrow">Banking</p>
           <h2 id="bank-account-not-found-title">Bank account not found</h2>
         </div>
         <Link className="secondary-button" to="/workspace/banking/accounts">

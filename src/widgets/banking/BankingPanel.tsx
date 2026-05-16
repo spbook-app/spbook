@@ -21,15 +21,7 @@ export function BankingPanel({
 
   if (pathname.startsWith("/workspace/banking/transactions")) {
     return (
-      <section className="panel panel-wide" aria-labelledby="banking-transactions-title">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Banking</p>
-            <h2 id="banking-transactions-title">Bank transactions</h2>
-          </div>
-          <span>{data.bankTransactions.length} transactions</span>
-        </div>
-
+      <section className="panel panel-wide" aria-label="Bank transactions">
         {pathname === "/workspace/banking/transactions" ? (
           <BankStatementImport data={data} onDataStateChange={onDataStateChange} />
         ) : null}
@@ -39,12 +31,8 @@ export function BankingPanel({
   }
 
   return (
-    <section className="panel panel-wide" aria-labelledby="banking-title">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Banking</p>
-          <h2 id="banking-title">Bank accounts and transactions</h2>
-        </div>
+    <section className="panel panel-wide" aria-label="Banking">
+      <div className="panel-actions">
         <span>
           {data.bankAccounts.length} accounts · {data.bankTransactions.length} transactions
         </span>

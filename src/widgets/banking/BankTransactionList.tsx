@@ -757,9 +757,6 @@ export function BankTransactionList({
             bankTransaction.matchedDocumentId
               ? data.supplierInvoices.find((si) => si.id === bankTransaction.matchedDocumentId)
               : undefined;
-          const isActive =
-            route.mode === "detail" && route.bankTransactionId === bankTransaction.id;
-
           return (
             <Link
               className="transaction-pick"
@@ -774,7 +771,7 @@ export function BankTransactionList({
                 matchedInvoice={matchedInvoice}
                 matchedSupplierInvoice={matchedSupplierInvoice}
                 displayState={displayState}
-                isActive={isActive}
+                isActive={false}
               />
             </Link>
           );
