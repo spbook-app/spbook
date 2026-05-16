@@ -894,11 +894,43 @@ td {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-height: calc(0.8rem * 1.4 + 8px);
+}
+
+.linked-counterparty-field .secondary-button {
+  min-height: unset;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  border-radius: 5px;
 }
 
 .linked-counterparty-field p {
   flex-basis: 100%;
   margin: 0;
+}
+
+.copyable-details > .copyable-details-row--with-toggle {
+  grid-template-columns: minmax(120px, 180px) 24px minmax(0, 1fr);
+}
+
+.toggle-view-button {
+  background: none;
+  border: 1px solid #c8c2bb;
+  border-radius: 4px;
+  color: #7a756b;
+  cursor: pointer;
+  font-size: 0.8rem;
+  min-height: unset;
+  padding: 1px 4px;
+  line-height: 1.4;
+  text-transform: none;
+  align-self: center;
+  justify-self: center;
+}
+
+.toggle-view-button:hover {
+  border-color: #7a756b;
+  color: #25231f;
 }
 
 .info-hint {

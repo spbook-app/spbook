@@ -574,6 +574,7 @@ export function BankTransactionList({
         </div>
 
         <BankTransactionDetailPanel
+          key={selectedEditBankTransaction.id}
           bankAccountId={selectedEditBankTransaction.bankAccountId}
           bankAccountName={selectedBankAccountName}
           bankTransaction={selectedEditBankTransaction}
@@ -792,6 +793,7 @@ function LinkedCounterpartyField({
   canCreateCounterparty,
   isLinking,
   isCreating,
+  showStatement,
   onLinkCounterparty,
   onCreateCounterparty,
   onUnlinkCounterparty
@@ -802,12 +804,21 @@ function LinkedCounterpartyField({
   canCreateCounterparty: boolean;
   isLinking: boolean;
   isCreating: boolean;
+  showStatement: boolean;
   onLinkCounterparty: () => void;
   onCreateCounterparty: () => void;
   onUnlinkCounterparty: () => void;
 }) {
   const canEdit =
     Boolean(bankTransaction.importSource) && bankTransaction.status === "unmatched";
+
+  if (showStatement) {
+    return (
+      <div className="linked-counterparty-field">
+        <span>{bankTransaction.counterpartyName}</span>
+      </div>
+    );
+  }
 
   if (linkedParty) {
     return (
@@ -919,13 +930,14 @@ function BankTransactionDetailPanel({
   onUnlinkCounterparty: () => void;
   onUndoPosting: () => void;
 }) {
+  const [showStatement, setShowStatement] = useState(false);
   const linkedParty = parties.find((party) => party.id === bankTransaction.partyId);
   const suggestedParty = suggestedPartyId
     ? parties.find((party) => party.id === suggestedPartyId)
     : undefined;
+  const hasToggle = Boolean(bankTransaction.counterpartyName) && Boolean(linkedParty || suggestedParty);
   const textDetails = ([
-    ["Counterparty", bankTransaction.counterpartyName, true],
-    ["Counterparty IBAN", bankTransaction.counterpartyIban, true],
+    ["Counterparty IBAN", bankTransaction.counterpartyIban],
     ["Booking date", bankTransaction.bookingDate],
     ["Value date", bankTransaction.valueDate],
     ["Amount", `${bankTransaction.amount} ${bankTransaction.currency}`],
@@ -937,7 +949,7 @@ function BankTransactionDetailPanel({
     ["Entry reference", bankTransaction.entryReference],
     ["Import source", bankTransaction.importSource],
     ["External ID", bankTransaction.externalId]
-  ] as Array<[string, ReactNode, boolean?]>).filter(([, value]) => value != null);
+  ] as Array<[string, ReactNode]>).filter(([, value]) => value != null);
 
   return (
     <div className="transaction-detail-panel">
@@ -960,8 +972,18 @@ function BankTransactionDetailPanel({
           </dd>
         </div>
         {bankTransaction.importSource || linkedParty ? (
-          <div>
-            <dt>Linked counterparty</dt>
+          <div className={hasToggle ? "copyable-details-row--with-toggle" : undefined}>
+            <dt>{showStatement ? "Counterparty" : "Linked counterparty"}</dt>
+            {hasToggle ? (
+              <button
+                className="toggle-view-button"
+                type="button"
+                title={showStatement ? "Show linked counterparty" : "Show statement data"}
+                onClick={() => setShowStatement((s) => !s)}
+              >
+                ⇄
+              </button>
+            ) : null}
             <dd>
               <LinkedCounterpartyField
                 bankTransaction={bankTransaction}
@@ -970,6 +992,7 @@ function BankTransactionDetailPanel({
                 canCreateCounterparty={canCreateCounterparty}
                 isLinking={isLinkingCounterparty}
                 isCreating={isCreatingCounterparty}
+                showStatement={showStatement}
                 onLinkCounterparty={onLinkCounterparty}
                 onCreateCounterparty={onCreateCounterparty}
                 onUnlinkCounterparty={onUnlinkCounterparty}
@@ -977,8 +1000,8 @@ function BankTransactionDetailPanel({
             </dd>
           </div>
         ) : null}
-        {textDetails.map(([label, value, secondary]) => (
-          <div key={label as string} className={secondary ? "copyable-details-row--secondary" : undefined}>
+        {textDetails.map(([label, value]) => (
+          <div key={label as string}>
             <dt>{label}</dt>
             <dd>{value}</dd>
           </div>
