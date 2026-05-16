@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { clearDatabase } from "../storage/repositories";
+import anonymizedBackupFixture from "../test/fixtures/spbook-backup-si-demo-anonymized.json";
 import { createWorkspaceAccount } from "./account-workflow";
 import {
   exportWorkspaceBackup,
   importWorkspaceBackup,
-  parseWorkspaceBackup
+  parseWorkspaceBackup,
+  type WorkspaceBackup
 } from "./workspace-backup";
 
 describe("workspace backup", () => {
@@ -43,5 +45,22 @@ describe("workspace backup", () => {
     expect(() => parseWorkspaceBackup("{}")).toThrow(
       "Backup file format is not supported."
     );
+  });
+
+  it("imports the anonymized Slovenia demo backup fixture", async () => {
+    const backup = anonymizedBackupFixture as WorkspaceBackup;
+
+    const overview = await importWorkspaceBackup(backup, database);
+
+    expect(overview.workspace.id).toBe("ws_demo_001");
+    expect(overview.workspace.name).toBe("Demo Slovenian s.p. Workspace");
+    expect(overview.bankAccounts).toHaveLength(2);
+    expect(overview.bankTransactions).toHaveLength(9);
+    expect(overview.parties.every((party) => party.name.startsWith("Demo "))).toBe(true);
+    expect(
+      overview.bankTransactions.every((bankTransaction) =>
+        bankTransaction.externalId?.startsWith("demo-external-")
+      )
+    ).toBe(true);
   });
 });

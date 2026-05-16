@@ -1,0 +1,615 @@
+{
+  "format": "spbook-local-backup",
+  "formatVersion": 1,
+  "exportedAt": "2026-05-16T00:00:00.000Z",
+  "data": {
+    "workspaces": [
+      {
+        "id": "ws_demo_001",
+        "name": "Demo Slovenian s.p. Workspace",
+        "countryCode": "SI",
+        "baseCurrency": "EUR",
+        "createdAt": "2026-05-15T18:14:21.969Z",
+        "updatedAt": "2026-05-15T18:14:21.969Z"
+      }
+    ],
+    "accounts": [
+      {
+        "id": "acct_demo_001",
+        "workspaceId": "ws_demo_001",
+        "code": "11",
+        "name": "Demo group account 11",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_002",
+        "workspaceId": "ws_demo_001",
+        "code": "1100",
+        "parentCode": "11",
+        "name": "Demo posting account 1100",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_003",
+        "workspaceId": "ws_demo_001",
+        "code": "12",
+        "name": "Demo group account 12",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_004",
+        "workspaceId": "ws_demo_001",
+        "code": "1200",
+        "parentCode": "12",
+        "name": "Demo posting account 1200",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_005",
+        "workspaceId": "ws_demo_001",
+        "code": "22",
+        "name": "Demo group account 22",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_006",
+        "workspaceId": "ws_demo_001",
+        "code": "2200",
+        "parentCode": "22",
+        "name": "Demo posting account 2200",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_007",
+        "workspaceId": "ws_demo_001",
+        "code": "1101",
+        "name": "Demo posting account 1101",
+        "role": "posting",
+        "parentCode": "11",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_008",
+        "workspaceId": "ws_demo_001",
+        "code": "26",
+        "name": "Demo group account 26",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_009",
+        "workspaceId": "ws_demo_001",
+        "code": "2600",
+        "parentCode": "26",
+        "name": "Demo posting account 2600",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_010",
+        "workspaceId": "ws_demo_001",
+        "code": "28",
+        "name": "Demo group account 28",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_011",
+        "workspaceId": "ws_demo_001",
+        "code": "2850",
+        "parentCode": "28",
+        "name": "Demo posting account 2850",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_012",
+        "workspaceId": "ws_demo_001",
+        "code": "41",
+        "name": "Demo group account 41",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_013",
+        "workspaceId": "ws_demo_001",
+        "code": "4100",
+        "parentCode": "41",
+        "name": "Demo posting account 4100",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_014",
+        "workspaceId": "ws_demo_001",
+        "code": "4120",
+        "parentCode": "41",
+        "name": "Demo posting account 4120",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_015",
+        "workspaceId": "ws_demo_001",
+        "code": "48",
+        "name": "Demo group account 48",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_016",
+        "workspaceId": "ws_demo_001",
+        "code": "4800",
+        "parentCode": "48",
+        "name": "Demo posting account 4800",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      },
+      {
+        "id": "acct_demo_017",
+        "workspaceId": "ws_demo_001",
+        "code": "76",
+        "name": "Demo group account 76",
+        "role": "group",
+        "active": true
+      },
+      {
+        "id": "acct_demo_018",
+        "workspaceId": "ws_demo_001",
+        "code": "7600",
+        "parentCode": "76",
+        "name": "Demo posting account 7600",
+        "role": "posting",
+        "currency": "EUR",
+        "active": true
+      }
+    ],
+    "parties": [
+      {
+        "id": "party_demo_001",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Bank d.d.",
+        "countryCode": "SI",
+        "iban": "SI560200000100000001",
+        "type": "business",
+        "roles": [
+          "bank"
+        ],
+        "active": true
+      },
+      {
+        "id": "party_demo_002",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Client Alpha d.o.o.",
+        "countryCode": "SI",
+        "iban": "SI560200000100000002",
+        "type": "person",
+        "roles": [
+          "owner"
+        ],
+        "active": true
+      },
+      {
+        "id": "party_demo_003",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Client Beta d.o.o.",
+        "countryCode": "SI",
+        "iban": "SI560200000100000003",
+        "type": "government",
+        "roles": [
+          "tax_authority"
+        ],
+        "active": true
+      },
+      {
+        "id": "party_demo_004",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Supplier Services d.o.o.",
+        "countryCode": "EE",
+        "registrationNumber": "DEMO00004",
+        "vatId": "SI10000003",
+        "iban": "SI560200000100000004",
+        "addressLine1": "Demo Street 4",
+        "addressLine2": "Demo Office",
+        "postalCode": "1000",
+        "city": "Ljubljana",
+        "region": "Osrednjeslovenska",
+        "type": "business",
+        "roles": [
+          "customer"
+        ],
+        "active": true
+      },
+      {
+        "id": "party_demo_005",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Owner",
+        "countryCode": "SI",
+        "iban": "SI560200000100000005",
+        "type": "government",
+        "roles": [
+          "tax_authority"
+        ],
+        "active": true
+      },
+      {
+        "id": "party_demo_006",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Tax Authority",
+        "countryCode": "SI",
+        "iban": "SI560200000100000006",
+        "type": "government",
+        "roles": [
+          "tax_authority"
+        ],
+        "active": true
+      },
+      {
+        "id": "party_demo_007",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Counterparty",
+        "countryCode": "LT",
+        "vatId": "SI10000006",
+        "addressLine1": "Demo Street 7",
+        "postalCode": "1000",
+        "city": "Ljubljana",
+        "type": "business",
+        "roles": [
+          "bank"
+        ],
+        "active": true
+      }
+    ],
+    "invoices": [
+      {
+        "id": "inv_demo_001",
+        "workspaceId": "ws_demo_001",
+        "number": "DEMO-SALES-001",
+        "issueDate": "2026-04-01",
+        "partyId": "party_demo_004",
+        "currency": "EUR",
+        "total": "5280",
+        "status": "issued"
+      },
+      {
+        "id": "inv_demo_002",
+        "workspaceId": "ws_demo_001",
+        "number": "DEMO-SALES-002",
+        "issueDate": "2026-05-01",
+        "partyId": "party_demo_004",
+        "currency": "EUR",
+        "total": "4800",
+        "status": "issued"
+      }
+    ],
+    "supplierInvoices": [],
+    "bankAccounts": [
+      {
+        "id": "bank_demo_001",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Operating Bank",
+        "accountCode": "1100",
+        "currency": "EUR",
+        "iban": "SI560200000200000001",
+        "partyId": "party_demo_001",
+        "active": true
+      },
+      {
+        "id": "bank_demo_002",
+        "workspaceId": "ws_demo_001",
+        "name": "Demo Bank Account 2",
+        "accountCode": "1101",
+        "currency": "EUR",
+        "iban": "SI560200000200000002",
+        "partyId": "party_demo_007",
+        "active": true
+      }
+    ],
+    "bankTransactions": [
+      {
+        "id": "btxn_demo_001",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-04-13",
+        "amount": "-185.26",
+        "currency": "EUR",
+        "description": "Demo bank service fee",
+        "reference": "DEMO-REF-001",
+        "partyId": "party_demo_005",
+        "externalId": "demo-external-001",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-001",
+        "bankReference": "demo-bank-ref-001",
+        "valueDate": "2026-04-13",
+        "remittanceInformation": "Demo bank service fee",
+        "counterpartyName": "Demo Owner",
+        "counterpartyIban": "SI560200000100000005",
+        "status": "unmatched"
+      },
+      {
+        "id": "btxn_demo_002",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-04-10",
+        "amount": "-2.00",
+        "currency": "EUR",
+        "description": "Demo supplier payment",
+        "reference": "DEMO-REF-002",
+        "partyId": "party_demo_006",
+        "externalId": "demo-external-002",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-002",
+        "bankReference": "demo-bank-ref-002",
+        "valueDate": "2026-04-10",
+        "remittanceInformation": "Demo supplier payment",
+        "counterpartyName": "Demo Tax Authority",
+        "counterpartyIban": "SI560200000100000006",
+        "status": "unmatched"
+      },
+      {
+        "id": "btxn_demo_003",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-03-27",
+        "amount": "300.00",
+        "currency": "EUR",
+        "description": "Demo customer payment",
+        "reference": "DEMO-REF-003",
+        "externalId": "demo-external-003",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-003",
+        "bankReference": "demo-bank-ref-003",
+        "valueDate": "2026-03-27",
+        "remittanceInformation": "Demo customer payment",
+        "counterpartyName": "Demo Client Alpha d.o.o.",
+        "counterpartyIban": "SI560200000100000002",
+        "status": "unmatched",
+        "partyId": "party_demo_002"
+      },
+      {
+        "id": "btxn_demo_004",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-04-13",
+        "amount": "-274.45",
+        "currency": "EUR",
+        "description": "Demo supplier payment",
+        "reference": "DEMO-REF-004",
+        "partyId": "party_demo_003",
+        "externalId": "demo-external-004",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-004",
+        "bankReference": "demo-bank-ref-004",
+        "valueDate": "2026-04-13",
+        "remittanceInformation": "Demo supplier payment",
+        "counterpartyName": "Demo Client Beta d.o.o.",
+        "counterpartyIban": "SI560200000100000003",
+        "status": "unmatched"
+      },
+      {
+        "id": "btxn_demo_005",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-04-13",
+        "amount": "-3.04",
+        "currency": "EUR",
+        "description": "Demo bank service fee",
+        "reference": "DEMO-REF-005",
+        "partyId": "party_demo_006",
+        "externalId": "demo-external-005",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-005",
+        "bankReference": "demo-bank-ref-005",
+        "valueDate": "2026-04-13",
+        "remittanceInformation": "Demo bank service fee",
+        "counterpartyName": "Demo Tax Authority",
+        "counterpartyIban": "SI560200000100000006",
+        "status": "unmatched"
+      },
+      {
+        "id": "btxn_demo_006",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-03-31",
+        "amount": "-3.50",
+        "currency": "EUR",
+        "description": "Demo supplier payment",
+        "reference": "DEMO-REF-006",
+        "externalId": "demo-external-006",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-006",
+        "bankReference": "demo-bank-ref-006",
+        "valueDate": "2026-03-31",
+        "remittanceInformation": "Demo supplier payment",
+        "counterpartyName": "Demo Bank d.d.",
+        "status": "posted",
+        "partyId": "party_demo_001",
+        "matchedDocumentType": "bank_fee",
+        "matchedDocumentId": "btxn_demo_006",
+        "journalEntryId": "je_demo_001"
+      },
+      {
+        "id": "btxn_demo_007",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-03-30",
+        "amount": "-250.00",
+        "currency": "EUR",
+        "description": "Demo bank service fee",
+        "reference": "DEMO-REF-007",
+        "externalId": "demo-external-007",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-007",
+        "bankReference": "demo-bank-ref-007",
+        "valueDate": "2026-03-30",
+        "remittanceInformation": "Demo bank service fee",
+        "counterpartyName": "Demo Bank d.d.",
+        "counterpartyIban": "SI560200000100000001",
+        "status": "posted",
+        "partyId": "party_demo_001",
+        "matchedDocumentType": "bank_fee",
+        "matchedDocumentId": "btxn_demo_007",
+        "journalEntryId": "je_demo_002"
+      },
+      {
+        "id": "btxn_demo_008",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-04-09",
+        "amount": "5280.00",
+        "currency": "EUR",
+        "description": "Demo owner contribution",
+        "reference": "DEMO-REF-008",
+        "partyId": "party_demo_004",
+        "externalId": "demo-external-008",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-008",
+        "bankReference": "demo-bank-ref-008",
+        "valueDate": "2026-04-09",
+        "remittanceInformation": "Demo owner contribution",
+        "counterpartyName": "Demo Supplier Services d.o.o.",
+        "counterpartyIban": "SI560200000100000004",
+        "status": "unmatched"
+      },
+      {
+        "id": "btxn_demo_009",
+        "workspaceId": "ws_demo_001",
+        "bankAccountId": "bank_demo_001",
+        "bookingDate": "2026-04-13",
+        "amount": "-3.04",
+        "currency": "EUR",
+        "description": "Demo bank service fee",
+        "reference": "DEMO-REF-009",
+        "partyId": "party_demo_006",
+        "externalId": "demo-external-009",
+        "importSource": "camt053",
+        "entryReference": "demo-entry-009",
+        "bankReference": "demo-bank-ref-009",
+        "valueDate": "2026-04-13",
+        "remittanceInformation": "Demo bank service fee",
+        "counterpartyName": "Demo Tax Authority",
+        "counterpartyIban": "SI560200000100000006",
+        "status": "unmatched"
+      }
+    ],
+    "journalEntries": [
+      {
+        "id": "je_demo_002",
+        "workspaceId": "ws_demo_001",
+        "entryDate": "2026-03-30",
+        "sourceType": "bank_transaction",
+        "sourceId": "btxn_demo_007",
+        "description": "Demo journal entry 001",
+        "lines": [
+          {
+            "accountCode": "4100",
+            "side": "debit",
+            "amount": "250.00",
+            "currency": "EUR",
+            "partyId": "party_demo_001",
+            "bankAccountId": "bank_demo_001"
+          },
+          {
+            "accountCode": "1100",
+            "side": "credit",
+            "amount": "250.00",
+            "currency": "EUR",
+            "partyId": "party_demo_001",
+            "bankAccountId": "bank_demo_001"
+          }
+        ]
+      },
+      {
+        "id": "je_demo_001",
+        "workspaceId": "ws_demo_001",
+        "entryDate": "2026-03-31",
+        "sourceType": "bank_transaction",
+        "sourceId": "btxn_demo_006",
+        "description": "Demo journal entry 002",
+        "lines": [
+          {
+            "accountCode": "4100",
+            "side": "debit",
+            "amount": "3.50",
+            "currency": "EUR",
+            "partyId": "party_demo_001",
+            "bankAccountId": "bank_demo_001"
+          },
+          {
+            "accountCode": "1100",
+            "side": "credit",
+            "amount": "3.50",
+            "currency": "EUR",
+            "partyId": "party_demo_001",
+            "bankAccountId": "bank_demo_001"
+          }
+        ]
+      },
+      {
+        "id": "je_demo_003",
+        "workspaceId": "ws_demo_001",
+        "entryDate": "2026-05-01",
+        "sourceType": "invoice",
+        "sourceId": "inv_demo_002",
+        "description": "Demo journal entry 003",
+        "lines": [
+          {
+            "accountCode": "1200",
+            "side": "debit",
+            "amount": "4800",
+            "currency": "EUR",
+            "partyId": "party_demo_004",
+            "invoiceId": "inv_demo_002"
+          },
+          {
+            "accountCode": "7600",
+            "side": "credit",
+            "amount": "4800",
+            "currency": "EUR",
+            "partyId": "party_demo_004"
+          }
+        ]
+      },
+      {
+        "id": "je_demo_004",
+        "workspaceId": "ws_demo_001",
+        "entryDate": "2026-04-01",
+        "sourceType": "invoice",
+        "sourceId": "inv_demo_001",
+        "description": "Demo journal entry 004",
+        "lines": [
+          {
+            "accountCode": "1200",
+            "side": "debit",
+            "amount": "5280",
+            "currency": "EUR",
+            "partyId": "party_demo_004",
+            "invoiceId": "inv_demo_001"
+          },
+          {
+            "accountCode": "7600",
+            "side": "credit",
+            "amount": "5280",
+            "currency": "EUR",
+            "partyId": "party_demo_004"
+          }
+        ]
+      }
+    ]
+  }
+}
