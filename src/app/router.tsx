@@ -83,6 +83,24 @@ const counterpartiesRoute = createRoute({
   component: emptyRouteComponent
 });
 
+const counterpartyCreateRoute = createRoute({
+  getParentRoute: () => counterpartiesRoute,
+  path: "new",
+  component: emptyRouteComponent
+});
+
+const counterpartyDetailRoute = createRoute({
+  getParentRoute: () => counterpartiesRoute,
+  path: "$partyId",
+  component: emptyRouteComponent
+});
+
+const counterpartyEditRoute = createRoute({
+  getParentRoute: () => counterpartyDetailRoute,
+  path: "edit",
+  component: emptyRouteComponent
+});
+
 const accountingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "accounting",
@@ -108,7 +126,10 @@ const routeTree = rootRoute.addChildren([
     ]),
     purchasesRoute,
     bankingRoute,
-    counterpartiesRoute,
+    counterpartiesRoute.addChildren([
+      counterpartyCreateRoute,
+      counterpartyDetailRoute.addChildren([counterpartyEditRoute])
+    ]),
     accountingRoute,
     settingsRoute
   ])

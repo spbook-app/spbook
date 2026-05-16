@@ -9,7 +9,7 @@ import {
 } from "../pages/workspace/model";
 import { AccountsTable } from "../widgets/accounting/AccountsTable";
 import { BankingPanel } from "../widgets/banking/BankingPanel";
-import { CounterpartiesPanel } from "../widgets/counterparties/CounterpartiesPanel";
+import { CounterpartiesView } from "../widgets/counterparties/CounterpartiesView";
 import { DashboardView } from "../widgets/dashboard/DashboardView";
 import { OwnerTransactionsPanel } from "../widgets/purchases/OwnerTransactionsPanel";
 import { SupplierInvoiceWorkflowPanel } from "../widgets/purchases/SupplierInvoiceWorkflowPanel";
@@ -75,7 +75,7 @@ export function WorkspaceView({
         ) : null}
         {activeSection === "counterparties" ? (
           <div className="section-stack">
-            <CounterpartiesPanel data={data} onDataStateChange={onDataStateChange} />
+            <CounterpartiesView data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
         {activeSection === "accounting" ? (

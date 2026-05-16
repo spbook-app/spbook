@@ -425,6 +425,17 @@ function InvoiceDetailPage({
               </div>
             </dl>
           </div>
+          {invoiceParty ? (
+            <div className="transaction-detail-actions">
+              <Link
+                className="secondary-button"
+                to="/workspace/counterparties/$partyId"
+                params={{ partyId: invoiceParty.id }}
+              >
+                Open customer
+              </Link>
+            </div>
+          ) : null}
           <LinkedJournalEntries entries={invoiceEntries} />
           {linkedInvoiceBankTransaction ? (
             <LinkedBankTransactionSummary
