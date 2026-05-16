@@ -5,6 +5,8 @@ import type { Account, BankAccount, Party } from "../../domain";
 import { createBankAccount, updateBankAccount } from "../../services/bank-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { getBankTransactionDisplayState } from "./bank-transaction-display";
+import { BankTransactionListItem } from "./BankTransactionListItem";
 
 type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
 type BankingAccountRoute =
@@ -252,6 +254,12 @@ function BankAccountDetailPage({
   const relatedTransactions = data.bankTransactions.filter(
     (bankTransaction) => bankTransaction.bankAccountId === bankAccount.id
   );
+  const sortedRelatedTransactions = [...relatedTransactions].sort((left, right) =>
+    right.bookingDate.localeCompare(left.bookingDate)
+  );
+  const unmatchedTransactionCount = relatedTransactions.filter(
+    (bankTransaction) => bankTransaction.status === "unmatched"
+  ).length;
   const editBankAccountOptions = getEditBankAccountOptions(
     bankPostingAccounts,
     data.bankAccounts,
@@ -303,14 +311,7 @@ function BankAccountDetailPage({
 
   return (
     <section className="panel panel-wide" aria-labelledby="bank-account-detail-title">
-      <div className="panel-header">
-        <div>
-          <h2 id="bank-account-detail-title">{bankAccount.name}</h2>
-        </div>
-        <span className="status-pill">{bankAccount.active ? "active" : "inactive"}</span>
-      </div>
-
-      <div className="transaction-detail-actions">
+      <div className="entity-page-actions">
         <Link className="secondary-button" to="/workspace/banking/accounts">
           Back to list
         </Link>
@@ -323,6 +324,7 @@ function BankAccountDetailPage({
             Edit bank account
           </Link>
         ) : null}
+        <span className="status-pill">{bankAccount.active ? "active" : "inactive"}</span>
       </div>
 
       {mode === "edit" ? (
@@ -354,11 +356,7 @@ function BankAccountDetailPage({
         </form>
       ) : (
         <>
-          <dl className="detail-list copyable-details">
-            <div>
-              <dt>Name</dt>
-              <dd>{bankAccount.name}</dd>
-            </div>
+          <dl className="entity-summary-strip">
             <div>
               <dt>IBAN</dt>
               <dd>{bankAccount.iban ?? "-"}</dd>
@@ -368,12 +366,126 @@ function BankAccountDetailPage({
               <dd>{bankAccount.currency}</dd>
             </div>
             <div>
-              <dt>Posting account</dt>
-              <dd>
-                {bankAccount.accountCode}
-                {postingAccount ? ` · ${postingAccount.name}` : ""}
-              </dd>
+              <dt>Transactions</dt>
+              <dd>{relatedTransactions.length}</dd>
             </div>
+            <div>
+              <dt>Needs action</dt>
+              <dd>{unmatchedTransactionCount}</dd>
+            </div>
+          </dl>
+
+          <section className="entity-workspace-section" aria-labelledby="bank-account-transactions-title">
+            <div className="entity-section-header">
+              <div>
+                <h3 id="bank-account-transactions-title">Transactions</h3>
+                <p>Bank movements filtered to this account.</p>
+              </div>
+              <Link
+                className="secondary-button"
+                to="/workspace/banking/transactions"
+                search={{ bankAccountId: bankAccount.id }}
+              >
+                Open transaction list
+              </Link>
+            </div>
+            {relatedTransactions.length === 0 ? (
+              <p className="empty-state">No bank transactions for this account yet.</p>
+            ) : null}
+            {sortedRelatedTransactions.length > 0 ? (
+              <div className="bank-account-transaction-list">
+                {sortedRelatedTransactions.map((bankTransaction) => {
+                  const linkedParty = data.parties.find(
+                    (party) => party.id === bankTransaction.partyId
+                  );
+                  const invoiceCandidateExists = data.invoices.some(
+                    (invoice) =>
+                      invoice.partyId === bankTransaction.partyId &&
+                      invoice.status !== "paid" &&
+                      invoice.status !== "cancelled" &&
+                      invoice.total === bankTransaction.amount &&
+                      invoice.currency === bankTransaction.currency
+                  );
+                  const supplierCandidateExists = data.supplierInvoices.some(
+                    (supplierInvoice) =>
+                      supplierInvoice.partyId === bankTransaction.partyId &&
+                      (supplierInvoice.status === "received" ||
+                        supplierInvoice.status === "approved") &&
+                      supplierInvoice.total === bankTransaction.amount.replace(/^-/, "") &&
+                      supplierInvoice.currency === bankTransaction.currency
+                  );
+                  const displayState = getBankTransactionDisplayState(
+                    bankTransaction,
+                    linkedParty,
+                    invoiceCandidateExists,
+                    supplierCandidateExists
+                  );
+                  const matchedInvoice =
+                    bankTransaction.matchedDocumentType === "invoice" &&
+                    bankTransaction.matchedDocumentId
+                      ? data.invoices.find(
+                          (invoice) => invoice.id === bankTransaction.matchedDocumentId
+                        )
+                      : undefined;
+                  const matchedSupplierInvoice =
+                    bankTransaction.matchedDocumentType === "supplier_invoice" &&
+                    bankTransaction.matchedDocumentId
+                      ? data.supplierInvoices.find(
+                          (supplierInvoice) =>
+                            supplierInvoice.id === bankTransaction.matchedDocumentId
+                        )
+                      : undefined;
+
+                  return (
+                    <Link
+                      className="transaction-pick"
+                      key={bankTransaction.id}
+                      to="/workspace/banking/transactions/$bankTransactionId"
+                      params={{ bankTransactionId: bankTransaction.id }}
+                    >
+                      <BankTransactionListItem
+                        bankTransaction={bankTransaction}
+                        bankAccount={bankAccount}
+                        linkedParty={linkedParty}
+                        matchedInvoice={matchedInvoice}
+                        matchedSupplierInvoice={matchedSupplierInvoice}
+                        displayState={displayState}
+                        isActive={false}
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="entity-workspace-section entity-workspace-section-secondary" aria-labelledby="bank-account-details-title">
+            <div className="entity-section-header">
+              <div>
+                <h3 id="bank-account-details-title">Details</h3>
+                <p>Copyable account metadata and linked records.</p>
+              </div>
+            </div>
+            <dl className="detail-list copyable-details">
+              <div>
+                <dt>Name</dt>
+                <dd>{bankAccount.name}</dd>
+              </div>
+              <div>
+                <dt>IBAN</dt>
+                <dd>{bankAccount.iban ?? "-"}</dd>
+              </div>
+              <div>
+                <dt>Currency</dt>
+                <dd>{bankAccount.currency}</dd>
+              </div>
+              <div>
+                <dt>Posting account</dt>
+                <dd>
+                  {bankAccount.accountCode}
+                  {postingAccount ? ` · ${postingAccount.name}` : ""}
+                </dd>
+              </div>
             <div>
               <dt>Bank counterparty</dt>
               <dd>{bankParty?.name ?? "-"}</dd>
@@ -381,7 +493,7 @@ function BankAccountDetailPage({
           </dl>
 
           {bankParty ? (
-            <div className="transaction-detail-actions">
+            <div className="entity-inline-actions">
               <Link
                 className="secondary-button"
                 to="/workspace/counterparties/$partyId"
@@ -391,27 +503,7 @@ function BankAccountDetailPage({
               </Link>
             </div>
           ) : null}
-
-          <div className="linked-entries">
-            <strong>Bank transactions</strong>
-            {relatedTransactions.length === 0 ? (
-              <p className="empty-state">No bank transactions for this account yet.</p>
-            ) : null}
-            {relatedTransactions.map((bankTransaction) => (
-              <Link
-                className="linked-entry"
-                key={bankTransaction.id}
-                to="/workspace/banking/transactions/$bankTransactionId"
-                params={{ bankTransactionId: bankTransaction.id }}
-              >
-                <span>{bankTransaction.bookingDate}</span>
-                <small>
-                  {bankTransaction.amount} {bankTransaction.currency} ·{" "}
-                  {bankTransaction.description}
-                </small>
-              </Link>
-            ))}
-          </div>
+          </section>
         </>
       )}
 

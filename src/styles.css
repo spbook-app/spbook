@@ -455,6 +455,87 @@ dd {
   white-space: nowrap;
 }
 
+.entity-page-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.entity-page-actions .status-pill {
+  margin-left: auto;
+}
+
+.entity-summary-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.7fr) repeat(3, minmax(120px, 0.7fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 0 0 14px;
+  border: 1px solid #e4e0d4;
+  border-radius: 8px;
+  background: #e4e0d4;
+}
+
+.entity-summary-strip div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: #fffefa;
+}
+
+.entity-summary-strip dd {
+  overflow: hidden;
+  margin-top: 4px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-workspace-section {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #e4e0d4;
+}
+
+.entity-workspace-section + .entity-workspace-section {
+  margin-top: 16px;
+}
+
+.entity-workspace-section-secondary {
+  color: #5d5a54;
+}
+
+.entity-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.entity-section-header h3 {
+  margin: 0;
+  color: #25231f;
+  font-size: 1rem;
+}
+
+.entity-section-header p {
+  margin: 3px 0 0;
+  color: #7a756b;
+  font-size: 0.84rem;
+}
+
+.entity-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bank-account-transaction-list {
+  display: grid;
+}
+
 .panel h2 {
   font-size: 1.35rem;
 }
@@ -1208,6 +1289,10 @@ td {
   .metric-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .entity-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -1223,6 +1308,10 @@ td {
   }
 
   .metric-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .entity-summary-strip {
     grid-template-columns: 1fr;
   }
 
@@ -1271,6 +1360,15 @@ td {
     min-height: auto;
     margin-bottom: 10px;
     padding-bottom: 8px;
+  }
+
+  .entity-page-actions .status-pill {
+    margin-left: 0;
+  }
+
+  .entity-section-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .form-row {
