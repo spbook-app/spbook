@@ -104,7 +104,7 @@ function CounterpartyListPage({ data }: { data: ReadyAppData }) {
           <Link
             className="party-row"
             key={party.id}
-            to="/workspace/counterparties/$partyId"
+            to="/workspace/counterparties/$partyId/card"
             params={{ partyId: party.id }}
           >
             <div>
@@ -177,7 +177,7 @@ function CounterpartyCreatePage({
 
       if (createdParty) {
         void navigate({
-          to: "/workspace/counterparties/$partyId",
+          to: "/workspace/counterparties/$partyId/card",
           params: { partyId: createdParty.id }
         });
       }
@@ -229,17 +229,7 @@ function CounterpartyDetailPage({
   const [actionState, setActionState] = useState<"idle" | "updating">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const ibanValidationMessage = getIbanValidationMessage(formState.iban);
-  const issuedInvoices = data.invoices.filter((invoice) => invoice.partyId === party.id);
-  const supplierInvoices = data.supplierInvoices.filter(
-    (supplierInvoice) => supplierInvoice.partyId === party.id
-  );
-  const bankTransactions = data.bankTransactions.filter(
-    (bankTransaction) => bankTransaction.partyId === party.id
-  );
   const bankAccounts = data.bankAccounts.filter((bankAccount) => bankAccount.partyId === party.id);
-  const sortedBankTransactions = [...bankTransactions].sort((a, b) =>
-    b.bookingDate.localeCompare(a.bookingDate)
-  );
 
   useEffect(() => {
     setFormState(mapPartyToFormState(party));
@@ -297,15 +287,7 @@ function CounterpartyDetailPage({
       </div>
 
       <div className="transaction-detail-actions">
-        {mode === "workspace" ? (
-          <Link
-            className="secondary-button"
-            to="/workspace/counterparties/$partyId/card"
-            params={{ partyId: party.id }}
-          >
-            Party card
-          </Link>
-        ) : mode === "card" ? (
+        {mode === "workspace" || mode === "card" ? (
           <Link
             className="secondary-button"
             to="/workspace/counterparties/$partyId/edit"
@@ -337,7 +319,7 @@ function CounterpartyDetailPage({
             </Link>
           </div>
         </form>
-      ) : mode === "card" ? (
+      ) : mode === "card" || mode === "workspace" ? (
         <>
           <CounterpartyDetails party={party} />
           {bankAccounts.length > 0 ? (
@@ -358,116 +340,7 @@ function CounterpartyDetailPage({
             </div>
           ) : null}
         </>
-      ) : (
-        <>
-          <dl className="entity-summary-strip">
-            <div>
-              <dt>Issued invoices</dt>
-              <dd>{issuedInvoices.length}</dd>
-            </div>
-            <div>
-              <dt>Supplier invoices</dt>
-              <dd>{supplierInvoices.length}</dd>
-            </div>
-            <div>
-              <dt>Bank transactions</dt>
-              <dd>{bankTransactions.length}</dd>
-            </div>
-            <div>
-              <dt>Country</dt>
-              <dd>{party.countryCode ?? "—"}</dd>
-            </div>
-          </dl>
-
-          {issuedInvoices.length > 0 ? (
-            <section
-              className="entity-workspace-section"
-              aria-labelledby="party-issued-invoices-title"
-            >
-              <div className="entity-section-header">
-                <h3 id="party-issued-invoices-title">Issued invoices</h3>
-              </div>
-              <div className="document-list" aria-label="Issued invoices">
-                {issuedInvoices.map((invoice) => (
-                  <Link
-                    className="document-list-item"
-                    key={invoice.id}
-                    to="/workspace/sales/invoices/$invoiceId"
-                    params={{ invoiceId: invoice.id }}
-                  >
-                    <strong>{invoice.number}</strong>
-                    <span>
-                      {invoice.issueDate} · {invoice.total} {invoice.currency} ·{" "}
-                      {invoice.status}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {supplierInvoices.length > 0 ? (
-            <section
-              className="entity-workspace-section"
-              aria-labelledby="party-supplier-invoices-title"
-            >
-              <div className="entity-section-header">
-                <h3 id="party-supplier-invoices-title">Supplier invoices</h3>
-              </div>
-              <div className="document-list" aria-label="Supplier invoices">
-                {supplierInvoices.map((supplierInvoice) => (
-                  <Link
-                    className="document-list-item"
-                    key={supplierInvoice.id}
-                    to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
-                    params={{ supplierInvoiceId: supplierInvoice.id }}
-                  >
-                    <strong>{supplierInvoice.number}</strong>
-                    <span>
-                      {supplierInvoice.issueDate} · {supplierInvoice.total}{" "}
-                      {supplierInvoice.currency} · {supplierInvoice.status}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {sortedBankTransactions.length > 0 ? (
-            <section
-              className="entity-workspace-section"
-              aria-labelledby="party-bank-transactions-title"
-            >
-              <div className="entity-section-header">
-                <h3 id="party-bank-transactions-title">Bank transactions</h3>
-              </div>
-              <div className="document-list" aria-label="Bank transactions">
-                {sortedBankTransactions.map((tx) => {
-                  const incoming = !tx.amount.startsWith("-");
-                  return (
-                    <Link
-                      className="document-list-item"
-                      key={tx.id}
-                      to="/workspace/banking/transactions/$bankTransactionId"
-                      params={{ bankTransactionId: tx.id }}
-                    >
-                      <strong>
-                        {incoming ? "+" : ""}
-                        {tx.amount} {tx.currency}
-                      </strong>
-                      <span>
-                        {tx.bookingDate}
-                        {tx.description ? ` · ${tx.description}` : ""}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
-
-        </>
-      )}
+      ) : null}
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
