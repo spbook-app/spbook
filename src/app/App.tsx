@@ -73,6 +73,10 @@ export function App() {
     if (pathname === "/workspace/banking" || pathname === "/workspace/banking/") {
       void navigate({ to: "/workspace/banking/accounts", replace: true });
     }
+
+    if (pathname === "/workspace/accounting" || pathname === "/workspace/accounting/") {
+      void navigate({ to: "/workspace/accounting/journal-entries", replace: true });
+    }
   }, [navigate, pathname]);
 
   useEffect(() => {

@@ -1,13 +1,11 @@
 import { useMemo } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { BalancesTable } from "../entities/account/BalancesTable";
-import { JournalEntriesPanel } from "../entities/journal/JournalEntriesPanel";
 import {
   getWorkspaceSectionFromPath,
   getSectionLead,
   workspaceSections
 } from "../pages/workspace/model";
-import { AccountsTable } from "../widgets/accounting/AccountsTable";
+import { AccountingView } from "../widgets/accounting/AccountingView";
 import { BankingPanel } from "../widgets/banking/BankingPanel";
 import { CounterpartiesView } from "../widgets/counterparties/CounterpartiesView";
 import { DashboardView } from "../widgets/dashboard/DashboardView";
@@ -75,9 +73,11 @@ export function WorkspaceView({
         ) : null}
         {activeSection === "accounting" ? (
           <div className="section-stack">
-            <BalancesTable balances={data.balances} accountNames={accountNames} />
-            <JournalEntriesPanel entries={data.journalEntries} />
-            <AccountsTable data={data} onDataStateChange={onDataStateChange} />
+            <AccountingView
+              accountNames={accountNames}
+              data={data}
+              onDataStateChange={onDataStateChange}
+            />
           </div>
         ) : null}
         {activeSection === "settings" ? (

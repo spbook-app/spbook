@@ -519,6 +519,12 @@ td {
   background: #fffefa;
 }
 
+.linked-entry,
+.journal-entry {
+  color: inherit;
+  text-decoration: none;
+}
+
 .linked-entry {
   display: grid;
   gap: 3px;

@@ -191,6 +191,48 @@ const accountingRoute = createRoute({
   component: emptyRouteComponent
 });
 
+const journalEntriesRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: "journal-entries",
+  component: emptyRouteComponent
+});
+
+const journalEntryDetailRoute = createRoute({
+  getParentRoute: () => journalEntriesRoute,
+  path: "$journalEntryId",
+  component: emptyRouteComponent
+});
+
+const chartRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: "chart",
+  component: emptyRouteComponent
+});
+
+const accountCreateRoute = createRoute({
+  getParentRoute: () => chartRoute,
+  path: "new",
+  component: emptyRouteComponent
+});
+
+const accountDetailRoute = createRoute({
+  getParentRoute: () => chartRoute,
+  path: "$accountId",
+  component: emptyRouteComponent
+});
+
+const accountEditRoute = createRoute({
+  getParentRoute: () => accountDetailRoute,
+  path: "edit",
+  component: emptyRouteComponent
+});
+
+const balancesRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: "balances",
+  component: emptyRouteComponent
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "settings",
@@ -229,7 +271,11 @@ const routeTree = rootRoute.addChildren([
       counterpartyCreateRoute,
       counterpartyDetailRoute.addChildren([counterpartyEditRoute])
     ]),
-    accountingRoute,
+    accountingRoute.addChildren([
+      journalEntriesRoute.addChildren([journalEntryDetailRoute]),
+      chartRoute.addChildren([accountCreateRoute, accountDetailRoute.addChildren([accountEditRoute])]),
+      balancesRoute
+    ]),
     settingsRoute
   ])
 ]);
