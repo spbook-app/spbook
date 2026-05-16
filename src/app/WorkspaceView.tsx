@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { BalancesTable } from "../entities/account/BalancesTable";
 import { JournalEntriesPanel } from "../entities/journal/JournalEntriesPanel";
 import {
+  getWorkspaceSectionFromPath,
   getSectionLead,
-  type WorkspaceSection,
   workspaceSections
 } from "../pages/workspace/model";
 import { AccountsTable } from "../widgets/accounting/AccountsTable";
@@ -26,7 +27,10 @@ export function WorkspaceView({
   onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {
-  const [activeSection, setActiveSection] = useState<WorkspaceSection>("dashboard");
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname
+  });
+  const activeSection = getWorkspaceSectionFromPath(pathname);
   const accountNames = useMemo(
     () => new Map(data.accounts.map((account) => [account.code, account.name])),
     [data.accounts]
@@ -41,7 +45,6 @@ export function WorkspaceView({
         activeSection={activeSection}
         data={data}
         onDataStateChange={onDataStateChange}
-        onSectionChange={setActiveSection}
       />
       <section className="workspace-main" aria-label={activeSectionMeta.label}>
         <header className="page-heading">

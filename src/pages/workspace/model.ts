@@ -9,47 +9,69 @@ export type WorkspaceSection =
   | "accounting"
   | "settings";
 
+export type WorkspaceSectionPath = `/workspace/${WorkspaceSection}`;
+
 export const workspaceSections: Array<{
   id: WorkspaceSection;
+  path: WorkspaceSectionPath;
   label: string;
   description: string;
 }> = [
   {
     id: "dashboard",
+    path: "/workspace/dashboard",
     label: "Dashboard",
     description: "Workspace health and open work"
   },
   {
     id: "sales",
+    path: "/workspace/sales",
     label: "Sales",
     description: "Issued invoices and receipts"
   },
   {
     id: "purchases",
+    path: "/workspace/purchases",
     label: "Purchases",
     description: "Supplier invoices and payments"
   },
   {
     id: "banking",
+    path: "/workspace/banking",
     label: "Banking",
     description: "Bank accounts and transactions"
   },
   {
     id: "counterparties",
+    path: "/workspace/counterparties",
     label: "Counterparties",
     description: "Customers, suppliers, banks, owner"
   },
   {
     id: "accounting",
+    path: "/workspace/accounting",
     label: "Accounting",
     description: "Journal entries, balances, accounts"
   },
   {
     id: "settings",
+    path: "/workspace/settings",
     label: "Settings",
     description: "Local workspace controls"
   }
 ];
+
+export function getWorkspaceSectionFromPath(pathname: string): WorkspaceSection {
+  const [, basePath, sectionPath] = pathname.split("/");
+
+  if (basePath !== "workspace") {
+    return "dashboard";
+  }
+
+  const section = workspaceSections.find((item) => item.id === sectionPath);
+
+  return section?.id ?? "dashboard";
+}
 
 export function getSectionLead(section: WorkspaceSection) {
   switch (section) {

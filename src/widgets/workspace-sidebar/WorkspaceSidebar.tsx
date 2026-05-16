@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import type { AppDataState } from "../../app/App";
 import {
   type WorkspaceSection,
@@ -11,13 +12,11 @@ import { loadWorkspaceOverview } from "../../services/workspace-overview";
 export function WorkspaceSidebar({
   activeSection,
   data,
-  onDataStateChange,
-  onSectionChange
+  onDataStateChange
 }: {
   activeSection: WorkspaceSection;
   data: Extract<AppDataState, { state: "ready" }>;
   onDataStateChange: (state: AppDataState) => void;
-  onSectionChange: (section: WorkspaceSection) => void;
 }) {
   const openItems =
     data.invoices.filter((invoice) => invoice.status !== "paid").length +
@@ -43,15 +42,14 @@ export function WorkspaceSidebar({
 
       <nav className="sidebar-nav" aria-label="Workspace sections">
         {workspaceSections.map((section) => (
-          <button
+          <Link
             className={`nav-item ${activeSection === section.id ? "nav-item-active" : ""}`}
             key={section.id}
-            type="button"
-            onClick={() => onSectionChange(section.id)}
+            to={section.path}
           >
             <span>{section.label}</span>
             <small>{section.description}</small>
-          </button>
+          </Link>
         ))}
       </nav>
 

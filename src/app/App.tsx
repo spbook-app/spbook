@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import type {
   Account,
   BankAccount,
@@ -50,7 +51,17 @@ export type AppDataState =
 
 export function App() {
   const appEnvironment = getAppEnvironment();
+  const navigate = useNavigate();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname
+  });
   const [dataState, setDataState] = useState<AppDataState>({ state: "loading" });
+
+  useEffect(() => {
+    if (pathname === "/" || pathname === "/workspace" || pathname === "/workspace/") {
+      void navigate({ to: "/workspace/dashboard", replace: true });
+    }
+  }, [navigate, pathname]);
 
   useEffect(() => {
     let cancelled = false;
