@@ -868,11 +868,13 @@ td {
   user-select: text;
 }
 
-.copyable-details div {
+.copyable-details > div {
   display: grid;
   grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
   gap: 12px;
+  align-items: center;
 }
+
 
 .copyable-details dt {
   color: #7a756b;
@@ -885,6 +887,35 @@ td {
   margin: 0;
   color: #25231f;
   overflow-wrap: anywhere;
+}
+
+.linked-counterparty-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.linked-counterparty-field p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.info-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #b0a99e;
+  color: #7a756b;
+  font-size: 0.7rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
 }
 
 .transaction-detail-actions {
@@ -1095,5 +1126,228 @@ td {
 
   .journal-entry header {
     display: grid;
+  }
+}
+
+/* ── Bank transaction list redesign ── */
+
+.transaction-list-filters {
+  display: grid;
+  gap: 10px;
+}
+
+.transaction-list-filters label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #7a756b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.transaction-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.transaction-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #d6d2c8;
+  border-radius: 14px;
+  background: #f5f4ed;
+  color: #25231f;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.transaction-filter-chip:hover {
+  border-color: #a09c94;
+  background: #eeeae2;
+}
+
+.transaction-filter-chip--active {
+  border-color: #315d3e;
+  background: #eff6ec;
+  color: #1e3d27;
+}
+
+/* 4-zone row */
+
+.transaction-item {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 180px 160px;
+  align-items: start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #ece9e0;
+  width: 100%;
+}
+
+.transaction-pick:last-child .transaction-item {
+  border-bottom: 0;
+}
+
+.transaction-item-active .transaction-item-amount--incoming strong {
+  color: #1e3d27;
+}
+
+/* Amount zone */
+
+.transaction-item-amount {
+  display: grid;
+  gap: 1px;
+  text-align: right;
+}
+
+.transaction-item-amount strong {
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: #25231f;
+}
+
+.transaction-item-amount--incoming strong {
+  color: #315d3e;
+}
+
+.transaction-item-amount--outgoing strong {
+  color: #25231f;
+}
+
+.transaction-item-amount span {
+  font-size: 0.78rem;
+  color: #7a756b;
+  font-weight: 600;
+}
+
+/* Counterparty zone */
+
+.transaction-item-counterparty {
+  display: grid;
+  gap: 2px;
+}
+
+.transaction-item-primary {
+  font-size: 0.9rem;
+  color: #25231f;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.transaction-item-secondary {
+  color: #7a756b;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.transaction-item-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #eeeae2;
+  color: #7a756b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Processing state zone */
+
+.transaction-item-state {
+  display: flex;
+  align-items: flex-start;
+}
+
+.transaction-item-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.transaction-item-badge--neutral {
+  background: #eeeae2;
+  color: #5a564e;
+}
+
+.transaction-item-badge--warning {
+  background: #fef3dc;
+  color: #7a5a10;
+}
+
+.transaction-item-badge--success {
+  background: #e4f0e1;
+  color: #1e3d27;
+}
+
+.transaction-item-badge--info {
+  background: #ddeef8;
+  color: #1a3d5c;
+}
+
+/* Meta zone */
+
+.transaction-item-meta {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.transaction-item-meta span {
+  font-size: 0.85rem;
+  color: #25231f;
+  font-weight: 500;
+}
+
+.transaction-item-meta small {
+  font-size: 0.78rem;
+  color: #7a756b;
+}
+
+/* Mobile: 2-row layout */
+
+@media (max-width: 640px) {
+  .transaction-item {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 4px 10px;
+  }
+
+  .transaction-item-amount {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  .transaction-item-counterparty {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .transaction-item-state {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .transaction-item-meta {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: right;
   }
 }

@@ -1,7 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { BankTransaction } from "../../domain";
+import type { BankTransaction, Party } from "../../domain";
 import type { AppDataState } from "../../app/App";
+import { BankTransactionListItem } from "./BankTransactionListItem";
+import {
+  getBankTransactionDisplayState,
+  matchesQuickFilter,
+  type BankTransactionQuickFilter
+} from "./bank-transaction-display";
 import {
   createBankTransaction,
   linkBankTransactionParty,
@@ -155,9 +161,6 @@ export function BankTransactionList({
   const [editDescription, setEditDescription] = useState(
     selectedEditBankTransaction?.description ?? ""
   );
-  const [linkedPartyId, setLinkedPartyId] = useState(
-    selectedEditBankTransaction?.partyId ?? selectedStatementCounterpartyCandidate?.id ?? ""
-  );
   const [actionState, setActionState] = useState<
     | "idle"
     | "creating"
@@ -179,8 +182,37 @@ export function BankTransactionList({
       return false;
     }
 
-    if (listFilters.status && bankTransaction.status !== listFilters.status) {
-      return false;
+    if (listFilters.processingState) {
+      const linkedParty = data.parties.find((p) => p.id === bankTransaction.partyId);
+      const invoiceCandidateExists =
+        !bankTransaction.amount.startsWith("-") &&
+        Boolean(bankTransaction.partyId) &&
+        data.invoices.some(
+          (inv) =>
+            inv.partyId === bankTransaction.partyId &&
+            inv.status === "issued" &&
+            inv.total === bankTransaction.amount &&
+            inv.currency === bankTransaction.currency
+        );
+      const supplierCandidateExists =
+        bankTransaction.amount.startsWith("-") &&
+        Boolean(bankTransaction.partyId) &&
+        data.supplierInvoices.some(
+          (si) =>
+            si.partyId === bankTransaction.partyId &&
+            (si.status === "received" || si.status === "approved") &&
+            si.total === bankTransaction.amount.slice(1) &&
+            si.currency === bankTransaction.currency
+        );
+      const ds = getBankTransactionDisplayState(
+        bankTransaction,
+        linkedParty,
+        invoiceCandidateExists,
+        supplierCandidateExists
+      );
+      if (!matchesQuickFilter(ds.processingState, ds.isImported, listFilters.processingState)) {
+        return false;
+      }
     }
 
     return true;
@@ -195,10 +227,7 @@ export function BankTransactionList({
     setEditTransactionAmount(selectedEditBankTransaction.amount);
     setEditReference(selectedEditBankTransaction.reference ?? "");
     setEditDescription(selectedEditBankTransaction.description);
-    setLinkedPartyId(
-      selectedEditBankTransaction.partyId ?? selectedStatementCounterpartyCandidate?.id ?? ""
-    );
-  }, [selectedEditBankTransaction, selectedStatementCounterpartyCandidate?.id]);
+  }, [selectedEditBankTransaction]);
 
   async function handleCreateBankTransaction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -331,7 +360,7 @@ export function BankTransactionList({
       setActionState("party-link");
       const overview = await linkBankTransactionParty({
         bankTransactionId: selectedEditBankTransaction.id,
-        partyId: linkedPartyId
+        partyId: selectedStatementCounterpartyCandidate?.id
       });
 
       onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
@@ -339,6 +368,31 @@ export function BankTransactionList({
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Counterparty was not linked."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleUnlinkBankTransactionParty() {
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditBankTransaction) {
+        throw new Error("Select a bank transaction first.");
+      }
+
+      setActionState("party-link");
+      const overview = await linkBankTransactionParty({
+        bankTransactionId: selectedEditBankTransaction.id,
+        partyId: undefined
+      });
+
+      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Counterparty was not unlinked."
       );
     } finally {
       setActionState("idle");
@@ -428,7 +482,7 @@ export function BankTransactionList({
     }
   }
 
-  function handleListFilterChange(filterName: "bankAccountId" | "status", value: string) {
+  function handleListFilterChange(filterName: "bankAccountId" | "processingState", value: string) {
     const nextSearchParams = new URLSearchParams(searchStr);
 
     if (value) {
@@ -524,10 +578,8 @@ export function BankTransactionList({
           bankAccountName={selectedBankAccountName}
           bankTransaction={selectedEditBankTransaction}
           canCreateCounterparty={canCreateCounterpartyFromSelectedTransaction}
-          counterpartyExists={selectedStatementCounterpartyExists}
           isLinkingCounterparty={actionState === "party-link"}
           isCreatingCounterparty={actionState === "party-create"}
-          linkedPartyId={linkedPartyId}
           parties={data.parties}
           suggestedPartyId={selectedStatementCounterpartyCandidate?.id}
           suggestedInvoice={suggestedInvoiceMatch}
@@ -543,7 +595,7 @@ export function BankTransactionList({
           }
           onPostBankFee={() => void handlePostBankFee(selectedEditBankTransaction.id)}
           onLinkCounterparty={() => void handleLinkBankTransactionParty()}
-          onLinkedPartyChange={setLinkedPartyId}
+          onUnlinkCounterparty={() => void handleUnlinkBankTransactionParty()}
           onUndoPosting={() =>
             void handleUndoBankTransactionPosting(selectedEditBankTransaction.id)
           }
@@ -616,16 +668,16 @@ export function BankTransactionList({
       </div>
 
       <div className="transaction-list">
-        <div className="statement-import-row">
+        <div className="transaction-list-filters">
           <label>
-            <span>Filter bank account</span>
+            <span>Bank account</span>
             <select
               value={listFilters.bankAccountId}
               onChange={(event) =>
                 handleListFilterChange("bankAccountId", event.target.value)
               }
             >
-              <option value="">All bank accounts</option>
+              <option value="">All accounts</option>
               {data.bankAccounts.map((bankAccount) => (
                 <option key={bankAccount.id} value={bankAccount.id}>
                   {bankAccount.name} · {bankAccount.accountCode}
@@ -633,19 +685,32 @@ export function BankTransactionList({
               ))}
             </select>
           </label>
-          <label>
-            <span>Filter status</span>
-            <select
-              value={listFilters.status}
-              onChange={(event) => handleListFilterChange("status", event.target.value)}
-            >
-              <option value="">All statuses</option>
-              <option value="unmatched">unmatched</option>
-              <option value="matched">matched</option>
-              <option value="posted">posted</option>
-              <option value="ignored">ignored</option>
-            </select>
-          </label>
+          <div className="transaction-filter-chips" role="group" aria-label="Filter by state">
+            {(
+              [
+                ["", "All"],
+                ["needs_action", "Needs action"],
+                ["needs_counterparty", "Needs counterparty"],
+                ["linked_needs_match", "Ready to match"],
+                ["invoice_candidate", "Invoice candidates"],
+                ["supplier_invoice_candidate", "Supplier candidates"],
+                ["matched", "Matched"],
+                ["posted_bank_fee", "Bank fees"],
+                ["ignored", "Ignored"],
+                ["imported", "Imported"],
+                ["manual_unmatched", "Manual"]
+              ] as [BankTransactionQuickFilter, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`transaction-filter-chip${listFilters.processingState === value ? " transaction-filter-chip--active" : ""}`}
+                onClick={() => handleListFilterChange("processingState", value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         {filteredBankTransactions.length === 0 ? (
           <p className="empty-state">No bank transactions yet.</p>
@@ -654,6 +719,45 @@ export function BankTransactionList({
           const bankAccount = data.bankAccounts.find(
             (candidate) => candidate.id === bankTransaction.bankAccountId
           );
+          const linkedParty = data.parties.find((p) => p.id === bankTransaction.partyId);
+          const isIncoming = !bankTransaction.amount.startsWith("-");
+          const invoiceCandidateExists =
+            isIncoming &&
+            Boolean(bankTransaction.partyId) &&
+            data.invoices.some(
+              (inv) =>
+                inv.partyId === bankTransaction.partyId &&
+                inv.status === "issued" &&
+                inv.total === bankTransaction.amount &&
+                inv.currency === bankTransaction.currency
+            );
+          const supplierCandidateExists =
+            !isIncoming &&
+            Boolean(bankTransaction.partyId) &&
+            data.supplierInvoices.some(
+              (si) =>
+                si.partyId === bankTransaction.partyId &&
+                (si.status === "received" || si.status === "approved") &&
+                si.total === bankTransaction.amount.slice(1) &&
+                si.currency === bankTransaction.currency
+            );
+          const displayState = getBankTransactionDisplayState(
+            bankTransaction,
+            linkedParty,
+            invoiceCandidateExists,
+            supplierCandidateExists
+          );
+          const matchedInvoice =
+            bankTransaction.matchedDocumentType === "invoice" && bankTransaction.matchedDocumentId
+              ? data.invoices.find((inv) => inv.id === bankTransaction.matchedDocumentId)
+              : undefined;
+          const matchedSupplierInvoice =
+            bankTransaction.matchedDocumentType === "supplier_invoice" &&
+            bankTransaction.matchedDocumentId
+              ? data.supplierInvoices.find((si) => si.id === bankTransaction.matchedDocumentId)
+              : undefined;
+          const isActive =
+            route.mode === "detail" && route.bankTransactionId === bankTransaction.id;
 
           return (
             <Link
@@ -662,26 +766,15 @@ export function BankTransactionList({
               to="/workspace/banking/transactions/$bankTransactionId"
               params={{ bankTransactionId: bankTransaction.id }}
             >
-              <strong>
-                {bankTransaction.amount} {bankTransaction.currency}
-              </strong>
-              <span>
-                {bankTransaction.bookingDate} · {bankAccount?.name ?? "Unknown account"} ·{" "}
-                {bankTransaction.status}
-              </span>
-              <small>{bankTransaction.description}</small>
-              {bankTransaction.counterpartyName || bankTransaction.externalId ? (
-                <span className="transaction-details">
-                  <span>
-                    Statement counterparty: {bankTransaction.counterpartyName ?? "Unknown"}
-                  </span>
-                  {bankTransaction.counterpartyIban ? (
-                    <span>
-                      Statement counterparty IBAN: {bankTransaction.counterpartyIban}
-                    </span>
-                  ) : null}
-                </span>
-              ) : null}
+              <BankTransactionListItem
+                bankTransaction={bankTransaction}
+                bankAccount={bankAccount}
+                linkedParty={linkedParty}
+                matchedInvoice={matchedInvoice}
+                matchedSupplierInvoice={matchedSupplierInvoice}
+                displayState={displayState}
+                isActive={isActive}
+              />
             </Link>
           );
         })}
@@ -692,15 +785,100 @@ export function BankTransactionList({
   );
 }
 
+function LinkedCounterpartyField({
+  bankTransaction,
+  linkedParty,
+  suggestedParty,
+  canCreateCounterparty,
+  isLinking,
+  isCreating,
+  onLinkCounterparty,
+  onCreateCounterparty,
+  onUnlinkCounterparty
+}: {
+  bankTransaction: BankTransaction;
+  linkedParty: Party | undefined;
+  suggestedParty: Party | undefined;
+  canCreateCounterparty: boolean;
+  isLinking: boolean;
+  isCreating: boolean;
+  onLinkCounterparty: () => void;
+  onCreateCounterparty: () => void;
+  onUnlinkCounterparty: () => void;
+}) {
+  const canEdit =
+    Boolean(bankTransaction.importSource) && bankTransaction.status === "unmatched";
+
+  if (linkedParty) {
+    return (
+      <div className="linked-counterparty-field">
+        <Link
+          to="/workspace/counterparties/$partyId"
+          params={{ partyId: linkedParty.id }}
+        >
+          {linkedParty.name}
+        </Link>
+        {canEdit ? (
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isLinking}
+            onClick={onUnlinkCounterparty}
+          >
+            {isLinking ? "Unlinking" : "Unlink"}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (!canEdit) return null;
+
+  if (suggestedParty) {
+    return (
+      <div className="linked-counterparty-field">
+        <span>{suggestedParty.name}</span>
+        <span
+          className="info-hint"
+          title="Suggested by matching statement counterparty name or IBAN."
+        >
+          i
+        </span>
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={isLinking}
+          onClick={onLinkCounterparty}
+        >
+          {isLinking ? "Linking" : "Link counterparty"}
+        </button>
+      </div>
+    );
+  }
+
+  if (!canCreateCounterparty) return null;
+
+  return (
+    <div className="linked-counterparty-field">
+      <button
+        className="secondary-button"
+        type="button"
+        disabled={isCreating}
+        onClick={onCreateCounterparty}
+      >
+        {isCreating ? "Creating" : "Create counterparty"}
+      </button>
+    </div>
+  );
+}
+
 function BankTransactionDetailPanel({
   bankAccountId,
   bankAccountName,
   bankTransaction,
   canCreateCounterparty,
-  counterpartyExists,
   isLinkingCounterparty,
   isCreatingCounterparty,
-  linkedPartyId,
   parties,
   suggestedPartyId,
   suggestedInvoice,
@@ -714,17 +892,15 @@ function BankTransactionDetailPanel({
   onMatchSupplierInvoice,
   onPostBankFee,
   onLinkCounterparty,
-  onLinkedPartyChange,
+  onUnlinkCounterparty,
   onUndoPosting
 }: {
   bankAccountId: string;
   bankAccountName: string;
   bankTransaction: BankTransaction;
   canCreateCounterparty: boolean;
-  counterpartyExists: boolean;
   isLinkingCounterparty: boolean;
   isCreatingCounterparty: boolean;
-  linkedPartyId: string;
   parties: Extract<AppDataState, { state: "ready" }>["parties"];
   suggestedPartyId?: string;
   suggestedInvoice: Extract<AppDataState, { state: "ready" }>["invoices"][number] | null;
@@ -740,27 +916,28 @@ function BankTransactionDetailPanel({
   onMatchSupplierInvoice: (supplierInvoiceId: string) => void;
   onPostBankFee: () => void;
   onLinkCounterparty: () => void;
-  onLinkedPartyChange: (partyId: string) => void;
+  onUnlinkCounterparty: () => void;
   onUndoPosting: () => void;
 }) {
   const linkedParty = parties.find((party) => party.id === bankTransaction.partyId);
-  const details = [
-    ["Bank account", bankAccountName],
-    ["Linked counterparty", linkedParty?.name],
+  const suggestedParty = suggestedPartyId
+    ? parties.find((party) => party.id === suggestedPartyId)
+    : undefined;
+  const textDetails = ([
+    ["Counterparty", bankTransaction.counterpartyName, true],
+    ["Counterparty IBAN", bankTransaction.counterpartyIban, true],
     ["Booking date", bankTransaction.bookingDate],
     ["Value date", bankTransaction.valueDate],
     ["Amount", `${bankTransaction.amount} ${bankTransaction.currency}`],
     ["Status", bankTransaction.status],
     ["Description", bankTransaction.description],
     ["Reference", bankTransaction.reference],
-    ["Statement counterparty", bankTransaction.counterpartyName],
-    ["Statement counterparty IBAN", bankTransaction.counterpartyIban],
     ["Remittance", bankTransaction.remittanceInformation],
     ["Bank reference", bankTransaction.bankReference],
     ["Entry reference", bankTransaction.entryReference],
     ["Import source", bankTransaction.importSource],
     ["External ID", bankTransaction.externalId]
-  ].filter(([, value]) => Boolean(value));
+  ] as Array<[string, ReactNode, boolean?]>).filter(([, value]) => value != null);
 
   return (
     <div className="transaction-detail-panel">
@@ -771,83 +948,61 @@ function BankTransactionDetailPanel({
         </div>
       </div>
       <dl className="copyable-details">
-        {details.map(([label, value]) => (
-          <div key={label}>
+        <div>
+          <dt>Bank account</dt>
+          <dd>
+            <Link
+              to="/workspace/banking/accounts/$bankAccountId"
+              params={{ bankAccountId }}
+            >
+              {bankAccountName}
+            </Link>
+          </dd>
+        </div>
+        {bankTransaction.importSource || linkedParty ? (
+          <div>
+            <dt>Linked counterparty</dt>
+            <dd>
+              <LinkedCounterpartyField
+                bankTransaction={bankTransaction}
+                linkedParty={linkedParty}
+                suggestedParty={suggestedParty}
+                canCreateCounterparty={canCreateCounterparty}
+                isLinking={isLinkingCounterparty}
+                isCreating={isCreatingCounterparty}
+                onLinkCounterparty={onLinkCounterparty}
+                onCreateCounterparty={onCreateCounterparty}
+                onUnlinkCounterparty={onUnlinkCounterparty}
+              />
+            </dd>
+          </div>
+        ) : null}
+        {textDetails.map(([label, value, secondary]) => (
+          <div key={label as string} className={secondary ? "copyable-details-row--secondary" : undefined}>
             <dt>{label}</dt>
             <dd>{value}</dd>
           </div>
         ))}
       </dl>
-      <div className="transaction-detail-actions">
-        <Link
-          className="secondary-button"
-          to="/workspace/banking/accounts/$bankAccountId"
-          params={{ bankAccountId }}
-        >
-          Open bank account
-        </Link>
-        {linkedParty ? (
-          <Link
-            className="secondary-button"
-            to="/workspace/counterparties/$partyId"
-            params={{ partyId: linkedParty.id }}
-          >
-            Open counterparty
-          </Link>
-        ) : null}
-        {bankTransaction.matchedDocumentType === "invoice" &&
-        bankTransaction.matchedDocumentId ? (
-          <Link
-            className="secondary-button"
-            to="/workspace/sales/invoices/$invoiceId"
-            params={{ invoiceId: bankTransaction.matchedDocumentId }}
-          >
-            Open invoice
-          </Link>
-        ) : null}
-        {bankTransaction.matchedDocumentType === "supplier_invoice" &&
-        bankTransaction.matchedDocumentId ? (
-          <Link
-            className="secondary-button"
-            to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
-            params={{ supplierInvoiceId: bankTransaction.matchedDocumentId }}
-          >
-            Open supplier invoice
-          </Link>
-        ) : null}
-      </div>
-      {bankTransaction.importSource ? (
+      {bankTransaction.matchedDocumentId ? (
         <div className="transaction-detail-actions">
-          <label className="inline-select">
-            <span>Link counterparty</span>
-            <select
-              value={linkedPartyId}
-              disabled={bankTransaction.status !== "unmatched" || isLinkingCounterparty}
-              onChange={(event) => onLinkedPartyChange(event.target.value)}
+          {bankTransaction.matchedDocumentType === "invoice" ? (
+            <Link
+              className="secondary-button"
+              to="/workspace/sales/invoices/$invoiceId"
+              params={{ invoiceId: bankTransaction.matchedDocumentId }}
             >
-              <option value="">No linked counterparty</option>
-              {parties
-                .filter((party) => party.active)
-                .map((party) => (
-                  <option key={party.id} value={party.id}>
-                    {party.name}
-                    {party.iban ? ` · ${party.iban}` : ""}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={bankTransaction.status !== "unmatched" || isLinkingCounterparty}
-            onClick={onLinkCounterparty}
-          >
-            {isLinkingCounterparty ? "Linking" : "Link counterparty"}
-          </button>
-          {suggestedPartyId && !bankTransaction.partyId ? (
-            <p className="field-note">
-              Suggested by matching statement counterparty name or IBAN.
-            </p>
+              Open invoice
+            </Link>
+          ) : null}
+          {bankTransaction.matchedDocumentType === "supplier_invoice" ? (
+            <Link
+              className="secondary-button"
+              to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
+              params={{ supplierInvoiceId: bankTransaction.matchedDocumentId }}
+            >
+              Open supplier invoice
+            </Link>
           ) : null}
         </div>
       ) : null}
@@ -907,21 +1062,6 @@ function BankTransactionDetailPanel({
           </button>
         ) : null}
       </div>
-      {bankTransaction.importSource && bankTransaction.counterpartyName ? (
-        <div className="transaction-detail-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={!canCreateCounterparty || isCreatingCounterparty}
-            onClick={onCreateCounterparty}
-          >
-            {isCreatingCounterparty ? "Creating counterparty" : "Create counterparty"}
-          </button>
-          {counterpartyExists ? (
-            <p className="field-note">A counterparty with this name or IBAN already exists.</p>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -1051,16 +1191,27 @@ function getBankTransactionRoute(pathname: string): BankTransactionRoute {
 
 function getBankTransactionListFilters(searchStr: string) {
   const searchParams = new URLSearchParams(searchStr);
-  const status = searchParams.get("status");
+  const processingState = searchParams.get("processingState");
+
+  const validProcessingStates: BankTransactionQuickFilter[] = [
+    "needs_action",
+    "needs_counterparty",
+    "linked_needs_match",
+    "invoice_candidate",
+    "supplier_invoice_candidate",
+    "matched",
+    "posted_bank_fee",
+    "ignored",
+    "imported",
+    "manual_unmatched"
+  ];
 
   return {
     bankAccountId: searchParams.get("bankAccountId") ?? "",
-    status:
-      status === "unmatched" ||
-      status === "matched" ||
-      status === "posted" ||
-      status === "ignored"
-        ? status
+    processingState: (
+      validProcessingStates.includes(processingState as BankTransactionQuickFilter)
+        ? processingState
         : ""
+    ) as BankTransactionQuickFilter
   };
 }
