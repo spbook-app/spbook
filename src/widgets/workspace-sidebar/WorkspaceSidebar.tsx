@@ -64,7 +64,7 @@ function getSectionOpenCount(
       return data.supplierInvoices.filter(
         (supplierInvoice) => supplierInvoice.status !== "paid"
       ).length;
-    case "banking":
+    case "bank-transactions":
       return data.bankTransactions.filter(
         (bankTransaction) => bankTransaction.status === "unmatched"
       ).length;

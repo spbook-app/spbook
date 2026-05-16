@@ -4,7 +4,8 @@ export type WorkspaceSection =
   | "dashboard"
   | "sales"
   | "purchases"
-  | "banking"
+  | "bank-accounts"
+  | "bank-transactions"
   | "counterparties"
   | "accounting"
   | "settings";
@@ -14,6 +15,7 @@ export type WorkspaceSectionPath =
   | "/workspace/sales/invoices"
   | "/workspace/purchases/supplier-invoices"
   | "/workspace/banking/accounts"
+  | "/workspace/banking/transactions"
   | "/workspace/counterparties"
   | "/workspace/accounting/journal-entries"
   | "/workspace/settings";
@@ -43,10 +45,16 @@ export const workspaceSections: Array<{
     description: "Supplier invoices and payments"
   },
   {
-    id: "banking",
+    id: "bank-accounts",
     path: "/workspace/banking/accounts",
-    label: "Banking",
-    description: "Bank accounts and transactions"
+    label: "Bank accounts",
+    description: "Account registry, IBANs, and linked records"
+  },
+  {
+    id: "bank-transactions",
+    path: "/workspace/banking/transactions",
+    label: "Transactions",
+    description: "Imported and manual bank movements"
   },
   {
     id: "counterparties",
@@ -69,10 +77,14 @@ export const workspaceSections: Array<{
 ];
 
 export function getWorkspaceSectionFromPath(pathname: string): WorkspaceSection {
-  const [, basePath, sectionPath] = pathname.split("/");
+  const [, basePath, sectionPath, areaPath] = pathname.split("/");
 
   if (basePath !== "workspace") {
     return "dashboard";
+  }
+
+  if (sectionPath === "banking") {
+    return areaPath === "transactions" ? "bank-transactions" : "bank-accounts";
   }
 
   const section = workspaceSections.find((item) => item.id === sectionPath);
@@ -88,8 +100,10 @@ export function getSectionLead(section: WorkspaceSection) {
       return "Create issued invoices, review invoice status, and match incoming bank transactions.";
     case "purchases":
       return "Record supplier invoices, owner transactions, and outgoing payments.";
-    case "banking":
-      return "Maintain bank accounts, add signed bank transactions, and post bank fees.";
+    case "bank-accounts":
+      return "Maintain bank accounts and review their IBAN, currency, and linked records.";
+    case "bank-transactions":
+      return "Review imported and manual account movements, match invoices, and post bank fees.";
     case "counterparties":
       return "Keep customers, suppliers, banks, owner, and tax authority records in one place.";
     case "accounting":

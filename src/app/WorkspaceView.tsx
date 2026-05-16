@@ -7,7 +7,8 @@ import {
   workspaceSections
 } from "../pages/workspace/model";
 import { AccountingView } from "../widgets/accounting/AccountingView";
-import { BankingPanel } from "../widgets/banking/BankingPanel";
+import { BankingAccountsView } from "../widgets/banking/BankingAccountsView";
+import { BankTransactionList } from "../widgets/banking/BankTransactionList";
 import { CounterpartiesView } from "../widgets/counterparties/CounterpartiesView";
 import { DashboardView } from "../widgets/dashboard/DashboardView";
 import { PurchasesView } from "../widgets/purchases/PurchasesView";
@@ -63,9 +64,14 @@ export function WorkspaceView({
             <PurchasesView data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
-        {activeSection === "banking" ? (
+        {activeSection === "bank-accounts" ? (
           <div className="section-stack">
-            <BankingPanel data={data} onDataStateChange={onDataStateChange} />
+            <BankingAccountsView data={data} onDataStateChange={onDataStateChange} />
+          </div>
+        ) : null}
+        {activeSection === "bank-transactions" ? (
+          <div className="section-stack">
+            <BankTransactionList data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
         {activeSection === "counterparties" ? (
@@ -145,8 +151,12 @@ function getWorkspaceBreadcrumbs(
     return [];
   }
 
-  const sectionMeta = workspaceSections.find(
-    (candidate) => candidate.id === section
+  const sectionMeta = (
+    section === "banking"
+      ? workspaceSections.find((s) =>
+          areaOrEntity === "transactions" ? s.id === "bank-transactions" : s.id === "bank-accounts"
+        )
+      : workspaceSections.find((candidate) => candidate.id === section)
   ) as
     | (typeof workspaceSections)[number]
     | undefined;

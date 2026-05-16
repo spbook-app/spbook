@@ -1477,6 +1477,70 @@ td {
   letter-spacing: 0.03em;
 }
 
+.bank-account-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bank-account-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #d6d2c8;
+  border-radius: 14px;
+  background: #f5f4ed;
+  color: #25231f;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.bank-account-tab:hover {
+  border-color: #a09c94;
+  background: #eeeae2;
+}
+
+.bank-account-tab--active {
+  border-color: #315d3e;
+  background: #eff6ec;
+  color: #1e3d27;
+}
+
+.import-dialog {
+  border: 1px solid #d6d2c8;
+  border-radius: 10px;
+  padding: 0;
+  max-width: 580px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+
+.import-dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.import-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e0d4;
+}
+
+.import-dialog-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.import-dialog-body {
+  padding: 20px;
+}
+
 .transaction-filter-chips {
   display: flex;
   flex-wrap: wrap;

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { BankTransaction, Party } from "../../domain";
 import type { AppDataState } from "../../app/App";
@@ -20,6 +20,7 @@ import {
 } from "../../services/bank-workflow";
 import { createParty } from "../../services/party-workflow";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { BankStatementImport } from "./BankStatementImport";
 
 function isSameStatementCounterparty(
   partyName: string,
@@ -200,6 +201,7 @@ export function BankTransactionList({
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedBankAccountId = transactionBankAccountId || data.bankAccounts[0]?.id || "";
+  const importDialogRef = useRef<HTMLDialogElement>(null);
   const bankTransactionRows = data.bankTransactions
     .map((bankTransaction): BankTransactionListRow => {
       const bankAccount = data.bankAccounts.find(
@@ -743,19 +745,53 @@ export function BankTransactionList({
   }
 
   return (
-    <div className="banking-section">
-      <div className="subsection-header">
-        <div>
-          <h3>Bank transactions</h3>
-          <p>Review imported and manual account movements as a work queue.</p>
+    <>
+      <div className="banking-section">
+        <div className="subsection-header">
+          <div>
+            <h3>Bank transactions</h3>
+            <p>Review imported and manual account movements as a work queue.</p>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => importDialogRef.current?.showModal()}
+            >
+              Import statement
+            </button>
+            <Link className="primary-button" to="/workspace/banking/transactions/new">
+              Create bank transaction
+            </Link>
+          </div>
         </div>
-        <Link className="primary-button" to="/workspace/banking/transactions/new">
-          Create bank transaction
-        </Link>
-      </div>
 
-      <div className="transaction-list">
-        <div className="transaction-list-header">
+        <div className="bank-account-tabs" role="tablist" aria-label="Filter by bank account">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!listFilters.bankAccountId}
+            className={`bank-account-tab${!listFilters.bankAccountId ? " bank-account-tab--active" : ""}`}
+            onClick={() => handleListFilterChange("bankAccountId", "")}
+          >
+            All
+          </button>
+          {data.bankAccounts.map((bankAccount) => (
+            <button
+              key={bankAccount.id}
+              type="button"
+              role="tab"
+              aria-selected={listFilters.bankAccountId === bankAccount.id}
+              className={`bank-account-tab${listFilters.bankAccountId === bankAccount.id ? " bank-account-tab--active" : ""}`}
+              onClick={() => handleListFilterChange("bankAccountId", bankAccount.id)}
+            >
+              {bankAccount.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="transaction-list">
+          <div className="transaction-list-header">
           <span className="transaction-result-count">
             Showing {filteredBankTransactionRows.length} of {bankAccountFilteredRows.length}
             {activeBankAccountFilter ? ` · ${activeBankAccountFilter.name}` : ""}
@@ -773,22 +809,6 @@ export function BankTransactionList({
           ) : null}
         </div>
         <div className="transaction-list-filters">
-          <label>
-            <span>Bank account</span>
-            <select
-              value={listFilters.bankAccountId}
-              onChange={(event) =>
-                handleListFilterChange("bankAccountId", event.target.value)
-              }
-            >
-              <option value="">All accounts</option>
-              {data.bankAccounts.map((bankAccount) => (
-                <option key={bankAccount.id} value={bankAccount.id}>
-                  {bankAccount.name} · {bankAccount.accountCode}
-                </option>
-              ))}
-            </select>
-          </label>
           <div className="transaction-filter-chips" role="group" aria-label="Filter by state">
             {quickFilterOptions.map(([value, label]) => (
               <button
@@ -830,6 +850,23 @@ export function BankTransactionList({
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </div>
+
+    <dialog ref={importDialogRef} className="import-dialog">
+      <div className="import-dialog-header">
+        <h3>Import bank statement</h3>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => importDialogRef.current?.close()}
+        >
+          Close
+        </button>
+      </div>
+      <div className="import-dialog-body">
+        <BankStatementImport data={data} onDataStateChange={onDataStateChange} />
+      </div>
+    </dialog>
+  </>
   );
 }
 

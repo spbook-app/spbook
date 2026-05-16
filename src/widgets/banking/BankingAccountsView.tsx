@@ -101,7 +101,7 @@ function BankAccountListPage({ data }: { data: ReadyAppData }) {
             <Link
               className="bank-account-row"
               key={bankAccount.id}
-              to="/workspace/banking/accounts/$bankAccountId"
+              to="/workspace/banking/accounts/$bankAccountId/card"
               params={{ bankAccountId: bankAccount.id }}
             >
               <strong>{bankAccount.name}</strong>
