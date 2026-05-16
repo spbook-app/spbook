@@ -41,6 +41,30 @@ const salesRoute = createRoute({
   component: emptyRouteComponent
 });
 
+const salesInvoicesRoute = createRoute({
+  getParentRoute: () => salesRoute,
+  path: "invoices",
+  component: emptyRouteComponent
+});
+
+const salesInvoiceCreateRoute = createRoute({
+  getParentRoute: () => salesInvoicesRoute,
+  path: "new",
+  component: emptyRouteComponent
+});
+
+const salesInvoiceDetailRoute = createRoute({
+  getParentRoute: () => salesInvoicesRoute,
+  path: "$invoiceId",
+  component: emptyRouteComponent
+});
+
+const salesInvoiceEditRoute = createRoute({
+  getParentRoute: () => salesInvoiceDetailRoute,
+  path: "edit",
+  component: emptyRouteComponent
+});
+
 const purchasesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "purchases",
@@ -76,7 +100,12 @@ const routeTree = rootRoute.addChildren([
   workspaceRoute.addChildren([
     workspaceIndexRoute,
     dashboardRoute,
-    salesRoute,
+    salesRoute.addChildren([
+      salesInvoicesRoute.addChildren([
+        salesInvoiceCreateRoute,
+        salesInvoiceDetailRoute.addChildren([salesInvoiceEditRoute])
+      ])
+    ]),
     purchasesRoute,
     bankingRoute,
     counterpartiesRoute,

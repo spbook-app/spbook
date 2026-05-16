@@ -61,6 +61,10 @@ export function App() {
     if (pathname === "/" || pathname === "/workspace" || pathname === "/workspace/") {
       void navigate({ to: "/workspace/dashboard", replace: true });
     }
+
+    if (pathname === "/workspace/sales" || pathname === "/workspace/sales/") {
+      void navigate({ to: "/workspace/sales/invoices", replace: true });
+    }
   }, [navigate, pathname]);
 
   useEffect(() => {

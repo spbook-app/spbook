@@ -9,7 +9,14 @@ export type WorkspaceSection =
   | "accounting"
   | "settings";
 
-export type WorkspaceSectionPath = `/workspace/${WorkspaceSection}`;
+export type WorkspaceSectionPath =
+  | "/workspace/dashboard"
+  | "/workspace/sales/invoices"
+  | "/workspace/purchases"
+  | "/workspace/banking"
+  | "/workspace/counterparties"
+  | "/workspace/accounting"
+  | "/workspace/settings";
 
 export const workspaceSections: Array<{
   id: WorkspaceSection;
@@ -25,7 +32,7 @@ export const workspaceSections: Array<{
   },
   {
     id: "sales",
-    path: "/workspace/sales",
+    path: "/workspace/sales/invoices",
     label: "Sales",
     description: "Issued invoices and receipts"
   },

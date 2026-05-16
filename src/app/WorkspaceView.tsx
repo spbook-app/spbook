@@ -13,7 +13,7 @@ import { CounterpartiesPanel } from "../widgets/counterparties/CounterpartiesPan
 import { DashboardView } from "../widgets/dashboard/DashboardView";
 import { OwnerTransactionsPanel } from "../widgets/purchases/OwnerTransactionsPanel";
 import { SupplierInvoiceWorkflowPanel } from "../widgets/purchases/SupplierInvoiceWorkflowPanel";
-import { InvoiceWorkflowPanel } from "../widgets/sales/InvoiceWorkflowPanel";
+import { SalesInvoicesView } from "../widgets/sales/SalesInvoicesView";
 import { SettingsPanel } from "../widgets/settings/SettingsPanel";
 import { WorkspaceSidebar } from "../widgets/workspace-sidebar/WorkspaceSidebar";
 import type { AppDataState } from "./App";
@@ -56,7 +56,7 @@ export function WorkspaceView({
         {activeSection === "dashboard" ? <DashboardView data={data} accountNames={accountNames} /> : null}
         {activeSection === "sales" ? (
           <div className="section-stack">
-            <InvoiceWorkflowPanel data={data} onDataStateChange={onDataStateChange} />
+            <SalesInvoicesView data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
         {activeSection === "purchases" ? (

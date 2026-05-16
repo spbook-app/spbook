@@ -112,6 +112,7 @@ button:disabled {
   gap: 8px;
   width: fit-content;
   padding: 0 14px;
+  text-decoration: none;
 }
 
 .primary-button {
