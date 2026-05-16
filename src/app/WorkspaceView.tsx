@@ -26,13 +26,21 @@ import {
   autoLinkImportedBankTransactions,
   importCamt053BankTransactions
 } from "../services/camt053-import";
-import { createSalesInvoice } from "../services/invoice-workflow";
+import {
+  createSalesInvoice,
+  deleteSalesInvoice,
+  updateSalesInvoice
+} from "../services/invoice-workflow";
 import {
   recordOwnerContribution,
   recordOwnerWithdrawal
 } from "../services/owner-transactions-workflow";
 import { createParty, updateParty } from "../services/party-workflow";
-import { createSupplierInvoice } from "../services/supplier-invoice-workflow";
+import {
+  createSupplierInvoice,
+  deleteSupplierInvoice,
+  updateSupplierInvoice
+} from "../services/supplier-invoice-workflow";
 import {
   exportWorkspaceBackup,
   importWorkspaceBackup,
@@ -2482,7 +2490,9 @@ function InvoiceWorkflowPanel({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(data.invoice?.id ?? "");
   const [selectedPaymentBankTransactionId, setSelectedPaymentBankTransactionId] =
     useState("");
-  const [actionState, setActionState] = useState<"idle" | "saving" | "paying" | "undo">("idle");
+  const [actionState, setActionState] = useState<
+    "idle" | "saving" | "updating" | "deleting" | "paying" | "undo"
+  >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedInvoice =
     data.invoices.find((invoice) => invoice.id === selectedInvoiceId) ??
@@ -2509,6 +2519,19 @@ function InvoiceWorkflowPanel({
     : null;
   const selectedIncomingBankTransactionId =
     selectedPaymentBankTransactionId || incomingBankTransactions[0]?.id || "";
+  const [editPartyId, setEditPartyId] = useState(selectedInvoice?.partyId ?? "");
+  const [editNumber, setEditNumber] = useState(selectedInvoice?.number ?? "");
+  const [editIssueDate, setEditIssueDate] = useState(selectedInvoice?.issueDate ?? "");
+  const [editTotal, setEditTotal] = useState(selectedInvoice?.total ?? "");
+
+  useEffect(() => {
+    if (!selectedInvoice) return;
+
+    setEditPartyId(selectedInvoice.partyId);
+    setEditNumber(selectedInvoice.number);
+    setEditIssueDate(selectedInvoice.issueDate);
+    setEditTotal(selectedInvoice.total);
+  }, [selectedInvoice]);
 
   async function handleCreateInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2585,6 +2608,56 @@ function InvoiceWorkflowPanel({
       setSelectedInvoiceId(selectedInvoice?.id ?? "");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not undone.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleUpdateInvoice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedInvoice) return;
+
+    setActionState("updating");
+    setErrorMessage(null);
+
+    try {
+      const overview = await updateSalesInvoice({
+        invoiceId: selectedInvoice.id,
+        partyId: editPartyId,
+        number: editNumber,
+        issueDate: editIssueDate,
+        total: editTotal
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedInvoiceId(selectedInvoice.id);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Invoice was not updated.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleDeleteInvoice() {
+    if (!selectedInvoice) return;
+
+    setActionState("deleting");
+    setErrorMessage(null);
+
+    try {
+      const overview = await deleteSalesInvoice(selectedInvoice.id);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedInvoiceId(overview.latestInvoice?.id ?? "");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Invoice was not deleted.");
     } finally {
       setActionState("idle");
     }
@@ -2702,6 +2775,71 @@ function InvoiceWorkflowPanel({
             </div>
           </dl>
           <LinkedJournalEntries entries={selectedInvoiceEntries} />
+          <form className="invoice-form" onSubmit={(event) => void handleUpdateInvoice(event)}>
+            <label>
+              <span>Edit customer</span>
+              <select
+                value={editPartyId}
+                disabled={selectedInvoice.status === "paid"}
+                onChange={(event) => setEditPartyId(event.target.value)}
+              >
+                <option value="">Select customer</option>
+                {customerParties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="form-row">
+              <label>
+                <span>Edit number</span>
+                <input
+                  value={editNumber}
+                  disabled={selectedInvoice.status === "paid"}
+                  onChange={(event) => setEditNumber(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Edit issue date</span>
+                <input
+                  type="date"
+                  value={editIssueDate}
+                  disabled={selectedInvoice.status === "paid"}
+                  onChange={(event) => setEditIssueDate(event.target.value)}
+                />
+              </label>
+            </div>
+            <label>
+              <span>Edit total</span>
+              <input
+                inputMode="decimal"
+                value={editTotal}
+                disabled={selectedInvoice.status === "paid"}
+                onChange={(event) => setEditTotal(event.target.value)}
+              />
+            </label>
+            {selectedInvoice.status === "paid" ? (
+              <p className="field-note">Paid invoices cannot be edited. Undo payment first.</p>
+            ) : null}
+            <div className="transaction-detail-actions">
+              <button
+                className="secondary-button"
+                type="submit"
+                disabled={actionState !== "idle" || selectedInvoice.status === "paid"}
+              >
+                {actionState === "updating" ? "Saving invoice" : "Save invoice"}
+              </button>
+              <button
+                className="secondary-button danger-button"
+                type="button"
+                disabled={actionState !== "idle" || selectedInvoice.status === "paid"}
+                onClick={() => void handleDeleteInvoice()}
+              >
+                {actionState === "deleting" ? "Deleting invoice" : "Delete invoice"}
+              </button>
+            </div>
+          </form>
           {linkedInvoiceBankTransaction ? (
             <LinkedBankTransactionSummary
               label="Linked incoming bank transaction"
@@ -2767,7 +2905,9 @@ function SupplierInvoiceWorkflowPanel({
     selectedSupplierPaymentBankTransactionId,
     setSelectedSupplierPaymentBankTransactionId
   ] = useState("");
-  const [actionState, setActionState] = useState<"idle" | "saving" | "paying" | "undo">("idle");
+  const [actionState, setActionState] = useState<
+    "idle" | "saving" | "updating" | "deleting" | "paying" | "undo"
+  >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedSupplierInvoice =
     data.supplierInvoices.find(
@@ -2796,6 +2936,25 @@ function SupplierInvoiceWorkflowPanel({
     : null;
   const selectedOutgoingBankTransactionId =
     selectedSupplierPaymentBankTransactionId || outgoingBankTransactions[0]?.id || "";
+  const [editPartyId, setEditPartyId] = useState(selectedSupplierInvoice?.partyId ?? "");
+  const [editNumber, setEditNumber] = useState(selectedSupplierInvoice?.number ?? "");
+  const [editIssueDate, setEditIssueDate] = useState(
+    selectedSupplierInvoice?.issueDate ?? ""
+  );
+  const [editTotal, setEditTotal] = useState(selectedSupplierInvoice?.total ?? "");
+  const [editExpenseAccountCode, setEditExpenseAccountCode] = useState(
+    selectedSupplierInvoice?.expenseAccountCode ?? "4100"
+  );
+
+  useEffect(() => {
+    if (!selectedSupplierInvoice) return;
+
+    setEditPartyId(selectedSupplierInvoice.partyId);
+    setEditNumber(selectedSupplierInvoice.number);
+    setEditIssueDate(selectedSupplierInvoice.issueDate);
+    setEditTotal(selectedSupplierInvoice.total);
+    setEditExpenseAccountCode(selectedSupplierInvoice.expenseAccountCode);
+  }, [selectedSupplierInvoice]);
 
   async function handleCreateSupplierInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2879,6 +3038,61 @@ function SupplierInvoiceWorkflowPanel({
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not undone."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleUpdateSupplierInvoice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedSupplierInvoice) return;
+
+    setActionState("updating");
+    setErrorMessage(null);
+
+    try {
+      const overview = await updateSupplierInvoice({
+        supplierInvoiceId: selectedSupplierInvoice.id,
+        partyId: editPartyId,
+        number: editNumber,
+        issueDate: editIssueDate,
+        total: editTotal,
+        expenseAccountCode: editExpenseAccountCode
+      });
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedSupplierInvoiceId(selectedSupplierInvoice.id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Supplier invoice was not updated."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleDeleteSupplierInvoice() {
+    if (!selectedSupplierInvoice) return;
+
+    setActionState("deleting");
+    setErrorMessage(null);
+
+    try {
+      const overview = await deleteSupplierInvoice(selectedSupplierInvoice.id);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedSupplierInvoiceId(overview.latestSupplierInvoice?.id ?? "");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Supplier invoice was not deleted."
       );
     } finally {
       setActionState("idle");
@@ -3009,6 +3223,90 @@ function SupplierInvoiceWorkflowPanel({
             </div>
           </dl>
           <LinkedJournalEntries entries={selectedSupplierInvoiceEntries} />
+          <form
+            className="invoice-form"
+            onSubmit={(event) => void handleUpdateSupplierInvoice(event)}
+          >
+            <label>
+              <span>Edit supplier</span>
+              <select
+                value={editPartyId}
+                disabled={selectedSupplierInvoice.status === "paid"}
+                onChange={(event) => setEditPartyId(event.target.value)}
+              >
+                <option value="">Select supplier</option>
+                {supplierParties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="form-row">
+              <label>
+                <span>Edit number</span>
+                <input
+                  value={editNumber}
+                  disabled={selectedSupplierInvoice.status === "paid"}
+                  onChange={(event) => setEditNumber(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Edit issue date</span>
+                <input
+                  type="date"
+                  value={editIssueDate}
+                  disabled={selectedSupplierInvoice.status === "paid"}
+                  onChange={(event) => setEditIssueDate(event.target.value)}
+                />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
+                <span>Edit total</span>
+                <input
+                  inputMode="decimal"
+                  value={editTotal}
+                  disabled={selectedSupplierInvoice.status === "paid"}
+                  onChange={(event) => setEditTotal(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Edit expense account</span>
+                <input
+                  value={editExpenseAccountCode}
+                  disabled={selectedSupplierInvoice.status === "paid"}
+                  onChange={(event) => setEditExpenseAccountCode(event.target.value)}
+                />
+              </label>
+            </div>
+            {selectedSupplierInvoice.status === "paid" ? (
+              <p className="field-note">
+                Paid supplier invoices cannot be edited. Undo payment first.
+              </p>
+            ) : null}
+            <div className="transaction-detail-actions">
+              <button
+                className="secondary-button"
+                type="submit"
+                disabled={actionState !== "idle" || selectedSupplierInvoice.status === "paid"}
+              >
+                {actionState === "updating"
+                  ? "Saving supplier invoice"
+                  : "Save supplier invoice"}
+              </button>
+              <button
+                className="secondary-button danger-button"
+                type="button"
+                disabled={actionState !== "idle" || selectedSupplierInvoice.status === "paid"}
+                onClick={() => void handleDeleteSupplierInvoice()}
+              >
+                {actionState === "deleting"
+                  ? "Deleting supplier invoice"
+                  : "Delete supplier invoice"}
+              </button>
+            </div>
+          </form>
           {linkedSupplierBankTransaction ? (
             <LinkedBankTransactionSummary
               label="Linked outgoing bank transaction"

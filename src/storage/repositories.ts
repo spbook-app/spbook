@@ -224,6 +224,24 @@ export async function saveInvoiceJournalEntryData(
   );
 }
 
+export async function deleteInvoiceWorkflowData(
+  data: {
+    invoiceId: string;
+    journalEntryIds: string[];
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.invoices,
+    database.journalEntries,
+    async () => {
+      await database.invoices.delete(data.invoiceId);
+      await database.journalEntries.bulkDelete(data.journalEntryIds);
+    }
+  );
+}
+
 export async function saveInvoicePaymentData(
   data: {
     invoice: Invoice;
@@ -282,6 +300,24 @@ export async function saveSupplierInvoiceJournalEntryData(
     async () => {
       await database.supplierInvoices.put(data.supplierInvoice);
       await database.journalEntries.put(data.journalEntry);
+    }
+  );
+}
+
+export async function deleteSupplierInvoiceWorkflowData(
+  data: {
+    supplierInvoiceId: string;
+    journalEntryIds: string[];
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.supplierInvoices,
+    database.journalEntries,
+    async () => {
+      await database.supplierInvoices.delete(data.supplierInvoiceId);
+      await database.journalEntries.bulkDelete(data.journalEntryIds);
     }
   );
 }

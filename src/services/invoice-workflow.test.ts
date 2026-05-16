@@ -3,7 +3,9 @@ import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import {
   createSalesInvoice,
-  recordInvoicePayment
+  deleteSalesInvoice,
+  recordInvoicePayment,
+  updateSalesInvoice
 } from "./invoice-workflow";
 import {
   recordOwnerContribution,
@@ -12,7 +14,9 @@ import {
 import { createParty } from "./party-workflow";
 import {
   createSupplierInvoice,
-  recordSupplierPayment
+  deleteSupplierInvoice,
+  recordSupplierPayment,
+  updateSupplierInvoice
 } from "./supplier-invoice-workflow";
 import { loadWorkspaceOverview } from "./workspace-overview";
 
@@ -94,6 +98,53 @@ describe("invoice workflow", () => {
     expect(balanceFor(secondPaymentOverview.balances, "7600")).toBe("-1000.00");
   });
 
+  it("updates and deletes unpaid issued invoices", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      database
+    );
+    const issuedOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0005",
+        issueDate: "2026-05-10",
+        total: "100.00",
+        currency: "EUR"
+      },
+      database
+    );
+    const updatedOverview = await updateSalesInvoice(
+      {
+        invoiceId: issuedOverview.latestInvoice!.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0005-UPDATED",
+        issueDate: "2026-05-11",
+        total: "150.00"
+      },
+      database
+    );
+    const deletedOverview = await deleteSalesInvoice(
+      issuedOverview.latestInvoice!.id,
+      database
+    );
+
+    expect(updatedOverview.latestInvoice).toMatchObject({
+      number: "2026-0005-UPDATED",
+      issueDate: "2026-05-11",
+      total: "150.00"
+    });
+    expect(balanceFor(updatedOverview.balances, "1200")).toBe("150.00");
+    expect(deletedOverview.invoices).toHaveLength(0);
+    expect(deletedOverview.journalEntries).toHaveLength(0);
+  });
+
   it("loads an empty overview before an invoice is created", async () => {
     const initialization = await initializeDefaultWorkspace(database);
     const overview = await loadWorkspaceOverview(initialization.workspace.id, database);
@@ -143,6 +194,55 @@ describe("invoice workflow", () => {
     expect(balanceFor(paidOverview.balances, "4100")).toBe("40.00");
     expect(balanceFor(paidOverview.balances, "2200")).toBe("0.00");
     expect(balanceFor(paidOverview.balances, "1100")).toBe("-40.00");
+  });
+
+  it("updates and deletes unpaid supplier invoices", async () => {
+    const initialization = await initializeDefaultWorkspace(database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "Bank Services d.o.o.",
+        type: "business",
+        roles: ["supplier"]
+      },
+      database
+    );
+    const issuedOverview = await createSupplierInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "SUP-2026-0003",
+        issueDate: "2026-05-10",
+        total: "40.00",
+        currency: "EUR"
+      },
+      database
+    );
+    const updatedOverview = await updateSupplierInvoice(
+      {
+        supplierInvoiceId: issuedOverview.latestSupplierInvoice!.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "SUP-2026-0003-UPDATED",
+        issueDate: "2026-05-11",
+        total: "50.00",
+        expenseAccountCode: "4120"
+      },
+      database
+    );
+    const deletedOverview = await deleteSupplierInvoice(
+      issuedOverview.latestSupplierInvoice!.id,
+      database
+    );
+
+    expect(updatedOverview.latestSupplierInvoice).toMatchObject({
+      number: "SUP-2026-0003-UPDATED",
+      issueDate: "2026-05-11",
+      total: "50.00",
+      expenseAccountCode: "4120"
+    });
+    expect(balanceFor(updatedOverview.balances, "4120")).toBe("50.00");
+    expect(deletedOverview.supplierInvoices).toHaveLength(0);
+    expect(deletedOverview.journalEntries).toHaveLength(0);
   });
 
   it("records owner contribution and withdrawal", async () => {

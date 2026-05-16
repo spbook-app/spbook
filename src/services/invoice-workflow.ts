@@ -2,8 +2,11 @@ import type { Invoice, JournalEntry } from "../domain";
 import { validateInvoice, validateJournalEntry } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
+  deleteInvoiceWorkflowData,
   getAccountsByWorkspaceId,
   getInvoiceById,
+  getInvoicesByWorkspaceId,
+  getJournalEntriesByWorkspaceId,
   getPartiesByWorkspaceId,
   saveInvoiceJournalEntryData,
   saveInvoicePaymentData,
@@ -17,6 +20,14 @@ export type CreateSalesInvoiceInput = {
   issueDate: string;
   total: string;
   currency: string;
+};
+
+export type UpdateSalesInvoiceInput = {
+  invoiceId: string;
+  partyId: string;
+  number: string;
+  issueDate: string;
+  total: string;
 };
 
 export async function createSalesInvoice(
@@ -87,6 +98,105 @@ export async function recordInvoicePayment(
     await loadWorkspaceOverview(invoice.workspaceId, database),
     paidInvoice
   );
+}
+
+export async function updateSalesInvoice(
+  input: UpdateSalesInvoiceInput,
+  database: SpbookDatabase = db
+) {
+  const existingInvoice = await getInvoiceById(input.invoiceId, database);
+
+  if (!existingInvoice) {
+    throw new Error(`Invoice "${input.invoiceId}" was not found.`);
+  }
+
+  if (existingInvoice.status === "paid") {
+    throw new Error("Paid invoice cannot be edited. Undo payment first.");
+  }
+
+  const [accounts, parties, journalEntries] = await Promise.all([
+    getAccountsByWorkspaceId(existingInvoice.workspaceId, database),
+    getPartiesByWorkspaceId(existingInvoice.workspaceId, database),
+    getJournalEntriesByWorkspaceId(existingInvoice.workspaceId, database)
+  ]);
+  const updatedInvoice: Invoice = {
+    ...existingInvoice,
+    number: input.number.trim(),
+    issueDate: input.issueDate,
+    partyId: input.partyId,
+    total: input.total
+  };
+  const sourceJournalEntry = journalEntries.find(
+    (entry) => entry.sourceType === "invoice" && entry.sourceId === existingInvoice.id
+  );
+  const journalEntry = {
+    ...createInvoiceJournalEntry(
+      {
+        workspaceId: existingInvoice.workspaceId,
+        partyId: input.partyId,
+        number: input.number,
+        issueDate: input.issueDate,
+        total: input.total,
+        currency: existingInvoice.currency
+      },
+      existingInvoice.id
+    ),
+    id: sourceJournalEntry?.id ?? createEntityId("je_invoice")
+  };
+  const invoiceValidation = validateInvoice(updatedInvoice, parties);
+
+  if (!invoiceValidation.ok) {
+    throw new Error("Invoice data is invalid.");
+  }
+
+  const journalValidation = validateJournalEntry(journalEntry, accounts);
+
+  if (!journalValidation.ok) {
+    throw new Error("Invoice journal entry is invalid.");
+  }
+
+  await saveInvoiceJournalEntryData({ invoice: updatedInvoice, journalEntry }, database);
+
+  return selectInvoiceInOverview(
+    await loadWorkspaceOverview(existingInvoice.workspaceId, database),
+    updatedInvoice
+  );
+}
+
+export async function deleteSalesInvoice(
+  invoiceId: string,
+  database: SpbookDatabase = db
+) {
+  const invoice = await getInvoiceById(invoiceId, database);
+
+  if (!invoice) {
+    throw new Error(`Invoice "${invoiceId}" was not found.`);
+  }
+
+  if (invoice.status === "paid") {
+    throw new Error("Paid invoice cannot be deleted. Undo payment first.");
+  }
+
+  const [invoices, journalEntries] = await Promise.all([
+    getInvoicesByWorkspaceId(invoice.workspaceId, database),
+    getJournalEntriesByWorkspaceId(invoice.workspaceId, database)
+  ]);
+  const invoiceJournalEntryIds = journalEntries
+    .filter((entry) => entry.lines.some((line) => line.invoiceId === invoice.id))
+    .map((entry) => entry.id);
+
+  await deleteInvoiceWorkflowData(
+    {
+      invoiceId: invoice.id,
+      journalEntryIds: invoiceJournalEntryIds
+    },
+    database
+  );
+
+  const nextInvoice = invoices.find((candidate) => candidate.id !== invoice.id);
+  const overview = await loadWorkspaceOverview(invoice.workspaceId, database);
+
+  return nextInvoice ? selectInvoiceInOverview(overview, nextInvoice) : overview;
 }
 
 function createIssuedInvoice(input: CreateSalesInvoiceInput): Invoice {
