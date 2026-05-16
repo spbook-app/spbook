@@ -11,8 +11,7 @@ import { AccountsTable } from "../widgets/accounting/AccountsTable";
 import { BankingPanel } from "../widgets/banking/BankingPanel";
 import { CounterpartiesView } from "../widgets/counterparties/CounterpartiesView";
 import { DashboardView } from "../widgets/dashboard/DashboardView";
-import { OwnerTransactionsPanel } from "../widgets/purchases/OwnerTransactionsPanel";
-import { SupplierInvoiceWorkflowPanel } from "../widgets/purchases/SupplierInvoiceWorkflowPanel";
+import { PurchasesView } from "../widgets/purchases/PurchasesView";
 import { SalesInvoicesView } from "../widgets/sales/SalesInvoicesView";
 import { SettingsPanel } from "../widgets/settings/SettingsPanel";
 import { WorkspaceSidebar } from "../widgets/workspace-sidebar/WorkspaceSidebar";
@@ -61,11 +60,7 @@ export function WorkspaceView({
         ) : null}
         {activeSection === "purchases" ? (
           <div className="section-stack">
-            <SupplierInvoiceWorkflowPanel
-              data={data}
-              onDataStateChange={onDataStateChange}
-            />
-            <OwnerTransactionsPanel data={data} onDataStateChange={onDataStateChange} />
+            <PurchasesView data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
         {activeSection === "banking" ? (

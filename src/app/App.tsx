@@ -66,6 +66,10 @@ export function App() {
       void navigate({ to: "/workspace/sales/invoices", replace: true });
     }
 
+    if (pathname === "/workspace/purchases" || pathname === "/workspace/purchases/") {
+      void navigate({ to: "/workspace/purchases/supplier-invoices", replace: true });
+    }
+
     if (pathname === "/workspace/banking" || pathname === "/workspace/banking/") {
       void navigate({ to: "/workspace/banking/accounts", replace: true });
     }

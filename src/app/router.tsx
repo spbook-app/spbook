@@ -71,6 +71,42 @@ const purchasesRoute = createRoute({
   component: emptyRouteComponent
 });
 
+const supplierInvoicesRoute = createRoute({
+  getParentRoute: () => purchasesRoute,
+  path: "supplier-invoices",
+  component: emptyRouteComponent
+});
+
+const supplierInvoiceCreateRoute = createRoute({
+  getParentRoute: () => supplierInvoicesRoute,
+  path: "new",
+  component: emptyRouteComponent
+});
+
+const supplierInvoiceDetailRoute = createRoute({
+  getParentRoute: () => supplierInvoicesRoute,
+  path: "$supplierInvoiceId",
+  component: emptyRouteComponent
+});
+
+const supplierInvoiceEditRoute = createRoute({
+  getParentRoute: () => supplierInvoiceDetailRoute,
+  path: "edit",
+  component: emptyRouteComponent
+});
+
+const ownerTransactionsRoute = createRoute({
+  getParentRoute: () => purchasesRoute,
+  path: "owner-transactions",
+  component: emptyRouteComponent
+});
+
+const ownerTransactionCreateRoute = createRoute({
+  getParentRoute: () => ownerTransactionsRoute,
+  path: "new",
+  component: emptyRouteComponent
+});
+
 const bankingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "banking",
@@ -172,7 +208,13 @@ const routeTree = rootRoute.addChildren([
         salesInvoiceDetailRoute.addChildren([salesInvoiceEditRoute])
       ])
     ]),
-    purchasesRoute,
+    purchasesRoute.addChildren([
+      supplierInvoicesRoute.addChildren([
+        supplierInvoiceCreateRoute,
+        supplierInvoiceDetailRoute.addChildren([supplierInvoiceEditRoute])
+      ]),
+      ownerTransactionsRoute.addChildren([ownerTransactionCreateRoute])
+    ]),
     bankingRoute.addChildren([
       bankingAccountsRoute.addChildren([
         bankingAccountCreateRoute,

@@ -12,7 +12,7 @@ export type WorkspaceSection =
 export type WorkspaceSectionPath =
   | "/workspace/dashboard"
   | "/workspace/sales/invoices"
-  | "/workspace/purchases"
+  | "/workspace/purchases/supplier-invoices"
   | "/workspace/banking/accounts"
   | "/workspace/counterparties"
   | "/workspace/accounting"
@@ -38,7 +38,7 @@ export const workspaceSections: Array<{
   },
   {
     id: "purchases",
-    path: "/workspace/purchases",
+    path: "/workspace/purchases/supplier-invoices",
     label: "Purchases",
     description: "Supplier invoices and payments"
   },
