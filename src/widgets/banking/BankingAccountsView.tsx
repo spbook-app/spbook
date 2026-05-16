@@ -404,13 +404,18 @@ function BankAccountDetailPage({
               <p className="empty-state">No bank transactions for this account yet.</p>
             ) : null}
             {relatedTransactions.map((bankTransaction) => (
-              <div className="linked-entry" key={bankTransaction.id}>
+              <Link
+                className="linked-entry"
+                key={bankTransaction.id}
+                to="/workspace/banking/transactions/$bankTransactionId"
+                params={{ bankTransactionId: bankTransaction.id }}
+              >
                 <span>{bankTransaction.bookingDate}</span>
                 <small>
                   {bankTransaction.amount} {bankTransaction.currency} ·{" "}
                   {bankTransaction.description}
                 </small>
-              </div>
+              </Link>
             ))}
           </div>
         </>

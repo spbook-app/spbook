@@ -19,6 +19,25 @@ export function BankingPanel({
     return <BankingAccountsView data={data} onDataStateChange={onDataStateChange} />;
   }
 
+  if (pathname.startsWith("/workspace/banking/transactions")) {
+    return (
+      <section className="panel panel-wide" aria-labelledby="banking-transactions-title">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Banking</p>
+            <h2 id="banking-transactions-title">Bank transactions</h2>
+          </div>
+          <span>{data.bankTransactions.length} transactions</span>
+        </div>
+
+        {pathname === "/workspace/banking/transactions" ? (
+          <BankStatementImport data={data} onDataStateChange={onDataStateChange} />
+        ) : null}
+        <BankTransactionList data={data} onDataStateChange={onDataStateChange} />
+      </section>
+    );
+  }
+
   return (
     <section className="panel panel-wide" aria-labelledby="banking-title">
       <div className="panel-header">
