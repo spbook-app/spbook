@@ -12,7 +12,8 @@ type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
 type CounterpartyRoute =
   | { mode: "list" }
   | { mode: "create" }
-  | { mode: "detail"; partyId: string }
+  | { mode: "workspace"; partyId: string }
+  | { mode: "card"; partyId: string }
   | { mode: "edit"; partyId: string };
 
 type PartyFormState = {
@@ -67,7 +68,7 @@ export function CounterpartiesView({
     return <CounterpartyCreatePage data={data} onDataStateChange={onDataStateChange} />;
   }
 
-  if (route.mode === "detail" || route.mode === "edit") {
+  if (route.mode === "workspace" || route.mode === "card" || route.mode === "edit") {
     const party = data.parties.find((candidate) => candidate.id === route.partyId) ?? null;
 
     if (!party) {
@@ -219,7 +220,7 @@ function CounterpartyDetailPage({
   party
 }: {
   data: ReadyAppData;
-  mode: "detail" | "edit";
+  mode: "workspace" | "card" | "edit";
   onDataStateChange: (state: AppDataState) => void;
   party: Party;
 }) {
@@ -278,7 +279,7 @@ function CounterpartyDetailPage({
         ...mapOverviewToReadyState(overview)
       });
       void navigate({
-        to: "/workspace/counterparties/$partyId",
+        to: "/workspace/counterparties/$partyId/card",
         params: { partyId: party.id }
       });
     } catch (error) {
@@ -296,10 +297,15 @@ function CounterpartyDetailPage({
       </div>
 
       <div className="transaction-detail-actions">
-        <Link className="secondary-button" to="/workspace/counterparties">
-          Back to list
-        </Link>
-        {mode === "detail" ? (
+        {mode === "workspace" ? (
+          <Link
+            className="secondary-button"
+            to="/workspace/counterparties/$partyId/card"
+            params={{ partyId: party.id }}
+          >
+            Party card
+          </Link>
+        ) : mode === "card" ? (
           <Link
             className="secondary-button"
             to="/workspace/counterparties/$partyId/edit"
@@ -324,13 +330,34 @@ function CounterpartyDetailPage({
             </button>
             <Link
               className="secondary-button"
-              to="/workspace/counterparties/$partyId"
+              to="/workspace/counterparties/$partyId/card"
               params={{ partyId: party.id }}
             >
               Cancel
             </Link>
           </div>
         </form>
+      ) : mode === "card" ? (
+        <>
+          <CounterpartyDetails party={party} />
+          {bankAccounts.length > 0 ? (
+            <div className="document-list" aria-label="Bank accounts" style={{ marginTop: "16px" }}>
+              {bankAccounts.map((bankAccount) => (
+                <Link
+                  className="document-list-item"
+                  key={bankAccount.id}
+                  to="/workspace/banking/accounts/$bankAccountId"
+                  params={{ bankAccountId: bankAccount.id }}
+                >
+                  <strong>{bankAccount.name}</strong>
+                  <span>
+                    {bankAccount.iban ?? "No IBAN"} · {bankAccount.currency}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </>
       ) : (
         <>
           <dl className="entity-summary-strip">
@@ -439,32 +466,6 @@ function CounterpartyDetailPage({
             </section>
           ) : null}
 
-          <section
-            className="entity-workspace-section entity-workspace-section-secondary"
-            aria-labelledby="party-details-title"
-          >
-            <div className="entity-section-header">
-              <h3 id="party-details-title">Details</h3>
-            </div>
-            <CounterpartyDetails party={party} />
-            {bankAccounts.length > 0 ? (
-              <div className="document-list" aria-label="Bank accounts" style={{ marginTop: "16px" }}>
-                {bankAccounts.map((bankAccount) => (
-                  <Link
-                    className="document-list-item"
-                    key={bankAccount.id}
-                    to="/workspace/banking/accounts/$bankAccountId"
-                    params={{ bankAccountId: bankAccount.id }}
-                  >
-                    <strong>{bankAccount.name}</strong>
-                    <span>
-                      {bankAccount.iban ?? "No IBAN"} · {bankAccount.currency}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </section>
         </>
       )}
 
@@ -710,7 +711,11 @@ function getCounterpartyRoute(pathname: string): CounterpartyRoute {
     return { mode: "edit", partyId };
   }
 
-  return { mode: "detail", partyId };
+  if (mode === "card") {
+    return { mode: "card", partyId };
+  }
+
+  return { mode: "workspace", partyId };
 }
 
 function mapPartyToFormState(party: Party): PartyFormState {

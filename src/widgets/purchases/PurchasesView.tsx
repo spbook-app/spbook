@@ -353,9 +353,15 @@ function SupplierInvoiceDetailPage({
         <span className="status-pill">{supplierInvoice.status}</span>
       </div>
       <div className="transaction-detail-actions">
-        <Link className="secondary-button" to="/workspace/purchases/supplier-invoices">
-          Back to list
-        </Link>
+        {mode === "edit" ? (
+          <Link
+            className="secondary-button"
+            to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
+            params={{ supplierInvoiceId: supplierInvoice.id }}
+          >
+            Cancel
+          </Link>
+        ) : null}
         {mode === "detail" && supplierInvoice.status !== "paid" ? (
           <Link
             className="secondary-button"

@@ -12,7 +12,8 @@ type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
 type BankingAccountRoute =
   | { mode: "list" }
   | { mode: "create" }
-  | { mode: "detail"; bankAccountId: string }
+  | { mode: "workspace"; bankAccountId: string }
+  | { mode: "card"; bankAccountId: string }
   | { mode: "edit"; bankAccountId: string };
 
 type BankAccountFormState = {
@@ -57,7 +58,7 @@ export function BankingAccountsView({
     );
   }
 
-  if (route.mode === "detail" || route.mode === "edit") {
+  if (route.mode === "workspace" || route.mode === "card" || route.mode === "edit") {
     const bankAccount =
       data.bankAccounts.find((candidate) => candidate.id === route.bankAccountId) ?? null;
 
@@ -244,7 +245,7 @@ function BankAccountDetailPage({
   bankParties: Party[];
   bankPostingAccounts: Account[];
   data: ReadyAppData;
-  mode: "detail" | "edit";
+  mode: "workspace" | "card" | "edit";
   onDataStateChange: (state: AppDataState) => void;
 }) {
   const navigate = useNavigate();
@@ -297,7 +298,7 @@ function BankAccountDetailPage({
 
       onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
       void navigate({
-        to: "/workspace/banking/accounts/$bankAccountId",
+        to: "/workspace/banking/accounts/$bankAccountId/card",
         params: { bankAccountId: bankAccount.id }
       });
     } catch (error) {
@@ -310,12 +311,9 @@ function BankAccountDetailPage({
   }
 
   return (
-    <section className="panel panel-wide" aria-labelledby="bank-account-detail-title">
-      <div className="entity-page-actions">
-        <Link className="secondary-button" to="/workspace/banking/accounts">
-          Back to list
-        </Link>
-        {mode === "detail" ? (
+    <section className="panel panel-wide" aria-label={bankAccount.name}>
+      {mode === "card" ? (
+        <div className="entity-page-actions">
           <Link
             className="secondary-button"
             to="/workspace/banking/accounts/$bankAccountId/edit"
@@ -323,9 +321,8 @@ function BankAccountDetailPage({
           >
             Edit bank account
           </Link>
-        ) : null}
-        <span className="status-pill">{bankAccount.active ? "active" : "inactive"}</span>
-      </div>
+        </div>
+      ) : null}
 
       {mode === "edit" ? (
         <form className="invoice-form" onSubmit={(event) => void handleUpdateBankAccount(event)}>
@@ -347,19 +344,64 @@ function BankAccountDetailPage({
             </button>
             <Link
               className="secondary-button"
-              to="/workspace/banking/accounts/$bankAccountId"
+              to="/workspace/banking/accounts/$bankAccountId/card"
               params={{ bankAccountId: bankAccount.id }}
             >
               Cancel
             </Link>
           </div>
         </form>
+      ) : mode === "card" ? (
+        <dl className="detail-list copyable-details">
+          <div>
+            <dt>Name</dt>
+            <dd>{bankAccount.name}</dd>
+          </div>
+          <div>
+            <dt>IBAN</dt>
+            <dd>{bankAccount.iban ?? "-"}</dd>
+          </div>
+          <div>
+            <dt>Currency</dt>
+            <dd>{bankAccount.currency}</dd>
+          </div>
+          <div>
+            <dt>Posting account</dt>
+            <dd>
+              {bankAccount.accountCode}
+              {postingAccount ? ` · ${postingAccount.name}` : ""}
+            </dd>
+          </div>
+          <div>
+            <dt>Bank counterparty</dt>
+            <dd>
+              {bankParty ? (
+                <Link
+                  to="/workspace/counterparties/$partyId"
+                  params={{ partyId: bankParty.id }}
+                >
+                  {bankParty.name}
+                </Link>
+              ) : (
+                "-"
+              )}
+            </dd>
+          </div>
+        </dl>
       ) : (
         <>
           <dl className="entity-summary-strip">
             <div>
               <dt>IBAN</dt>
-              <dd>{bankAccount.iban ?? "-"}</dd>
+              <dd>
+                <Link
+                  to="/workspace/banking/accounts/$bankAccountId/card"
+                  params={{ bankAccountId: bankAccount.id }}
+                >
+                  {bankAccount.iban ?? "-"}
+                </Link>
+                <span className="status-pill">{bankAccount.active ? "active" : "inactive"}</span>
+              </dd>
             </div>
             <div>
               <dt>Currency</dt>
@@ -459,51 +501,6 @@ function BankAccountDetailPage({
             ) : null}
           </section>
 
-          <section className="entity-workspace-section entity-workspace-section-secondary" aria-labelledby="bank-account-details-title">
-            <div className="entity-section-header">
-              <div>
-                <h3 id="bank-account-details-title">Details</h3>
-                <p>Copyable account metadata and linked records.</p>
-              </div>
-            </div>
-            <dl className="detail-list copyable-details">
-              <div>
-                <dt>Name</dt>
-                <dd>{bankAccount.name}</dd>
-              </div>
-              <div>
-                <dt>IBAN</dt>
-                <dd>{bankAccount.iban ?? "-"}</dd>
-              </div>
-              <div>
-                <dt>Currency</dt>
-                <dd>{bankAccount.currency}</dd>
-              </div>
-              <div>
-                <dt>Posting account</dt>
-                <dd>
-                  {bankAccount.accountCode}
-                  {postingAccount ? ` · ${postingAccount.name}` : ""}
-                </dd>
-              </div>
-            <div>
-              <dt>Bank counterparty</dt>
-              <dd>{bankParty?.name ?? "-"}</dd>
-            </div>
-          </dl>
-
-          {bankParty ? (
-            <div className="entity-inline-actions">
-              <Link
-                className="secondary-button"
-                to="/workspace/counterparties/$partyId"
-                params={{ partyId: bankParty.id }}
-              >
-                Open bank counterparty
-              </Link>
-            </div>
-          ) : null}
-          </section>
         </>
       )}
 
@@ -631,7 +628,11 @@ function getBankingAccountRoute(pathname: string): BankingAccountRoute {
     return { mode: "edit", bankAccountId };
   }
 
-  return { mode: "detail", bankAccountId };
+  if (mode === "card") {
+    return { mode: "card", bankAccountId };
+  }
+
+  return { mode: "workspace", bankAccountId };
 }
 
 function getCreateBankAccountOptions(bankPostingAccounts: Account[], bankAccounts: BankAccount[]) {

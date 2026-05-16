@@ -137,6 +137,12 @@ const bankingAccountEditRoute = createRoute({
   component: emptyRouteComponent
 });
 
+const bankingAccountCardRoute = createRoute({
+  getParentRoute: () => bankingAccountDetailRoute,
+  path: "card",
+  component: emptyRouteComponent
+});
+
 const bankingTransactionsRoute = createRoute({
   getParentRoute: () => bankingRoute,
   path: "transactions",
@@ -182,6 +188,12 @@ const counterpartyDetailRoute = createRoute({
 const counterpartyEditRoute = createRoute({
   getParentRoute: () => counterpartyDetailRoute,
   path: "edit",
+  component: emptyRouteComponent
+});
+
+const counterpartyCardRoute = createRoute({
+  getParentRoute: () => counterpartyDetailRoute,
+  path: "card",
   component: emptyRouteComponent
 });
 
@@ -260,7 +272,7 @@ const routeTree = rootRoute.addChildren([
     bankingRoute.addChildren([
       bankingAccountsRoute.addChildren([
         bankingAccountCreateRoute,
-        bankingAccountDetailRoute.addChildren([bankingAccountEditRoute])
+        bankingAccountDetailRoute.addChildren([bankingAccountEditRoute, bankingAccountCardRoute])
       ]),
       bankingTransactionsRoute.addChildren([
         bankingTransactionCreateRoute,
@@ -269,7 +281,7 @@ const routeTree = rootRoute.addChildren([
     ]),
     counterpartiesRoute.addChildren([
       counterpartyCreateRoute,
-      counterpartyDetailRoute.addChildren([counterpartyEditRoute])
+      counterpartyDetailRoute.addChildren([counterpartyEditRoute, counterpartyCardRoute])
     ]),
     accountingRoute.addChildren([
       journalEntriesRoute.addChildren([journalEntryDetailRoute]),

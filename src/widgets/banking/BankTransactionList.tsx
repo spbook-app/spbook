@@ -638,9 +638,15 @@ export function BankTransactionList({
             <p>Review statement details, link counterparties, and match postings.</p>
           </div>
           <div className="transaction-detail-actions">
-            <Link className="secondary-button" to="/workspace/banking/transactions">
-              Back to list
-            </Link>
+            {route.mode === "edit" ? (
+              <Link
+                className="secondary-button"
+                to="/workspace/banking/transactions/$bankTransactionId"
+                params={{ bankTransactionId: selectedEditBankTransaction.id }}
+              >
+                Cancel
+              </Link>
+            ) : null}
             {route.mode === "detail" && canEditSelectedBankTransaction ? (
               <Link
                 className="secondary-button"

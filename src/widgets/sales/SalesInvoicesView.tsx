@@ -340,9 +340,15 @@ function InvoiceDetailPage({
       </div>
 
       <div className="transaction-detail-actions">
-        <Link className="secondary-button" to="/workspace/sales/invoices">
-          Back to list
-        </Link>
+        {mode === "edit" ? (
+          <Link
+            className="secondary-button"
+            to="/workspace/sales/invoices/$invoiceId"
+            params={{ invoiceId: invoice.id }}
+          >
+            Cancel
+          </Link>
+        ) : null}
         {mode === "detail" && invoice.status !== "paid" ? (
           <Link
             className="secondary-button"
