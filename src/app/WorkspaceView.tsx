@@ -6,7 +6,7 @@ import {
   type WorkspaceSectionPath,
   workspaceSections
 } from "../pages/workspace/model";
-import { AccountingView } from "../widgets/accounting/AccountingView";
+import { ChartOfAccountsView, JournalEntriesView } from "../widgets/accounting/AccountingView";
 import { BankingAccountsView } from "../widgets/banking/BankingAccountsView";
 import { BankTransactionList } from "../widgets/banking/BankTransactionList";
 import { CounterpartiesView } from "../widgets/counterparties/CounterpartiesView";
@@ -79,13 +79,14 @@ export function WorkspaceView({
             <CounterpartiesView data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
-        {activeSection === "accounting" ? (
+        {activeSection === "chart" ? (
           <div className="section-stack">
-            <AccountingView
-              accountNames={accountNames}
-              data={data}
-              onDataStateChange={onDataStateChange}
-            />
+            <ChartOfAccountsView data={data} onDataStateChange={onDataStateChange} />
+          </div>
+        ) : null}
+        {activeSection === "journal" ? (
+          <div className="section-stack">
+            <JournalEntriesView accountNames={accountNames} data={data} />
           </div>
         ) : null}
         {activeSection === "settings" ? (
@@ -155,6 +156,10 @@ function getWorkspaceBreadcrumbs(
     section === "banking"
       ? workspaceSections.find((s) =>
           areaOrEntity === "transactions" ? s.id === "bank-transactions" : s.id === "bank-accounts"
+        )
+      : section === "accounting"
+      ? workspaceSections.find((s) =>
+          areaOrEntity === "chart" ? s.id === "chart" : s.id === "journal"
         )
       : workspaceSections.find((candidate) => candidate.id === section)
   ) as

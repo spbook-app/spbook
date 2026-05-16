@@ -239,12 +239,6 @@ const accountEditRoute = createRoute({
   component: emptyRouteComponent
 });
 
-const balancesRoute = createRoute({
-  getParentRoute: () => accountingRoute,
-  path: "balances",
-  component: emptyRouteComponent
-});
-
 const settingsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "settings",
@@ -285,8 +279,7 @@ const routeTree = rootRoute.addChildren([
     ]),
     accountingRoute.addChildren([
       journalEntriesRoute.addChildren([journalEntryDetailRoute]),
-      chartRoute.addChildren([accountCreateRoute, accountDetailRoute.addChildren([accountEditRoute])]),
-      balancesRoute
+      chartRoute.addChildren([accountCreateRoute, accountDetailRoute.addChildren([accountEditRoute])])
     ]),
     settingsRoute
   ])

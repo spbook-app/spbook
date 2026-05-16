@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState } from "../../app/App";
 import type { Account, AccountRole, JournalEntry } from "../../domain";
-import { BalancesTable } from "../../entities/account/BalancesTable";
 import {
   createWorkspaceAccount,
   updateWorkspaceAccount
@@ -17,15 +16,12 @@ type AccountingRoute =
   | { mode: "chart-list" }
   | { mode: "account-create" }
   | { mode: "account-detail"; accountId: string }
-  | { mode: "account-edit"; accountId: string }
-  | { mode: "balances" };
+  | { mode: "account-edit"; accountId: string };
 
-export function AccountingView({
-  accountNames,
+export function ChartOfAccountsView({
   data,
   onDataStateChange
 }: {
-  accountNames: Map<string, string>;
   data: ReadyAppData;
   onDataStateChange: (state: AppDataState) => void;
 }) {
@@ -33,14 +29,6 @@ export function AccountingView({
     select: (state) => state.location.pathname
   });
   const route = getAccountingRoute(pathname);
-
-  if (route.mode === "balances") {
-    return <BalancesTable balances={data.balances} accountNames={accountNames} />;
-  }
-
-  if (route.mode === "chart-list") {
-    return <AccountListPage data={data} />;
-  }
 
   if (route.mode === "account-create") {
     return <AccountCreatePage data={data} onDataStateChange={onDataStateChange} />;
@@ -63,6 +51,21 @@ export function AccountingView({
     );
   }
 
+  return <AccountListPage data={data} />;
+}
+
+export function JournalEntriesView({
+  accountNames,
+  data
+}: {
+  accountNames: Map<string, string>;
+  data: ReadyAppData;
+}) {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname
+  });
+  const route = getAccountingRoute(pathname);
+
   if (route.mode === "journal-detail") {
     const journalEntry =
       data.journalEntries.find((candidate) => candidate.id === route.journalEntryId) ?? null;
@@ -82,7 +85,6 @@ function JournalEntryListPage({ entries }: { entries: JournalEntry[] }) {
     <section className="panel panel-wide" aria-labelledby="journal-title">
       <div className="panel-header">
         <h2 id="journal-title">Journal entries</h2>
-        <AccountingLinks />
       </div>
       <div className="journal-list">
         {entries.length === 0 ? <p className="empty-state">No journal entries yet.</p> : null}
@@ -176,13 +178,10 @@ function AccountListPage({ data }: { data: ReadyAppData }) {
   return (
     <section className="panel panel-wide" aria-labelledby="accounts-title">
       <div className="panel-header">
-        <h2 id="accounts-title">Workspace accounts</h2>
-        <div className="transaction-detail-actions">
-          <AccountingLinks />
-          <Link className="primary-button" to="/workspace/accounting/chart/new">
-            Create account
-          </Link>
-        </div>
+        <h2 id="accounts-title">Chart of accounts</h2>
+        <Link className="primary-button" to="/workspace/accounting/chart/new">
+          Create account
+        </Link>
       </div>
       <div className="table-wrap">
         <table>
@@ -192,26 +191,38 @@ function AccountListPage({ data }: { data: ReadyAppData }) {
               <th>Name</th>
               <th>Role</th>
               <th>Currency</th>
+              <th>Balance</th>
             </tr>
           </thead>
           <tbody>
-            {data.accounts.map((account) => (
-              <tr key={account.id}>
-                <td className="code-cell">
-                  <Link
-                    to="/workspace/accounting/chart/$accountId"
-                    params={{ accountId: account.id }}
-                  >
-                    {account.code}
-                  </Link>
-                </td>
-                <td>{account.name}</td>
-                <td>
-                  <span className={`role-pill role-${account.role}`}>{account.role}</span>
-                </td>
-                <td>{account.currency ?? "-"}</td>
-              </tr>
-            ))}
+            {data.accounts.map((account) => {
+              const accountBalances = data.balances.filter(
+                (b) => b.accountCode === account.code
+              );
+              const balanceLabel =
+                accountBalances.length > 0
+                  ? accountBalances.map((b) => `${b.amount} ${b.currency}`).join(" · ")
+                  : "—";
+
+              return (
+                <tr key={account.id}>
+                  <td className="code-cell">
+                    <Link
+                      to="/workspace/accounting/chart/$accountId"
+                      params={{ accountId: account.id }}
+                    >
+                      {account.code}
+                    </Link>
+                  </td>
+                  <td>{account.name}</td>
+                  <td>
+                    <span className={`role-pill role-${account.role}`}>{account.role}</span>
+                  </td>
+                  <td>{account.currency ?? "-"}</td>
+                  <td className="balance-cell">{balanceLabel}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -445,19 +456,7 @@ function AccountDetailPage({
 }
 
 function AccountingLinks() {
-  return (
-    <div className="transaction-detail-actions">
-      <Link className="secondary-button" to="/workspace/accounting/journal-entries">
-        Journal
-      </Link>
-      <Link className="secondary-button" to="/workspace/accounting/chart">
-        Chart
-      </Link>
-      <Link className="secondary-button" to="/workspace/accounting/balances">
-        Balances
-      </Link>
-    </div>
-  );
+  return null;
 }
 
 function AccountCreateFields({
@@ -683,10 +682,6 @@ function getAccountingRoute(pathname: string): AccountingRoute {
 
   if (workspace !== "workspace" || accounting !== "accounting") {
     return { mode: "journal-list" };
-  }
-
-  if (area === "balances") {
-    return { mode: "balances" };
   }
 
   if (area === "chart") {

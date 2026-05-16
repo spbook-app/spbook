@@ -7,7 +7,8 @@ export type WorkspaceSection =
   | "bank-accounts"
   | "bank-transactions"
   | "counterparties"
-  | "accounting"
+  | "chart"
+  | "journal"
   | "settings";
 
 export type WorkspaceSectionPath =
@@ -17,6 +18,7 @@ export type WorkspaceSectionPath =
   | "/workspace/banking/accounts"
   | "/workspace/banking/transactions"
   | "/workspace/counterparties"
+  | "/workspace/accounting/chart"
   | "/workspace/accounting/journal-entries"
   | "/workspace/settings";
 
@@ -63,10 +65,16 @@ export const workspaceSections: Array<{
     description: "Customers, suppliers, banks, owner"
   },
   {
-    id: "accounting",
+    id: "chart",
+    path: "/workspace/accounting/chart",
+    label: "Chart of accounts",
+    description: "Account codes, roles, and running balances"
+  },
+  {
+    id: "journal",
     path: "/workspace/accounting/journal-entries",
-    label: "Accounting",
-    description: "Journal entries, balances, accounts"
+    label: "Journal entries",
+    description: "Accounting records posted by the system"
   },
   {
     id: "settings",
@@ -85,6 +93,10 @@ export function getWorkspaceSectionFromPath(pathname: string): WorkspaceSection 
 
   if (sectionPath === "banking") {
     return areaPath === "transactions" ? "bank-transactions" : "bank-accounts";
+  }
+
+  if (sectionPath === "accounting") {
+    return areaPath === "chart" ? "chart" : "journal";
   }
 
   const section = workspaceSections.find((item) => item.id === sectionPath);
@@ -106,8 +118,10 @@ export function getSectionLead(section: WorkspaceSection) {
       return "Review imported and manual account movements, match invoices, and post bank fees.";
     case "counterparties":
       return "Keep customers, suppliers, banks, owner, and tax authority records in one place.";
-    case "accounting":
-      return "Inspect balances, journal entries, and the seeded chart of accounts.";
+    case "chart":
+      return "Browse account codes, review roles, and check current balances.";
+    case "journal":
+      return "Inspect accounting records generated from invoices, payments, and bank postings.";
     case "settings":
       return "Review local workspace status and development-only controls.";
   }
