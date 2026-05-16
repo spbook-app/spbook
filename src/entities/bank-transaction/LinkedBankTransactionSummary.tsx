@@ -1,4 +1,5 @@
 import type { BankTransaction } from "../../domain";
+import { Link } from "@tanstack/react-router";
 
 export function LinkedBankTransactionSummary({
   bankTransaction,
@@ -16,13 +17,17 @@ export function LinkedBankTransactionSummary({
   return (
     <div className="linked-entries">
       <strong>{label}</strong>
-      <div className="linked-entry">
+      <Link
+        className="linked-entry"
+        to="/workspace/banking/transactions/$bankTransactionId"
+        params={{ bankTransactionId: bankTransaction.id }}
+      >
         <span>
           {bankTransaction.bookingDate} · {bankTransaction.amount}{" "}
           {bankTransaction.currency}
         </span>
         <small>{bankTransaction.description}</small>
-      </div>
+      </Link>
       <button
         className="secondary-button"
         type="button"

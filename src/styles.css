@@ -298,6 +298,27 @@ dd {
   margin: 4px 0 24px;
 }
 
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: #7a756b;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.breadcrumbs span:not(:last-child)::after {
+  content: "/";
+  margin-left: 6px;
+  color: #b4ad9f;
+}
+
+.breadcrumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+
 .page-heading h1 {
   max-width: 760px;
   font-size: clamp(2rem, 4vw, 3.8rem);

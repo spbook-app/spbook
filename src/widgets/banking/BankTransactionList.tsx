@@ -520,6 +520,7 @@ export function BankTransactionList({
         </div>
 
         <BankTransactionDetailPanel
+          bankAccountId={selectedEditBankTransaction.bankAccountId}
           bankAccountName={selectedBankAccountName}
           bankTransaction={selectedEditBankTransaction}
           canCreateCounterparty={canCreateCounterpartyFromSelectedTransaction}
@@ -692,6 +693,7 @@ export function BankTransactionList({
 }
 
 function BankTransactionDetailPanel({
+  bankAccountId,
   bankAccountName,
   bankTransaction,
   canCreateCounterparty,
@@ -715,6 +717,7 @@ function BankTransactionDetailPanel({
   onLinkedPartyChange,
   onUndoPosting
 }: {
+  bankAccountId: string;
   bankAccountName: string;
   bankTransaction: BankTransaction;
   canCreateCounterparty: boolean;
@@ -775,6 +778,44 @@ function BankTransactionDetailPanel({
           </div>
         ))}
       </dl>
+      <div className="transaction-detail-actions">
+        <Link
+          className="secondary-button"
+          to="/workspace/banking/accounts/$bankAccountId"
+          params={{ bankAccountId }}
+        >
+          Open bank account
+        </Link>
+        {linkedParty ? (
+          <Link
+            className="secondary-button"
+            to="/workspace/counterparties/$partyId"
+            params={{ partyId: linkedParty.id }}
+          >
+            Open counterparty
+          </Link>
+        ) : null}
+        {bankTransaction.matchedDocumentType === "invoice" &&
+        bankTransaction.matchedDocumentId ? (
+          <Link
+            className="secondary-button"
+            to="/workspace/sales/invoices/$invoiceId"
+            params={{ invoiceId: bankTransaction.matchedDocumentId }}
+          >
+            Open invoice
+          </Link>
+        ) : null}
+        {bankTransaction.matchedDocumentType === "supplier_invoice" &&
+        bankTransaction.matchedDocumentId ? (
+          <Link
+            className="secondary-button"
+            to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
+            params={{ supplierInvoiceId: bankTransaction.matchedDocumentId }}
+          >
+            Open supplier invoice
+          </Link>
+        ) : null}
+      </div>
       {bankTransaction.importSource ? (
         <div className="transaction-detail-actions">
           <label className="inline-select">

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   getWorkspaceSectionFromPath,
   getSectionLead,
@@ -45,6 +45,7 @@ export function WorkspaceView({
       />
       <section className="workspace-main" aria-label={activeSectionMeta.label}>
         <header className="page-heading">
+          <WorkspaceBreadcrumbs pathname={pathname} />
           <p className="eyebrow">{activeSectionMeta.label}</p>
           <h1>{activeSectionMeta.description}</h1>
           <p>{getSectionLead(activeSection)}</p>
@@ -90,4 +91,69 @@ export function WorkspaceView({
       </section>
     </div>
   );
+}
+
+function WorkspaceBreadcrumbs({ pathname }: { pathname: string }) {
+  const breadcrumbs = getWorkspaceBreadcrumbs(pathname);
+
+  if (breadcrumbs.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav className="breadcrumbs" aria-label="Breadcrumb">
+      {breadcrumbs.map((breadcrumb, index) => (
+        <span key={`${breadcrumb.label}-${index}`}>
+          {breadcrumb.path ? (
+            <Link to={breadcrumb.path}>{breadcrumb.label}</Link>
+          ) : (
+            breadcrumb.label
+          )}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function getWorkspaceBreadcrumbs(pathname: string) {
+  const [, workspace, section, area, entityId, mode] = pathname.split("/");
+
+  if (workspace !== "workspace" || !section) {
+    return [];
+  }
+
+  const sectionMeta = workspaceSections.find((candidate) => candidate.id === section);
+
+  if (!sectionMeta) {
+    return [];
+  }
+
+  const breadcrumbs: Array<{ label: string; path?: typeof sectionMeta.path }> = [
+    { label: sectionMeta.label, path: sectionMeta.path }
+  ];
+
+  if (!area) {
+    return breadcrumbs;
+  }
+
+  breadcrumbs.push({ label: formatRouteSegment(area) });
+
+  if (entityId && entityId !== "new") {
+    breadcrumbs.push({ label: formatRouteSegment(entityId) });
+  } else if (entityId === "new") {
+    breadcrumbs.push({ label: "New" });
+  }
+
+  if (mode) {
+    breadcrumbs.push({ label: formatRouteSegment(mode) });
+  }
+
+  return breadcrumbs;
+}
+
+function formatRouteSegment(segment: string) {
+  return segment
+    .split("-")
+    .map((part) => (part ? `${part[0]!.toUpperCase()}${part.slice(1)}` : part))
+    .join(" ");
 }
