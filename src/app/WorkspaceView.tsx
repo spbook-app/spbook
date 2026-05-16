@@ -22,7 +22,10 @@ import {
   updateBankAccount,
   updateBankTransaction
 } from "../services/bank-workflow";
-import { importCamt053BankTransactions } from "../services/camt053-import";
+import {
+  autoLinkImportedBankTransactions,
+  importCamt053BankTransactions
+} from "../services/camt053-import";
 import { createSalesInvoice } from "../services/invoice-workflow";
 import {
   recordOwnerContribution,
@@ -1450,6 +1453,7 @@ function BankingPanel({
     | "idle"
     | "account"
     | "account-update"
+    | "auto-link"
     | "statement-import"
     | "party-create"
     | "party-link"
@@ -1678,6 +1682,30 @@ function BankingPanel({
       );
     } finally {
       event.currentTarget.value = "";
+      setActionState("idle");
+    }
+  }
+
+  async function handleAutoLinkImportedTransactions() {
+    setActionState("auto-link");
+    setErrorMessage(null);
+    setImportMessage(null);
+
+    try {
+      const result = await autoLinkImportedBankTransactions(data.workspace.id);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(result.overview)
+      });
+      setImportMessage(`Linked ${result.linkedCount} imported transactions.`);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Imported transactions were not auto-linked."
+      );
+    } finally {
       setActionState("idle");
     }
   }
@@ -2043,6 +2071,14 @@ function BankingPanel({
         {actionState === "statement-import" ? (
           <p className="field-note">Importing bank statement.</p>
         ) : null}
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={actionState !== "idle"}
+          onClick={() => void handleAutoLinkImportedTransactions()}
+        >
+          {actionState === "auto-link" ? "Auto-linking" : "Auto-link imported transactions"}
+        </button>
         {importMessage ? <p className="field-note">{importMessage}</p> : null}
       </div>
 
@@ -2446,7 +2482,7 @@ function InvoiceWorkflowPanel({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(data.invoice?.id ?? "");
   const [selectedPaymentBankTransactionId, setSelectedPaymentBankTransactionId] =
     useState("");
-  const [actionState, setActionState] = useState<"idle" | "saving" | "paying">("idle");
+  const [actionState, setActionState] = useState<"idle" | "saving" | "paying" | "undo">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedInvoice =
     data.invoices.find((invoice) => invoice.id === selectedInvoiceId) ??
@@ -2464,6 +2500,13 @@ function InvoiceWorkflowPanel({
     (bankTransaction) =>
       bankTransaction.status === "unmatched" && !bankTransaction.amount.startsWith("-")
   );
+  const linkedInvoiceBankTransaction = selectedInvoice
+    ? data.bankTransactions.find(
+        (bankTransaction) =>
+          bankTransaction.matchedDocumentType === "invoice" &&
+          bankTransaction.matchedDocumentId === selectedInvoice.id
+      ) ?? null
+    : null;
   const selectedIncomingBankTransactionId =
     selectedPaymentBankTransactionId || incomingBankTransactions[0]?.id || "";
 
@@ -2521,6 +2564,27 @@ function InvoiceWorkflowPanel({
       setSelectedInvoiceId(overview.latestInvoice?.id ?? selectedInvoice.id);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not recorded.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleUndoPayment() {
+    if (!linkedInvoiceBankTransaction) return;
+
+    setActionState("undo");
+    setErrorMessage(null);
+
+    try {
+      const overview = await undoBankTransactionPosting(linkedInvoiceBankTransaction.id);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedInvoiceId(selectedInvoice?.id ?? "");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Payment was not undone.");
     } finally {
       setActionState("idle");
     }
@@ -2638,29 +2702,41 @@ function InvoiceWorkflowPanel({
             </div>
           </dl>
           <LinkedJournalEntries entries={selectedInvoiceEntries} />
-          <label className="inline-select">
-            <span>Incoming bank transaction</span>
-            <select
-              value={selectedIncomingBankTransactionId}
-              onChange={(event) => setSelectedPaymentBankTransactionId(event.target.value)}
-            >
-              <option value="">Select transaction</option>
-              {incomingBankTransactions.map((bankTransaction) => (
-                <option key={bankTransaction.id} value={bankTransaction.id}>
-                  {bankTransaction.bookingDate} · {bankTransaction.amount} ·{" "}
-                  {bankTransaction.description}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={actionState !== "idle" || selectedInvoice.status === "paid"}
-            onClick={() => void handleRecordPayment()}
-          >
-            {selectedInvoice.status === "paid" ? "Payment recorded" : "Record payment"}
-          </button>
+          {linkedInvoiceBankTransaction ? (
+            <LinkedBankTransactionSummary
+              label="Linked incoming bank transaction"
+              bankTransaction={linkedInvoiceBankTransaction}
+              onUndo={() => void handleUndoPayment()}
+              undoDisabled={actionState !== "idle"}
+              undoLabel={actionState === "undo" ? "Undoing payment" : "Undo payment"}
+            />
+          ) : (
+            <>
+              <label className="inline-select">
+                <span>Incoming bank transaction</span>
+                <select
+                  value={selectedIncomingBankTransactionId}
+                  onChange={(event) => setSelectedPaymentBankTransactionId(event.target.value)}
+                >
+                  <option value="">Select transaction</option>
+                  {incomingBankTransactions.map((bankTransaction) => (
+                    <option key={bankTransaction.id} value={bankTransaction.id}>
+                      {bankTransaction.bookingDate} · {bankTransaction.amount} ·{" "}
+                      {bankTransaction.description}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={actionState !== "idle" || selectedInvoice.status === "paid"}
+                onClick={() => void handleRecordPayment()}
+              >
+                {selectedInvoice.status === "paid" ? "Payment recorded" : "Record payment"}
+              </button>
+            </>
+          )}
         </div>
         ) : null}
       </div>
@@ -2691,7 +2767,7 @@ function SupplierInvoiceWorkflowPanel({
     selectedSupplierPaymentBankTransactionId,
     setSelectedSupplierPaymentBankTransactionId
   ] = useState("");
-  const [actionState, setActionState] = useState<"idle" | "saving" | "paying">("idle");
+  const [actionState, setActionState] = useState<"idle" | "saving" | "paying" | "undo">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedSupplierInvoice =
     data.supplierInvoices.find(
@@ -2711,6 +2787,13 @@ function SupplierInvoiceWorkflowPanel({
     (bankTransaction) =>
       bankTransaction.status === "unmatched" && bankTransaction.amount.startsWith("-")
   );
+  const linkedSupplierBankTransaction = selectedSupplierInvoice
+    ? data.bankTransactions.find(
+        (bankTransaction) =>
+          bankTransaction.matchedDocumentType === "supplier_invoice" &&
+          bankTransaction.matchedDocumentId === selectedSupplierInvoice.id
+      ) ?? null
+    : null;
   const selectedOutgoingBankTransactionId =
     selectedSupplierPaymentBankTransactionId || outgoingBankTransactions[0]?.id || "";
 
@@ -2773,6 +2856,29 @@ function SupplierInvoiceWorkflowPanel({
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not recorded."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleUndoSupplierPayment() {
+    if (!linkedSupplierBankTransaction) return;
+
+    setActionState("undo");
+    setErrorMessage(null);
+
+    try {
+      const overview = await undoBankTransactionPosting(linkedSupplierBankTransaction.id);
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedSupplierInvoiceId(selectedSupplierInvoice?.id ?? "");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Supplier payment was not undone."
       );
     } finally {
       setActionState("idle");
@@ -2903,33 +3009,47 @@ function SupplierInvoiceWorkflowPanel({
             </div>
           </dl>
           <LinkedJournalEntries entries={selectedSupplierInvoiceEntries} />
-          <label className="inline-select">
-            <span>Outgoing bank transaction</span>
-            <select
-              value={selectedOutgoingBankTransactionId}
-              onChange={(event) =>
-                setSelectedSupplierPaymentBankTransactionId(event.target.value)
+          {linkedSupplierBankTransaction ? (
+            <LinkedBankTransactionSummary
+              label="Linked outgoing bank transaction"
+              bankTransaction={linkedSupplierBankTransaction}
+              onUndo={() => void handleUndoSupplierPayment()}
+              undoDisabled={actionState !== "idle"}
+              undoLabel={
+                actionState === "undo" ? "Undoing supplier payment" : "Undo supplier payment"
               }
-            >
-              <option value="">Select transaction</option>
-              {outgoingBankTransactions.map((bankTransaction) => (
-                <option key={bankTransaction.id} value={bankTransaction.id}>
-                  {bankTransaction.bookingDate} · {bankTransaction.amount} ·{" "}
-                  {bankTransaction.description}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={actionState !== "idle" || selectedSupplierInvoice.status === "paid"}
-            onClick={() => void handleRecordSupplierPayment()}
-          >
-            {selectedSupplierInvoice.status === "paid"
-              ? "Supplier payment recorded"
-              : "Record supplier payment"}
-          </button>
+            />
+          ) : (
+            <>
+              <label className="inline-select">
+                <span>Outgoing bank transaction</span>
+                <select
+                  value={selectedOutgoingBankTransactionId}
+                  onChange={(event) =>
+                    setSelectedSupplierPaymentBankTransactionId(event.target.value)
+                  }
+                >
+                  <option value="">Select transaction</option>
+                  {outgoingBankTransactions.map((bankTransaction) => (
+                    <option key={bankTransaction.id} value={bankTransaction.id}>
+                      {bankTransaction.bookingDate} · {bankTransaction.amount} ·{" "}
+                      {bankTransaction.description}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={actionState !== "idle" || selectedSupplierInvoice.status === "paid"}
+                onClick={() => void handleRecordSupplierPayment()}
+              >
+                {selectedSupplierInvoice.status === "paid"
+                  ? "Supplier payment recorded"
+                  : "Record supplier payment"}
+              </button>
+            </>
+          )}
         </div>
         ) : null}
       </div>
@@ -3052,6 +3172,41 @@ function LinkedJournalEntries({ entries }: { entries: JournalEntry[] }) {
           </small>
         </div>
       ))}
+    </div>
+  );
+}
+
+function LinkedBankTransactionSummary({
+  bankTransaction,
+  label,
+  onUndo,
+  undoDisabled,
+  undoLabel
+}: {
+  bankTransaction: BankTransaction;
+  label: string;
+  onUndo: () => void;
+  undoDisabled: boolean;
+  undoLabel: string;
+}) {
+  return (
+    <div className="linked-entries">
+      <strong>{label}</strong>
+      <div className="linked-entry">
+        <span>
+          {bankTransaction.bookingDate} · {bankTransaction.amount}{" "}
+          {bankTransaction.currency}
+        </span>
+        <small>{bankTransaction.description}</small>
+      </div>
+      <button
+        className="secondary-button"
+        type="button"
+        disabled={undoDisabled}
+        onClick={onUndo}
+      >
+        {undoLabel}
+      </button>
     </div>
   );
 }

@@ -41,6 +41,11 @@ export type ImportCamt053BankTransactionsResult = {
   skippedCount: number;
 };
 
+export type AutoLinkImportedBankTransactionsResult = {
+  overview: WorkspaceOverview;
+  linkedCount: number;
+};
+
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "",
@@ -148,6 +153,41 @@ export async function importCamt053BankTransactions(
   };
 }
 
+export async function autoLinkImportedBankTransactions(
+  workspaceId: string,
+  database: SpbookDatabase = db
+): Promise<AutoLinkImportedBankTransactionsResult> {
+  const [parties, bankTransactions] = await Promise.all([
+    getPartiesByWorkspaceId(workspaceId, database),
+    getBankTransactionsByWorkspaceId(workspaceId, database)
+  ]);
+  const linkedBankTransactions = bankTransactions.flatMap((bankTransaction) => {
+    if (
+      bankTransaction.status !== "unmatched" ||
+      !bankTransaction.importSource ||
+      bankTransaction.partyId
+    ) {
+      return [];
+    }
+
+    const party = findPartyMatch(parties, {
+      counterpartyIban: bankTransaction.counterpartyIban,
+      counterpartyName: bankTransaction.counterpartyName
+    });
+
+    return party ? [{ ...bankTransaction, partyId: party.id }] : [];
+  });
+
+  if (linkedBankTransactions.length > 0) {
+    await saveBankTransactions(linkedBankTransactions, database);
+  }
+
+  return {
+    overview: await loadWorkspaceOverview(workspaceId, database),
+    linkedCount: linkedBankTransactions.length
+  };
+}
+
 function parseEntry(
   entry: Record<string, unknown>,
   accountIban: string,
@@ -235,7 +275,7 @@ function toBankTransaction(input: {
 
 function findPartyMatch(
   parties: Awaited<ReturnType<typeof getPartiesByWorkspaceId>>,
-  entry: Camt053Entry
+  entry: Pick<Camt053Entry, "counterpartyIban" | "counterpartyName">
 ) {
   const normalizedCounterpartyIban = normalizeIban(entry.counterpartyIban);
 

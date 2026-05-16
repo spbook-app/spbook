@@ -351,6 +351,28 @@ describe("bank workflow", () => {
     expect(balanceFor(matchedOverview.balances, "1200")).toBe("0.00");
   });
 
+  it("undoes an invoice payment match", async () => {
+    const context = await createSalesContext("1000.00");
+    await matchInvoicePaymentFromBankTransaction(
+      context.invoiceId,
+      context.bankTransactionId,
+      database
+    );
+    const undoneOverview = await undoBankTransactionPosting(
+      context.bankTransactionId,
+      database
+    );
+
+    expect(undoneOverview.latestInvoice?.status).toBe("issued");
+    expect(undoneOverview.bankTransactions[0]).toMatchObject({
+      status: "unmatched",
+      matchedDocumentType: undefined,
+      matchedDocumentId: undefined,
+      journalEntryId: undefined
+    });
+    expect(undoneOverview.journalEntries).toHaveLength(1);
+  });
+
   it("matches an outgoing bank transaction to a supplier invoice", async () => {
     const context = await createSupplierContext("40.00");
     const matchedOverview = await matchSupplierPaymentFromBankTransaction(
