@@ -86,7 +86,7 @@ export function WorkspaceView({
         ) : null}
         {activeSection === "journal" ? (
           <div className="section-stack">
-            <JournalEntriesView accountNames={accountNames} data={data} />
+            <JournalEntriesView accountNames={accountNames} data={data} onDataStateChange={onDataStateChange} />
           </div>
         ) : null}
         {activeSection === "settings" ? (

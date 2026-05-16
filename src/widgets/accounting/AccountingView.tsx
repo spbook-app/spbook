@@ -1,18 +1,21 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState } from "../../app/App";
-import type { Account, AccountRole, JournalEntry } from "../../domain";
+import type { Account, AccountRole, JournalEntry, JournalLineSide } from "../../domain";
+import { addMinorUnits, compareMinorUnits, parseMoneyAmount } from "../../domain/money";
 import {
   createWorkspaceAccount,
   updateWorkspaceAccount
 } from "../../services/account-workflow";
 import type { AccountBalance } from "../../services/balances";
+import { updateJournalEntry } from "../../services/journal-workflow";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
 type AccountingRoute =
   | { mode: "journal-list" }
   | { mode: "journal-detail"; journalEntryId: string }
+  | { mode: "journal-edit"; journalEntryId: string }
   | { mode: "chart-list" }
   | { mode: "account-create" }
   | { mode: "account-detail"; accountId: string }
@@ -56,17 +59,19 @@ export function ChartOfAccountsView({
 
 export function JournalEntriesView({
   accountNames,
-  data
+  data,
+  onDataStateChange
 }: {
   accountNames: Map<string, string>;
   data: ReadyAppData;
+  onDataStateChange: (state: AppDataState) => void;
 }) {
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
   const route = getAccountingRoute(pathname);
 
-  if (route.mode === "journal-detail") {
+  if (route.mode === "journal-detail" || route.mode === "journal-edit") {
     const journalEntry =
       data.journalEntries.find((candidate) => candidate.id === route.journalEntryId) ?? null;
 
@@ -74,7 +79,15 @@ export function JournalEntriesView({
       return <JournalEntryNotFound journalEntryId={route.journalEntryId} />;
     }
 
-    return <JournalEntryDetailPage accountNames={accountNames} entry={journalEntry} />;
+    return (
+      <JournalEntryDetailPage
+        accountNames={accountNames}
+        data={data}
+        entry={journalEntry}
+        mode={route.mode === "journal-edit" ? "edit" : "detail"}
+        onDataStateChange={onDataStateChange}
+      />
+    );
   }
 
   return <JournalEntryListPage entries={data.journalEntries} />;
@@ -124,53 +137,390 @@ function JournalEntryListPage({ entries }: { entries: JournalEntry[] }) {
 
 function JournalEntryDetailPage({
   accountNames,
-  entry
+  data,
+  entry,
+  mode,
+  onDataStateChange
 }: {
   accountNames: Map<string, string>;
+  data: ReadyAppData;
   entry: JournalEntry;
+  mode: "detail" | "edit";
+  onDataStateChange: (state: AppDataState) => void;
 }) {
+  const navigate = useNavigate();
+  const postingAccounts = data.accounts.filter((a) => a.role === "posting");
+  const [editDescription, setEditDescription] = useState(entry.description);
+  const [editDate, setEditDate] = useState(entry.entryDate);
+  const [editLines, setEditLines] = useState<JournalLineEdit[]>(() =>
+    entry.lines.map((line) => ({ ...line }))
+  );
+  const [actionState, setActionState] = useState<"idle" | "saving">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEditDescription(entry.description);
+    setEditDate(entry.entryDate);
+    setEditLines(entry.lines.map((line) => ({ ...line })));
+  }, [entry]);
+
+  function handleAddLine() {
+    setEditLines((prev) => [
+      ...prev,
+      {
+        side: "debit",
+        accountCode: postingAccounts[0]?.code ?? "",
+        amount: "0.00",
+        currency: data.workspace.baseCurrency
+      }
+    ]);
+  }
+
+  function handleRemoveLine(index: number) {
+    setEditLines((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleLineChange(index: number, patch: Partial<JournalLineEdit>) {
+    setEditLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+    setActionState("saving");
+
+    try {
+      const overview = await updateJournalEntry({
+        journalEntryId: entry.id,
+        description: editDescription,
+        entryDate: editDate,
+        lines: editLines
+      });
+
+      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      void navigate({
+        to: "/workspace/accounting/journal-entries/$journalEntryId",
+        params: { journalEntryId: entry.id }
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Journal entry was not saved.");
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  const debitTotal = addMinorUnits(
+    editLines
+      .filter((l) => l.side === "debit")
+      .map((l) => parseMoneyAmount(l.amount))
+      .filter((r): r is { ok: true; minorUnits: bigint } => r.ok)
+      .map((r) => r.minorUnits)
+  );
+  const creditTotal = addMinorUnits(
+    editLines
+      .filter((l) => l.side === "credit")
+      .map((l) => parseMoneyAmount(l.amount))
+      .filter((r): r is { ok: true; minorUnits: bigint } => r.ok)
+      .map((r) => r.minorUnits)
+  );
+  const isBalanced = compareMinorUnits(debitTotal, creditTotal) === 0;
+
   return (
-    <section className="panel panel-wide" aria-labelledby="journal-entry-detail-title">
-      <div className="panel-header">
-        <h2 id="journal-entry-detail-title">{entry.description}</h2>
-        <Link className="secondary-button" to="/workspace/accounting/journal-entries">
-          Back to journal
-        </Link>
-      </div>
-      <dl className="detail-list copyable-details">
-        <div>
-          <dt>ID</dt>
-          <dd>{entry.id}</dd>
-        </div>
-        <div>
-          <dt>Entry date</dt>
-          <dd>{entry.entryDate}</dd>
-        </div>
-        <div>
-          <dt>Source</dt>
-          <dd>
-            {entry.sourceType}
-            {entry.sourceId ? ` · ${entry.sourceId}` : ""}
-          </dd>
-        </div>
-      </dl>
-      <div className="journal-list">
-        <article className="journal-entry">
-          <ul>
-            {entry.lines.map((line, index) => (
-              <li key={`${entry.id}-detail-${index}`}>
-                <span className="side">{line.side === "debit" ? "Dr" : "Cr"}</span>
-                <span className="code-cell">{line.accountCode}</span>
-                <span>{accountNames.get(line.accountCode) ?? "Unknown account"}</span>
-                <span>
-                  {line.amount} {line.currency}
-                </span>
-              </li>
+    <section className="panel panel-wide">
+      {mode === "detail" ? (
+        <>
+          <div className="transaction-detail-actions">
+            <Link
+              className="secondary-button"
+              to="/workspace/accounting/journal-entries/$journalEntryId/edit"
+              params={{ journalEntryId: entry.id }}
+            >
+              Edit entry
+            </Link>
+          </div>
+          <dl className="detail-list copyable-details">
+            <div>
+              <dt>ID</dt>
+              <dd>{entry.id}</dd>
+            </div>
+            <div>
+              <dt>Entry date</dt>
+              <dd>{entry.entryDate}</dd>
+            </div>
+            <div>
+              <dt>Source</dt>
+              <dd>
+                <JournalEntrySourceLink entry={entry} />
+              </dd>
+            </div>
+          </dl>
+          <div className="journal-list">
+            <article className="journal-entry">
+              <ul>
+                {entry.lines.map((line, index) => {
+                  const account =
+                    data.accounts.find((a) => a.code === line.accountCode) ?? null;
+                  const party =
+                    line.partyId != null
+                      ? (data.parties.find((p) => p.id === line.partyId) ?? null)
+                      : null;
+                  const invoice =
+                    line.invoiceId != null
+                      ? (data.invoices.find((inv) => inv.id === line.invoiceId) ?? null)
+                      : null;
+                  const supplierInvoice =
+                    line.supplierInvoiceId != null
+                      ? (data.supplierInvoices.find(
+                          (si) => si.id === line.supplierInvoiceId
+                        ) ?? null)
+                      : null;
+                  const bankAccount =
+                    line.bankAccountId != null
+                      ? (data.bankAccounts.find((ba) => ba.id === line.bankAccountId) ?? null)
+                      : null;
+                  const hasAnalytics = party || invoice || supplierInvoice || bankAccount;
+
+                  return (
+                    <li key={`${entry.id}-detail-${index}`}>
+                      <span className="side">{line.side === "debit" ? "Dr" : "Cr"}</span>
+                      <span className="code-cell">{line.accountCode}</span>
+                      <div className="line-detail">
+                        <div className="line-main">
+                          {account ? (
+                            <Link
+                              to="/workspace/accounting/chart/$accountId"
+                              params={{ accountId: account.id }}
+                            >
+                              {accountNames.get(line.accountCode) ?? "Unknown account"}
+                            </Link>
+                          ) : (
+                            <span>
+                              {accountNames.get(line.accountCode) ?? "Unknown account"}
+                            </span>
+                          )}
+                          <span>
+                            {line.amount} {line.currency}
+                          </span>
+                        </div>
+                        {hasAnalytics ? (
+                          <div className="line-analytics">
+                            {party ? (
+                              <Link
+                                to="/workspace/counterparties/$partyId"
+                                params={{ partyId: line.partyId! }}
+                              >
+                                {party.name}
+                              </Link>
+                            ) : null}
+                            {invoice ? (
+                              <Link
+                                to="/workspace/sales/invoices/$invoiceId"
+                                params={{ invoiceId: line.invoiceId! }}
+                              >
+                                Invoice {invoice.number}
+                              </Link>
+                            ) : null}
+                            {supplierInvoice ? (
+                              <Link
+                                to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
+                                params={{ supplierInvoiceId: line.supplierInvoiceId! }}
+                              >
+                                Supplier invoice {supplierInvoice.number}
+                              </Link>
+                            ) : null}
+                            {bankAccount ? (
+                              <Link
+                                to="/workspace/banking/accounts/$bankAccountId"
+                                params={{ bankAccountId: line.bankAccountId! }}
+                              >
+                                {bankAccount.name}
+                              </Link>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </article>
+          </div>
+        </>
+      ) : (
+        <form className="invoice-form" onSubmit={(event) => void handleSave(event)}>
+          <div className="form-row">
+            <label>
+              <span>Description</span>
+              <input
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Entry date</span>
+              <input
+                type="date"
+                value={editDate}
+                onChange={(event) => setEditDate(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="je-lines-editor">
+            {editLines.map((line, index) => (
+              <div className="je-line-row" key={index}>
+                <label className="je-line-side">
+                  <span>Side</span>
+                  <select
+                    value={line.side}
+                    onChange={(event) =>
+                      handleLineChange(index, { side: event.target.value as JournalLineSide })
+                    }
+                  >
+                    <option value="debit">Dr</option>
+                    <option value="credit">Cr</option>
+                  </select>
+                </label>
+                <label className="je-line-account">
+                  <span>Account</span>
+                  <select
+                    value={line.accountCode}
+                    onChange={(event) =>
+                      handleLineChange(index, { accountCode: event.target.value })
+                    }
+                  >
+                    {postingAccounts.map((account) => (
+                      <option key={account.id} value={account.code}>
+                        {account.code} · {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="je-line-amount">
+                  <span>Amount</span>
+                  <input
+                    value={line.amount}
+                    onChange={(event) =>
+                      handleLineChange(index, { amount: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="je-line-currency">
+                  <span>Currency</span>
+                  <input
+                    value={line.currency}
+                    onChange={(event) =>
+                      handleLineChange(index, { currency: event.target.value })
+                    }
+                  />
+                </label>
+                <div className="je-line-remove">
+                  <span> </span>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => handleRemoveLine(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
             ))}
-          </ul>
-        </article>
-      </div>
+            <button type="button" className="secondary-button" onClick={handleAddLine}>
+              Add line
+            </button>
+          </div>
+          <div className="je-balance-status">
+            <span>
+              Dr total: <strong>{formatMinorUnits(debitTotal)}</strong>
+            </span>
+            <span>
+              Cr total: <strong>{formatMinorUnits(creditTotal)}</strong>
+            </span>
+            {isBalanced ? (
+              <span className="je-balanced">Balanced</span>
+            ) : (
+              <span className="je-unbalanced">Not balanced</span>
+            )}
+          </div>
+          {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
+          <div className="transaction-detail-actions">
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={actionState !== "idle" || !isBalanced}
+            >
+              {actionState === "saving" ? "Saving" : "Save entry"}
+            </button>
+            <Link
+              className="secondary-button"
+              to="/workspace/accounting/journal-entries/$journalEntryId"
+              params={{ journalEntryId: entry.id }}
+            >
+              Cancel
+            </Link>
+          </div>
+        </form>
+      )}
     </section>
+  );
+}
+
+type JournalLineEdit = {
+  side: JournalLineSide;
+  accountCode: string;
+  amount: string;
+  currency: string;
+  partyId?: string;
+  invoiceId?: string;
+  supplierInvoiceId?: string;
+  bankAccountId?: string;
+  taxPeriod?: string;
+};
+
+function formatMinorUnits(minorUnits: bigint): string {
+  const whole = minorUnits / 100n;
+  const fraction = (minorUnits % 100n).toString().padStart(2, "0");
+  return `${whole}.${fraction}`;
+}
+
+function JournalEntrySourceLink({ entry }: { entry: JournalEntry }) {
+  if (!entry.sourceId) {
+    return <span>{entry.sourceType}</span>;
+  }
+  if (entry.sourceType === "invoice") {
+    return (
+      <Link
+        to="/workspace/sales/invoices/$invoiceId"
+        params={{ invoiceId: entry.sourceId }}
+      >
+        {entry.sourceType} · {entry.sourceId}
+      </Link>
+    );
+  }
+  if (entry.sourceType === "supplier_invoice") {
+    return (
+      <Link
+        to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
+        params={{ supplierInvoiceId: entry.sourceId }}
+      >
+        {entry.sourceType} · {entry.sourceId}
+      </Link>
+    );
+  }
+  if (entry.sourceType === "bank_transaction") {
+    return (
+      <Link
+        to="/workspace/banking/transactions/$bankTransactionId"
+        params={{ bankTransactionId: entry.sourceId }}
+      >
+        {entry.sourceType} · {entry.sourceId}
+      </Link>
+    );
+  }
+  return (
+    <span>
+      {entry.sourceType} · {entry.sourceId}
+    </span>
   );
 }
 
@@ -692,6 +1042,7 @@ function getAccountingRoute(pathname: string): AccountingRoute {
   }
 
   if (area === "journal-entries" && entityId) {
+    if (mode === "edit") return { mode: "journal-edit", journalEntryId: entityId };
     return { mode: "journal-detail", journalEntryId: entityId };
   }
 

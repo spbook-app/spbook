@@ -215,6 +215,12 @@ const journalEntryDetailRoute = createRoute({
   component: emptyRouteComponent
 });
 
+const journalEntryEditRoute = createRoute({
+  getParentRoute: () => journalEntryDetailRoute,
+  path: "edit",
+  component: emptyRouteComponent
+});
+
 const chartRoute = createRoute({
   getParentRoute: () => accountingRoute,
   path: "chart",
@@ -278,7 +284,7 @@ const routeTree = rootRoute.addChildren([
       counterpartyDetailRoute.addChildren([counterpartyEditRoute, counterpartyCardRoute])
     ]),
     accountingRoute.addChildren([
-      journalEntriesRoute.addChildren([journalEntryDetailRoute]),
+      journalEntriesRoute.addChildren([journalEntryDetailRoute.addChildren([journalEntryEditRoute])]),
       chartRoute.addChildren([accountCreateRoute, accountDetailRoute.addChildren([accountEditRoute])])
     ]),
     settingsRoute
