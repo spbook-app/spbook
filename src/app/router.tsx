@@ -77,6 +77,36 @@ const bankingRoute = createRoute({
   component: emptyRouteComponent
 });
 
+const bankingAccountsRoute = createRoute({
+  getParentRoute: () => bankingRoute,
+  path: "accounts",
+  component: emptyRouteComponent
+});
+
+const bankingAccountCreateRoute = createRoute({
+  getParentRoute: () => bankingAccountsRoute,
+  path: "new",
+  component: emptyRouteComponent
+});
+
+const bankingAccountDetailRoute = createRoute({
+  getParentRoute: () => bankingAccountsRoute,
+  path: "$bankAccountId",
+  component: emptyRouteComponent
+});
+
+const bankingAccountEditRoute = createRoute({
+  getParentRoute: () => bankingAccountDetailRoute,
+  path: "edit",
+  component: emptyRouteComponent
+});
+
+const bankingTransactionsRoute = createRoute({
+  getParentRoute: () => bankingRoute,
+  path: "transactions",
+  component: emptyRouteComponent
+});
+
 const counterpartiesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "counterparties",
@@ -125,7 +155,13 @@ const routeTree = rootRoute.addChildren([
       ])
     ]),
     purchasesRoute,
-    bankingRoute,
+    bankingRoute.addChildren([
+      bankingAccountsRoute.addChildren([
+        bankingAccountCreateRoute,
+        bankingAccountDetailRoute.addChildren([bankingAccountEditRoute])
+      ]),
+      bankingTransactionsRoute
+    ]),
     counterpartiesRoute.addChildren([
       counterpartyCreateRoute,
       counterpartyDetailRoute.addChildren([counterpartyEditRoute])

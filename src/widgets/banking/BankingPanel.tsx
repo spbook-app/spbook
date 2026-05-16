@@ -1,5 +1,6 @@
 import type { AppDataState } from "../../app/App";
-import { BankAccountsPanel } from "./BankAccountsPanel";
+import { useRouterState } from "@tanstack/react-router";
+import { BankingAccountsView } from "./BankingAccountsView";
 import { BankStatementImport } from "./BankStatementImport";
 import { BankTransactionList } from "./BankTransactionList";
 
@@ -10,6 +11,14 @@ export function BankingPanel({
   data: Extract<AppDataState, { state: "ready" }>;
   onDataStateChange: (state: AppDataState) => void;
 }) {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname
+  });
+
+  if (pathname.startsWith("/workspace/banking/accounts")) {
+    return <BankingAccountsView data={data} onDataStateChange={onDataStateChange} />;
+  }
+
   return (
     <section className="panel panel-wide" aria-labelledby="banking-title">
       <div className="panel-header">
@@ -22,7 +31,6 @@ export function BankingPanel({
         </span>
       </div>
 
-      <BankAccountsPanel data={data} onDataStateChange={onDataStateChange} />
       <BankStatementImport data={data} onDataStateChange={onDataStateChange} />
       <BankTransactionList data={data} onDataStateChange={onDataStateChange} />
     </section>
