@@ -91,10 +91,7 @@ function CounterpartyListPage({ data }: { data: ReadyAppData }) {
   return (
     <section className="panel panel-wide" aria-labelledby="counterparties-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Parties</p>
-          <h2 id="counterparties-title">Counterparties</h2>
-        </div>
+        <h2 id="counterparties-title">Counterparties</h2>
         <Link className="primary-button" to="/workspace/counterparties/new">
           Create counterparty
         </Link>
@@ -193,10 +190,7 @@ function CounterpartyCreatePage({
   return (
     <section className="panel panel-wide" aria-labelledby="create-counterparty-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Parties</p>
-          <h2 id="create-counterparty-title">Create counterparty</h2>
-        </div>
+        <h2 id="create-counterparty-title">Create counterparty</h2>
         <Link className="secondary-button" to="/workspace/counterparties">
           Back to list
         </Link>
@@ -294,10 +288,7 @@ function CounterpartyDetailPage({
   return (
     <section className="panel panel-wide" aria-labelledby="counterparty-detail-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Parties</p>
-          <h2 id="counterparty-detail-title">{party.name}</h2>
-        </div>
+        <h2 id="counterparty-detail-title">{party.name}</h2>
         <span className="status-pill">{party.active ? "active" : "inactive"}</span>
       </div>
 
@@ -630,10 +621,7 @@ function CounterpartyNotFound({ partyId }: { partyId: string }) {
   return (
     <section className="panel" aria-labelledby="counterparty-not-found-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Parties</p>
-          <h2 id="counterparty-not-found-title">Counterparty not found</h2>
-        </div>
+        <h2 id="counterparty-not-found-title">Counterparty not found</h2>
         <Link className="secondary-button" to="/workspace/counterparties">
           Back to list
         </Link>

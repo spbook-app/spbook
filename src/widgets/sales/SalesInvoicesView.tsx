@@ -74,10 +74,7 @@ function InvoiceListPage({ data }: { data: ReadyAppData }) {
   return (
     <section className="panel" aria-labelledby="sales-invoices-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Sales</p>
-          <h2 id="sales-invoices-title">Issued invoices</h2>
-        </div>
+        <h2 id="sales-invoices-title">Issued invoices</h2>
         <Link className="primary-button" to="/workspace/sales/invoices/new">
           Create invoice
         </Link>
@@ -168,10 +165,7 @@ function InvoiceCreatePage({
   return (
     <section className="panel" aria-labelledby="create-invoice-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Sales</p>
-          <h2 id="create-invoice-title">Create invoice</h2>
-        </div>
+        <h2 id="create-invoice-title">Create invoice</h2>
         <Link className="secondary-button" to="/workspace/sales/invoices">
           Back to list
         </Link>
@@ -341,10 +335,7 @@ function InvoiceDetailPage({
   return (
     <section className="panel" aria-labelledby="invoice-detail-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Sales</p>
-          <h2 id="invoice-detail-title">Invoice {invoice.number}</h2>
-        </div>
+        <h2 id="invoice-detail-title">Invoice {invoice.number}</h2>
         <span className="status-pill">{invoice.status}</span>
       </div>
 
@@ -578,10 +569,7 @@ function InvoiceNotFound({ invoiceId }: { invoiceId: string }) {
   return (
     <section className="panel" aria-labelledby="invoice-not-found-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Sales</p>
-          <h2 id="invoice-not-found-title">Invoice not found</h2>
-        </div>
+        <h2 id="invoice-not-found-title">Invoice not found</h2>
         <Link className="secondary-button" to="/workspace/sales/invoices">
           Back to list
         </Link>

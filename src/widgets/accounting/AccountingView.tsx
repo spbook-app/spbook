@@ -81,10 +81,7 @@ function JournalEntryListPage({ entries }: { entries: JournalEntry[] }) {
   return (
     <section className="panel panel-wide" aria-labelledby="journal-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Accounting</p>
-          <h2 id="journal-title">Journal entries</h2>
-        </div>
+        <h2 id="journal-title">Journal entries</h2>
         <AccountingLinks />
       </div>
       <div className="journal-list">
@@ -133,10 +130,7 @@ function JournalEntryDetailPage({
   return (
     <section className="panel panel-wide" aria-labelledby="journal-entry-detail-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Accounting</p>
-          <h2 id="journal-entry-detail-title">{entry.description}</h2>
-        </div>
+        <h2 id="journal-entry-detail-title">{entry.description}</h2>
         <Link className="secondary-button" to="/workspace/accounting/journal-entries">
           Back to journal
         </Link>
@@ -182,10 +176,7 @@ function AccountListPage({ data }: { data: ReadyAppData }) {
   return (
     <section className="panel panel-wide" aria-labelledby="accounts-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Chart</p>
-          <h2 id="accounts-title">Workspace accounts</h2>
-        </div>
+        <h2 id="accounts-title">Workspace accounts</h2>
         <div className="transaction-detail-actions">
           <AccountingLinks />
           <Link className="primary-button" to="/workspace/accounting/chart/new">
@@ -279,10 +270,7 @@ function AccountCreatePage({
   return (
     <section className="panel panel-wide" aria-labelledby="account-create-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Chart</p>
-          <h2 id="account-create-title">Create account</h2>
-        </div>
+        <h2 id="account-create-title">Create account</h2>
         <Link className="secondary-button" to="/workspace/accounting/chart">
           Back to chart
         </Link>
@@ -372,12 +360,9 @@ function AccountDetailPage({
   return (
     <section className="panel panel-wide" aria-labelledby="account-detail-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Chart</p>
-          <h2 id="account-detail-title">
-            {account.code} · {account.name}
-          </h2>
-        </div>
+        <h2 id="account-detail-title">
+          {account.code} · {account.name}
+        </h2>
         <span className="status-pill">{account.active ? "active" : "inactive"}</span>
       </div>
       <div className="transaction-detail-actions">
@@ -667,10 +652,7 @@ function AccountNotFound({ accountId }: { accountId: string }) {
   return (
     <section className="panel" aria-labelledby="account-not-found-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Chart</p>
-          <h2 id="account-not-found-title">Account not found</h2>
-        </div>
+        <h2 id="account-not-found-title">Account not found</h2>
         <Link className="secondary-button" to="/workspace/accounting/chart">
           Back to chart
         </Link>
@@ -684,10 +666,7 @@ function JournalEntryNotFound({ journalEntryId }: { journalEntryId: string }) {
   return (
     <section className="panel" aria-labelledby="journal-entry-not-found-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Accounting</p>
-          <h2 id="journal-entry-not-found-title">Journal entry not found</h2>
-        </div>
+        <h2 id="journal-entry-not-found-title">Journal entry not found</h2>
         <Link className="secondary-button" to="/workspace/accounting/journal-entries">
           Back to journal
         </Link>

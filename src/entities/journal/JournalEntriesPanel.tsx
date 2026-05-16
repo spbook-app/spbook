@@ -4,10 +4,7 @@ export function JournalEntriesPanel({ entries }: { entries: JournalEntry[] }) {
   return (
     <section className="panel panel-wide" aria-labelledby="journal-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Accounting</p>
-          <h2 id="journal-title">Journal entries</h2>
-        </div>
+        <h2 id="journal-title">Journal entries</h2>
         <span>{entries.length} entries</span>
       </div>
       <div className="journal-list">

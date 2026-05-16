@@ -83,10 +83,7 @@ function SupplierInvoiceListPage({ data }: { data: ReadyAppData }) {
   return (
     <section className="panel" aria-labelledby="supplier-invoices-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Purchases</p>
-          <h2 id="supplier-invoices-title">Supplier invoices</h2>
-        </div>
+        <h2 id="supplier-invoices-title">Supplier invoices</h2>
         <div className="transaction-detail-actions">
           <Link className="secondary-button" to="/workspace/purchases/owner-transactions/new">
             Owner transaction
@@ -183,10 +180,7 @@ function SupplierInvoiceCreatePage({
   return (
     <section className="panel" aria-labelledby="receive-supplier-invoice-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Purchases</p>
-          <h2 id="receive-supplier-invoice-title">Receive supplier invoice</h2>
-        </div>
+        <h2 id="receive-supplier-invoice-title">Receive supplier invoice</h2>
         <Link className="secondary-button" to="/workspace/purchases/supplier-invoices">
           Back to list
         </Link>
@@ -355,10 +349,7 @@ function SupplierInvoiceDetailPage({
   return (
     <section className="panel" aria-labelledby="supplier-invoice-detail-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Purchases</p>
-          <h2 id="supplier-invoice-detail-title">Supplier invoice {supplierInvoice.number}</h2>
-        </div>
+        <h2 id="supplier-invoice-detail-title">Supplier invoice {supplierInvoice.number}</h2>
         <span className="status-pill">{supplierInvoice.status}</span>
       </div>
       <div className="transaction-detail-actions">
@@ -602,10 +593,7 @@ function SupplierInvoiceNotFound({ supplierInvoiceId }: { supplierInvoiceId: str
   return (
     <section className="panel" aria-labelledby="supplier-invoice-not-found-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Purchases</p>
-          <h2 id="supplier-invoice-not-found-title">Supplier invoice not found</h2>
-        </div>
+        <h2 id="supplier-invoice-not-found-title">Supplier invoice not found</h2>
         <Link className="secondary-button" to="/workspace/purchases/supplier-invoices">
           Back to list
         </Link>

@@ -10,10 +10,7 @@ export function BalancesTable({
   return (
     <section className="panel" aria-labelledby="balances-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Reports</p>
-          <h2 id="balances-title">Raw account balances</h2>
-        </div>
+        <h2 id="balances-title">Raw account balances</h2>
       </div>
       <div className="balance-list">
         {balances.length === 0 ? <p className="empty-state">No balances yet.</p> : null}

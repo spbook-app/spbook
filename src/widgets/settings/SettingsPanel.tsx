@@ -78,10 +78,7 @@ export function SettingsPanel({
   return (
     <section className="panel" aria-labelledby="settings-title">
       <div className="panel-header">
-        <div>
-          <p className="eyebrow">Local</p>
-          <h2 id="settings-title">Workspace settings</h2>
-        </div>
+        <h2 id="settings-title">Workspace settings</h2>
       </div>
       <dl className="detail-list settings-details">
         <div>
