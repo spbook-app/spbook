@@ -520,6 +520,16 @@ function normalizeIbanForCompare(iban: string | undefined) {
   return iban?.replace(/\s+/g, "").toUpperCase() ?? "";
 }
 
+function isIncomingBankTransaction(bankTransaction: BankTransaction) {
+  return !bankTransaction.amount.startsWith("-");
+}
+
+function absoluteBankTransactionAmount(bankTransaction: BankTransaction) {
+  return bankTransaction.amount.startsWith("-")
+    ? bankTransaction.amount.slice(1)
+    : bankTransaction.amount;
+}
+
 function SettingsPanel({
   data,
   onDataStateChange,
@@ -1439,6 +1449,33 @@ function BankingPanel({
       selectedEditBankTransaction.counterpartyName &&
       !selectedStatementCounterpartyExists
   );
+  const suggestedInvoiceMatch =
+    selectedEditBankTransaction?.status === "unmatched" &&
+    selectedEditBankTransaction.partyId &&
+    isIncomingBankTransaction(selectedEditBankTransaction)
+      ? data.invoices.find(
+          (invoice) =>
+            invoice.partyId === selectedEditBankTransaction.partyId &&
+            invoice.status !== "paid" &&
+            invoice.status !== "cancelled" &&
+            invoice.currency === selectedEditBankTransaction.currency &&
+            invoice.total === selectedEditBankTransaction.amount
+        ) ?? null
+      : null;
+  const suggestedSupplierInvoiceMatch =
+    selectedEditBankTransaction?.status === "unmatched" &&
+    selectedEditBankTransaction.partyId &&
+    !isIncomingBankTransaction(selectedEditBankTransaction)
+      ? data.supplierInvoices.find(
+          (supplierInvoice) =>
+            supplierInvoice.partyId === selectedEditBankTransaction.partyId &&
+            supplierInvoice.status !== "paid" &&
+            supplierInvoice.status !== "cancelled" &&
+            supplierInvoice.currency === selectedEditBankTransaction.currency &&
+            supplierInvoice.total ===
+              absoluteBankTransactionAmount(selectedEditBankTransaction)
+        ) ?? null
+      : null;
   const [editTransactionBankAccountId, setEditTransactionBankAccountId] = useState(
     selectedEditBankTransaction?.bankAccountId ?? data.bankAccounts[0]?.id ?? ""
   );
@@ -1467,6 +1504,8 @@ function BankingPanel({
     | "party-link"
     | "transaction"
     | "transaction-update"
+    | "invoice-match"
+    | "supplier-match"
     | "fee"
     | "undo"
   >("idle");
@@ -1824,6 +1863,64 @@ function BankingPanel({
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Counterparty was not linked."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleMatchSuggestedInvoice(invoiceId: string) {
+    setActionState("invoice-match");
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditBankTransaction) {
+        throw new Error("Select a bank transaction first.");
+      }
+
+      const overview = await matchInvoicePaymentFromBankTransaction(
+        invoiceId,
+        selectedEditBankTransaction.id
+      );
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Invoice payment was not matched."
+      );
+    } finally {
+      setActionState("idle");
+    }
+  }
+
+  async function handleMatchSuggestedSupplierInvoice(supplierInvoiceId: string) {
+    setActionState("supplier-match");
+    setErrorMessage(null);
+
+    try {
+      if (!selectedEditBankTransaction) {
+        throw new Error("Select a bank transaction first.");
+      }
+
+      const overview = await matchSupplierPaymentFromBankTransaction(
+        supplierInvoiceId,
+        selectedEditBankTransaction.id
+      );
+
+      onDataStateChange({
+        ...data,
+        ...mapOverviewToReadyState(overview)
+      });
+      setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Supplier invoice payment was not matched."
       );
     } finally {
       setActionState("idle");
@@ -2235,9 +2332,17 @@ function BankingPanel({
               linkedPartyId={linkedPartyId}
               parties={data.parties}
               suggestedPartyId={selectedStatementCounterpartyCandidate?.id}
+              suggestedInvoice={suggestedInvoiceMatch}
+              suggestedSupplierInvoice={suggestedSupplierInvoiceMatch}
+              isMatchingInvoice={actionState === "invoice-match"}
+              isMatchingSupplierInvoice={actionState === "supplier-match"}
               isPostingBankFee={actionState === "fee"}
               isUndoingPosting={actionState === "undo"}
               onCreateCounterparty={() => void handleCreateCounterpartyFromBankTransaction()}
+              onMatchInvoice={(invoiceId) => void handleMatchSuggestedInvoice(invoiceId)}
+              onMatchSupplierInvoice={(supplierInvoiceId) =>
+                void handleMatchSuggestedSupplierInvoice(supplierInvoiceId)
+              }
               onPostBankFee={() => void handlePostBankFee(selectedEditBankTransaction.id)}
               onLinkCounterparty={() => void handleLinkBankTransactionParty()}
               onLinkedPartyChange={setLinkedPartyId}
@@ -2337,9 +2442,15 @@ function BankTransactionDetailPanel({
   linkedPartyId,
   parties,
   suggestedPartyId,
+  suggestedInvoice,
+  suggestedSupplierInvoice,
+  isMatchingInvoice,
+  isMatchingSupplierInvoice,
   isPostingBankFee,
   isUndoingPosting,
   onCreateCounterparty,
+  onMatchInvoice,
+  onMatchSupplierInvoice,
   onPostBankFee,
   onLinkCounterparty,
   onLinkedPartyChange,
@@ -2354,9 +2465,17 @@ function BankTransactionDetailPanel({
   linkedPartyId: string;
   parties: Extract<AppDataState, { state: "ready" }>["parties"];
   suggestedPartyId?: string;
+  suggestedInvoice: Extract<AppDataState, { state: "ready" }>["invoices"][number] | null;
+  suggestedSupplierInvoice:
+    | Extract<AppDataState, { state: "ready" }>["supplierInvoices"][number]
+    | null;
+  isMatchingInvoice: boolean;
+  isMatchingSupplierInvoice: boolean;
   isPostingBankFee: boolean;
   isUndoingPosting: boolean;
   onCreateCounterparty: () => void;
+  onMatchInvoice: (invoiceId: string) => void;
+  onMatchSupplierInvoice: (supplierInvoiceId: string) => void;
   onPostBankFee: () => void;
   onLinkCounterparty: () => void;
   onLinkedPartyChange: (partyId: string) => void;
@@ -2430,6 +2549,40 @@ function BankTransactionDetailPanel({
               Suggested by matching statement counterparty name or IBAN.
             </p>
           ) : null}
+        </div>
+      ) : null}
+      {suggestedInvoice ? (
+        <div className="transaction-detail-actions">
+          <p className="field-note">
+            Suggested invoice: {suggestedInvoice.number} · {suggestedInvoice.total}{" "}
+            {suggestedInvoice.currency}
+          </p>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isMatchingInvoice}
+            onClick={() => onMatchInvoice(suggestedInvoice.id)}
+          >
+            {isMatchingInvoice ? "Matching invoice" : "Match invoice"}
+          </button>
+        </div>
+      ) : null}
+      {suggestedSupplierInvoice ? (
+        <div className="transaction-detail-actions">
+          <p className="field-note">
+            Suggested supplier invoice: {suggestedSupplierInvoice.number} ·{" "}
+            {suggestedSupplierInvoice.total} {suggestedSupplierInvoice.currency}
+          </p>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isMatchingSupplierInvoice}
+            onClick={() => onMatchSupplierInvoice(suggestedSupplierInvoice.id)}
+          >
+            {isMatchingSupplierInvoice
+              ? "Matching supplier invoice"
+              : "Match supplier invoice"}
+          </button>
         </div>
       ) : null}
       <div className="transaction-detail-actions">
