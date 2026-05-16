@@ -126,6 +126,12 @@ button:disabled {
   background: #fbfaf6;
 }
 
+.compact-button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
 .workspace-layout {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
@@ -209,6 +215,32 @@ dd {
   line-height: 1.35;
 }
 
+.sidebar-workspace-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 12px;
+  border-bottom: 1px solid #e4e0d4;
+}
+
+.sidebar-workspace-summary strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #25231f;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-workspace-summary span {
+  flex: none;
+  color: #7a756b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .sidebar-note {
   display: grid;
   gap: 6px;
@@ -228,6 +260,7 @@ dd {
   width: 100%;
   margin-top: 18px;
 }
+
 
 .sidebar-nav {
   display: grid;
@@ -1406,6 +1439,19 @@ td {
   gap: 10px;
 }
 
+.transaction-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.transaction-result-count {
+  color: #7a756b;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
 .transaction-list-filters label {
   display: grid;
   gap: 5px;
@@ -1425,6 +1471,7 @@ td {
 .transaction-filter-chip {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 28px;
   padding: 0 10px;
   border: 1px solid #d6d2c8;
@@ -1436,6 +1483,18 @@ td {
   cursor: pointer;
   white-space: nowrap;
   transition: border-color 0.1s, background 0.1s;
+}
+
+.transaction-filter-chip span {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 62%);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .transaction-filter-chip:hover {
@@ -1593,6 +1652,11 @@ td {
 /* Mobile: 2-row layout */
 
 @media (max-width: 640px) {
+  .transaction-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .transaction-item {
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
@@ -1620,29 +1684,4 @@ td {
     grid-row: 2;
     text-align: right;
   }
-}
-.sidebar-workspace-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px 12px;
-  border-bottom: 1px solid #e4e0d4;
-}
-
-.sidebar-workspace-summary strong {
-  min-width: 0;
-  overflow: hidden;
-  color: #25231f;
-  font-size: 0.86rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-workspace-summary span {
-  flex: none;
-  color: #7a756b;
-  font-size: 0.72rem;
-  font-weight: 800;
-  white-space: nowrap;
 }

@@ -6,6 +6,7 @@ import { BankTransactionListItem } from "./BankTransactionListItem";
 import {
   getBankTransactionDisplayState,
   matchesQuickFilter,
+  type BankTransactionDisplayState,
   type BankTransactionQuickFilter
 } from "./bank-transaction-display";
 import {
@@ -57,6 +58,31 @@ type BankTransactionRoute =
   | { mode: "create" }
   | { mode: "detail"; bankTransactionId: string }
   | { mode: "edit"; bankTransactionId: string };
+
+type BankTransactionListRow = {
+  bankTransaction: BankTransaction;
+  bankAccount: Extract<AppDataState, { state: "ready" }>["bankAccounts"][number] | undefined;
+  linkedParty: Party | undefined;
+  matchedInvoice: Extract<AppDataState, { state: "ready" }>["invoices"][number] | undefined;
+  matchedSupplierInvoice:
+    | Extract<AppDataState, { state: "ready" }>["supplierInvoices"][number]
+    | undefined;
+  displayState: BankTransactionDisplayState;
+};
+
+const quickFilterOptions: Array<[BankTransactionQuickFilter, string]> = [
+  ["", "All"],
+  ["needs_action", "Needs action"],
+  ["needs_counterparty", "Needs counterparty"],
+  ["linked_needs_match", "Ready to match"],
+  ["invoice_candidate", "Invoice candidates"],
+  ["supplier_invoice_candidate", "Supplier candidates"],
+  ["matched", "Matched"],
+  ["posted_bank_fee", "Bank fees"],
+  ["ignored", "Ignored"],
+  ["imported", "Imported"],
+  ["manual_unmatched", "Manual"]
+];
 
 export function BankTransactionList({
   data,
@@ -174,49 +200,103 @@ export function BankTransactionList({
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedBankAccountId = transactionBankAccountId || data.bankAccounts[0]?.id || "";
-  const filteredBankTransactions = data.bankTransactions.filter((bankTransaction) => {
-    if (
-      listFilters.bankAccountId &&
-      bankTransaction.bankAccountId !== listFilters.bankAccountId
-    ) {
-      return false;
-    }
-
-    if (listFilters.processingState) {
-      const linkedParty = data.parties.find((p) => p.id === bankTransaction.partyId);
+  const bankTransactionRows = data.bankTransactions
+    .map((bankTransaction): BankTransactionListRow => {
+      const bankAccount = data.bankAccounts.find(
+        (candidate) => candidate.id === bankTransaction.bankAccountId
+      );
+      const linkedParty = data.parties.find((party) => party.id === bankTransaction.partyId);
+      const isIncoming = !bankTransaction.amount.startsWith("-");
       const invoiceCandidateExists =
-        !bankTransaction.amount.startsWith("-") &&
+        isIncoming &&
         Boolean(bankTransaction.partyId) &&
         data.invoices.some(
-          (inv) =>
-            inv.partyId === bankTransaction.partyId &&
-            inv.status === "issued" &&
-            inv.total === bankTransaction.amount &&
-            inv.currency === bankTransaction.currency
+          (invoice) =>
+            invoice.partyId === bankTransaction.partyId &&
+            invoice.status !== "paid" &&
+            invoice.status !== "cancelled" &&
+            invoice.total === bankTransaction.amount &&
+            invoice.currency === bankTransaction.currency
         );
       const supplierCandidateExists =
-        bankTransaction.amount.startsWith("-") &&
+        !isIncoming &&
         Boolean(bankTransaction.partyId) &&
         data.supplierInvoices.some(
-          (si) =>
-            si.partyId === bankTransaction.partyId &&
-            (si.status === "received" || si.status === "approved") &&
-            si.total === bankTransaction.amount.slice(1) &&
-            si.currency === bankTransaction.currency
+          (supplierInvoice) =>
+            supplierInvoice.partyId === bankTransaction.partyId &&
+            supplierInvoice.status !== "paid" &&
+            supplierInvoice.status !== "cancelled" &&
+            supplierInvoice.total === bankTransaction.amount.slice(1) &&
+            supplierInvoice.currency === bankTransaction.currency
         );
-      const ds = getBankTransactionDisplayState(
+      const displayState = getBankTransactionDisplayState(
         bankTransaction,
         linkedParty,
         invoiceCandidateExists,
         supplierCandidateExists
       );
-      if (!matchesQuickFilter(ds.processingState, ds.isImported, listFilters.processingState)) {
-        return false;
-      }
-    }
+      const matchedInvoice =
+        bankTransaction.matchedDocumentType === "invoice" && bankTransaction.matchedDocumentId
+          ? data.invoices.find((invoice) => invoice.id === bankTransaction.matchedDocumentId)
+          : undefined;
+      const matchedSupplierInvoice =
+        bankTransaction.matchedDocumentType === "supplier_invoice" &&
+        bankTransaction.matchedDocumentId
+          ? data.supplierInvoices.find(
+              (supplierInvoice) => supplierInvoice.id === bankTransaction.matchedDocumentId
+            )
+          : undefined;
 
-    return true;
-  });
+      return {
+        bankTransaction,
+        bankAccount,
+        linkedParty,
+        matchedInvoice,
+        matchedSupplierInvoice,
+        displayState
+      };
+    })
+    .sort((left, right) => {
+      const dateCompare = right.bankTransaction.bookingDate.localeCompare(
+        left.bankTransaction.bookingDate
+      );
+
+      return dateCompare || right.bankTransaction.id.localeCompare(left.bankTransaction.id);
+    });
+  const bankAccountFilteredRows = listFilters.bankAccountId
+    ? bankTransactionRows.filter(
+        (row) => row.bankTransaction.bankAccountId === listFilters.bankAccountId
+      )
+    : bankTransactionRows;
+  const filteredBankTransactionRows = listFilters.processingState
+    ? bankAccountFilteredRows.filter((row) =>
+        matchesQuickFilter(
+          row.displayState.processingState,
+          row.displayState.isImported,
+          listFilters.processingState
+        )
+      )
+    : bankAccountFilteredRows;
+  const quickFilterCounts = new Map<BankTransactionQuickFilter, number>(
+    quickFilterOptions.map(([value]) => [
+      value,
+      value
+        ? bankAccountFilteredRows.filter((row) =>
+            matchesQuickFilter(
+              row.displayState.processingState,
+              row.displayState.isImported,
+              value
+            )
+          ).length
+        : bankAccountFilteredRows.length
+    ])
+  );
+  const activeBankAccountFilter = data.bankAccounts.find(
+    (bankAccount) => bankAccount.id === listFilters.bankAccountId
+  );
+  const hasActiveListFilters = Boolean(
+    listFilters.bankAccountId || listFilters.processingState
+  );
 
   useEffect(() => {
     if (!selectedEditBankTransaction) return;
@@ -661,7 +741,7 @@ export function BankTransactionList({
       <div className="subsection-header">
         <div>
           <h3>Bank transactions</h3>
-          <p>Add signed account movements and match them to documents.</p>
+          <p>Review imported and manual account movements as a work queue.</p>
         </div>
         <Link className="primary-button" to="/workspace/banking/transactions/new">
           Create bank transaction
@@ -669,6 +749,23 @@ export function BankTransactionList({
       </div>
 
       <div className="transaction-list">
+        <div className="transaction-list-header">
+          <span className="transaction-result-count">
+            Showing {filteredBankTransactionRows.length} of {bankAccountFilteredRows.length}
+            {activeBankAccountFilter ? ` · ${activeBankAccountFilter.name}` : ""}
+          </span>
+          {hasActiveListFilters ? (
+            <button
+              className="secondary-button compact-button"
+              type="button"
+              onClick={() =>
+                void navigate({ href: "/workspace/banking/transactions", replace: true })
+              }
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
         <div className="transaction-list-filters">
           <label>
             <span>Bank account</span>
@@ -687,21 +784,7 @@ export function BankTransactionList({
             </select>
           </label>
           <div className="transaction-filter-chips" role="group" aria-label="Filter by state">
-            {(
-              [
-                ["", "All"],
-                ["needs_action", "Needs action"],
-                ["needs_counterparty", "Needs counterparty"],
-                ["linked_needs_match", "Ready to match"],
-                ["invoice_candidate", "Invoice candidates"],
-                ["supplier_invoice_candidate", "Supplier candidates"],
-                ["matched", "Matched"],
-                ["posted_bank_fee", "Bank fees"],
-                ["ignored", "Ignored"],
-                ["imported", "Imported"],
-                ["manual_unmatched", "Manual"]
-              ] as [BankTransactionQuickFilter, string][]
-            ).map(([value, label]) => (
+            {quickFilterOptions.map(([value, label]) => (
               <button
                 key={value}
                 type="button"
@@ -709,68 +792,29 @@ export function BankTransactionList({
                 onClick={() => handleListFilterChange("processingState", value)}
               >
                 {label}
+                <span>{quickFilterCounts.get(value) ?? 0}</span>
               </button>
             ))}
           </div>
         </div>
-        {filteredBankTransactions.length === 0 ? (
+        {filteredBankTransactionRows.length === 0 ? (
           <p className="empty-state">No bank transactions yet.</p>
         ) : null}
-        {filteredBankTransactions.map((bankTransaction) => {
-          const bankAccount = data.bankAccounts.find(
-            (candidate) => candidate.id === bankTransaction.bankAccountId
-          );
-          const linkedParty = data.parties.find((p) => p.id === bankTransaction.partyId);
-          const isIncoming = !bankTransaction.amount.startsWith("-");
-          const invoiceCandidateExists =
-            isIncoming &&
-            Boolean(bankTransaction.partyId) &&
-            data.invoices.some(
-              (inv) =>
-                inv.partyId === bankTransaction.partyId &&
-                inv.status === "issued" &&
-                inv.total === bankTransaction.amount &&
-                inv.currency === bankTransaction.currency
-            );
-          const supplierCandidateExists =
-            !isIncoming &&
-            Boolean(bankTransaction.partyId) &&
-            data.supplierInvoices.some(
-              (si) =>
-                si.partyId === bankTransaction.partyId &&
-                (si.status === "received" || si.status === "approved") &&
-                si.total === bankTransaction.amount.slice(1) &&
-                si.currency === bankTransaction.currency
-            );
-          const displayState = getBankTransactionDisplayState(
-            bankTransaction,
-            linkedParty,
-            invoiceCandidateExists,
-            supplierCandidateExists
-          );
-          const matchedInvoice =
-            bankTransaction.matchedDocumentType === "invoice" && bankTransaction.matchedDocumentId
-              ? data.invoices.find((inv) => inv.id === bankTransaction.matchedDocumentId)
-              : undefined;
-          const matchedSupplierInvoice =
-            bankTransaction.matchedDocumentType === "supplier_invoice" &&
-            bankTransaction.matchedDocumentId
-              ? data.supplierInvoices.find((si) => si.id === bankTransaction.matchedDocumentId)
-              : undefined;
+        {filteredBankTransactionRows.map((row) => {
           return (
             <Link
               className="transaction-pick"
-              key={bankTransaction.id}
+              key={row.bankTransaction.id}
               to="/workspace/banking/transactions/$bankTransactionId"
-              params={{ bankTransactionId: bankTransaction.id }}
+              params={{ bankTransactionId: row.bankTransaction.id }}
             >
               <BankTransactionListItem
-                bankTransaction={bankTransaction}
-                bankAccount={bankAccount}
-                linkedParty={linkedParty}
-                matchedInvoice={matchedInvoice}
-                matchedSupplierInvoice={matchedSupplierInvoice}
-                displayState={displayState}
+                bankTransaction={row.bankTransaction}
+                bankAccount={row.bankAccount}
+                linkedParty={row.linkedParty}
+                matchedInvoice={row.matchedInvoice}
+                matchedSupplierInvoice={row.matchedSupplierInvoice}
+                displayState={row.displayState}
                 isActive={false}
               />
             </Link>
