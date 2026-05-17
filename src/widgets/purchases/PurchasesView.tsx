@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
+import type { PurchasesViewProps } from "../../shared/model/widget-props";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
 import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
@@ -26,13 +27,34 @@ type PurchaseRoute =
   | { mode: "supplier-edit"; supplierInvoiceId: string }
   | { mode: "owner-create" };
 
-export function PurchasesView({
-  data,
-  onDataStateChange
-}: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
+export function PurchasesView(props: PurchasesViewProps) {
+  const {
+    workspace,
+    supplierInvoices,
+    parties,
+    bankTransactions,
+    journalEntries,
+    accounts,
+    onDataStateChange
+  } = props;
+  
+  // Reconstruct data object for use in child components
+  const data: ReadyAppData = {
+    workspace,
+    supplierInvoices,
+    parties,
+    bankTransactions,
+    journalEntries,
+    accounts,
+    invoices: [],
+    invoice: null,
+    invoiceParty: null,
+    supplierInvoice: null,
+    supplierInvoiceParty: null,
+    bankAccounts: [],
+    balances: [],
+    initializedWorkspace: false
+  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });

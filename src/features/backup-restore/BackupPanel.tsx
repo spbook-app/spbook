@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from "react";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { Workspace } from "../../domain";
+import type { AppDataState } from "../../shared/model/workspace";
 import {
   exportWorkspaceBackup,
   importWorkspaceBackup,
@@ -8,10 +9,10 @@ import {
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
 export function BackupPanel({
-  data,
+  workspace,
   onDataStateChange
 }: {
-  data: ReadyWorkspaceData;
+  workspace: Workspace;
   onDataStateChange: (state: AppDataState) => void;
 }) {
   const [backupState, setBackupState] = useState<"idle" | "exporting" | "importing">("idle");
@@ -31,7 +32,7 @@ export function BackupPanel({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `spbook-backup-${data.workspace.id}-${new Date()
+      link.download = `spbook-backup-${workspace.id}-${new Date()
         .toISOString()
         .slice(0, 10)}.json`;
       link.click();
@@ -57,7 +58,6 @@ export function BackupPanel({
       const backup = parseWorkspaceBackup(await file.text());
       const overview = await importWorkspaceBackup(backup);
       onDataStateChange({
-        ...data,
         ...mapOverviewToReadyState(overview),
         initializedWorkspace: false
       });

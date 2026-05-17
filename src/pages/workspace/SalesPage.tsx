@@ -6,7 +6,16 @@ export function SalesPage() {
 
   return (
     <div className="section-stack">
-      <SalesInvoicesView data={data} onDataStateChange={onDataStateChange} />
+      <SalesInvoicesView
+        workspace={data.workspace}
+        invoices={data.invoices}
+        parties={data.parties}
+        bankTransactions={data.bankTransactions}
+        journalEntries={data.journalEntries}
+        bankAccounts={data.bankAccounts}
+        accounts={data.accounts}
+        onDataStateChange={onDataStateChange}
+      />
     </div>
   );
 }

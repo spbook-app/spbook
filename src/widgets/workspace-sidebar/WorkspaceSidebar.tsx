@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { Account, BankTransaction, Invoice, SupplierInvoice, Workspace } from "../../domain";
+import type { AppDataState } from "../../shared/model/workspace";
+import type { WorkspaceSidebarProps } from "../../shared/model/widget-props";
 import {
   type WorkspaceSection,
   workspaceSections
@@ -9,28 +11,27 @@ import { initializeDefaultWorkspace } from "../../storage/initialize-workspace";
 import { clearDatabase } from "../../storage/repositories";
 import { loadWorkspaceOverview } from "../../services/workspace-overview";
 
-export function WorkspaceSidebar({
-  activeSection,
-  data
-}: {
-  activeSection: WorkspaceSection;
-  data: ReadyWorkspaceData;
-}) {
+export function WorkspaceSidebar(props: WorkspaceSidebarProps) {
+  const { workspace, invoices, supplierInvoices, bankTransactions, activeSection } = props;
   const openItems =
-    data.invoices.filter((invoice) => invoice.status !== "paid").length +
-    data.supplierInvoices.filter((supplierInvoice) => supplierInvoice.status !== "paid").length +
-    data.bankTransactions.filter((bankTransaction) => bankTransaction.status === "unmatched").length;
+    invoices.filter((invoice) => invoice.status !== "paid").length +
+    supplierInvoices.filter((supplierInvoice) => supplierInvoice.status !== "paid").length +
+    bankTransactions.filter((bankTransaction) => bankTransaction.status === "unmatched").length;
 
   return (
     <aside className="workspace-sidebar" aria-label="Workspace navigation">
       <div className="sidebar-workspace-summary">
-        <strong>{data.workspace.name}</strong>
+        <strong>{workspace.name}</strong>
         <span>{openItems} open</span>
       </div>
 
       <nav className="sidebar-nav" aria-label="Workspace sections">
         {workspaceSections.map((section) => {
-          const sectionCount = getSectionOpenCount(section.id, data);
+          const sectionCount = getSectionOpenCount(section.id, {
+            invoices,
+            supplierInvoices,
+            bankTransactions
+          });
 
           return (
             <Link
@@ -55,7 +56,11 @@ export function WorkspaceSidebar({
 
 function getSectionOpenCount(
   sectionId: WorkspaceSection,
-  data: ReadyWorkspaceData
+  data: {
+    invoices: Invoice[];
+    supplierInvoices: SupplierInvoice[];
+    bankTransactions: BankTransaction[];
+  }
 ) {
   switch (sectionId) {
     case "sales":
@@ -78,11 +83,15 @@ function getSectionAbbreviation(label: string) {
 }
 
 export function WorkspaceStatusCard({
-  data,
+  workspace,
+  accounts,
+  initializedWorkspace,
   onDataStateChange,
   showReset
 }: {
-  data: ReadyWorkspaceData;
+  workspace: Workspace;
+  accounts: Account[];
+  initializedWorkspace: boolean;
   onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {
@@ -128,15 +137,15 @@ export function WorkspaceStatusCard({
       <dl className="sidebar-details">
         <div>
           <dt>Country</dt>
-          <dd>{data.workspace.countryCode}</dd>
+          <dd>{workspace.countryCode}</dd>
         </div>
         <div>
           <dt>Storage</dt>
-          <dd>{data.initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
+          <dd>{initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
         </div>
         <div>
           <dt>Accounts</dt>
-          <dd>{data.accounts.length}</dd>
+          <dd>{accounts.length}</dd>
         </div>
       </dl>
       <div className="sidebar-note compact-note">

@@ -1,18 +1,11 @@
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { SettingsPanelProps } from "../../shared/model/widget-props";
 import { formatAppBuildLabel } from "../../app/app-env";
 import { buildInfo } from "../../generated/build-info";
 import { BackupPanel } from "../../features/backup-restore/BackupPanel";
 import { WorkspaceStatusCard } from "../workspace-sidebar/WorkspaceSidebar";
 
-export function SettingsPanel({
-  data,
-  onDataStateChange,
-  showReset
-}: {
-  data: ReadyWorkspaceData;
-  onDataStateChange: (state: AppDataState) => void;
-  showReset: boolean;
-}) {
+export function SettingsPanel(props: SettingsPanelProps) {
+  const { workspace, accounts, initializedWorkspace, onDataStateChange, showReset } = props;
   return (
     <section className="panel" aria-labelledby="settings-title">
       <div className="panel-header">
@@ -21,29 +14,31 @@ export function SettingsPanel({
       <dl className="detail-list settings-details">
         <div>
           <dt>Workspace</dt>
-          <dd>{data.workspace.name}</dd>
+          <dd>{workspace.name}</dd>
         </div>
         <div>
           <dt>Country</dt>
-          <dd>{data.workspace.countryCode}</dd>
+          <dd>{workspace.countryCode}</dd>
         </div>
         <div>
           <dt>Currency</dt>
-          <dd>{data.workspace.baseCurrency}</dd>
+          <dd>{workspace.baseCurrency}</dd>
         </div>
         <div>
           <dt>Storage</dt>
-          <dd>{data.initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
+          <dd>{initializedWorkspace ? "Created locally" : "Loaded locally"}</dd>
         </div>
         <div>
           <dt>Build</dt>
           <dd>{formatAppBuildLabel(buildInfo)}</dd>
         </div>
       </dl>
-      <BackupPanel data={data} onDataStateChange={onDataStateChange} />
+      <BackupPanel workspace={workspace} onDataStateChange={onDataStateChange} />
       {showReset ? (
         <WorkspaceStatusCard
-          data={data}
+          workspace={workspace}
+          accounts={accounts}
+          initializedWorkspace={initializedWorkspace}
           onDataStateChange={onDataStateChange}
           showReset={showReset}
         />

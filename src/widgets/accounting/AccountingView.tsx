@@ -2,6 +2,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { Account, JournalEntry, JournalLineSide } from "../../domain";
+import type {
+  AccountingViewProps,
+  JournalEntriesViewProps
+} from "../../shared/model/widget-props";
 import { addMinorUnits, compareMinorUnits, parseMoneyAmount } from "../../domain/money";
 import { AccountCreateForm } from "../../features/account-create/AccountCreateForm";
 import {
@@ -21,13 +25,26 @@ type AccountingRoute =
   | { mode: "account-detail"; accountId: string }
   | { mode: "account-edit"; accountId: string };
 
-export function ChartOfAccountsView({
-  data,
-  onDataStateChange
-}: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
+export function ChartOfAccountsView(props: AccountingViewProps) {
+  const { workspace, accounts, journalEntries, balances, onDataStateChange } = props;
+  
+  // Reconstruct data object for use in child components
+  const data: ReadyAppData = {
+    workspace,
+    accounts,
+    journalEntries,
+    balances,
+    invoices: [],
+    invoice: null,
+    invoiceParty: null,
+    supplierInvoices: [],
+    supplierInvoice: null,
+    supplierInvoiceParty: null,
+    bankAccounts: [],
+    bankTransactions: [],
+    parties: [],
+    initializedWorkspace: false
+  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
@@ -57,15 +74,25 @@ export function ChartOfAccountsView({
   return <AccountListPage data={data} />;
 }
 
-export function JournalEntriesView({
-  accountNames,
-  data,
-  onDataStateChange
-}: {
-  accountNames: Map<string, string>;
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
+export function JournalEntriesView(props: JournalEntriesViewProps) {
+  const { workspace, accounts, journalEntries, balances, accountNames, onDataStateChange } =
+    props;
+  const data: ReadyAppData = {
+    workspace,
+    accounts,
+    journalEntries,
+    balances,
+    invoices: [],
+    invoice: null,
+    invoiceParty: null,
+    supplierInvoices: [],
+    supplierInvoice: null,
+    supplierInvoiceParty: null,
+    bankAccounts: [],
+    bankTransactions: [],
+    parties: [],
+    initializedWorkspace: false
+  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });

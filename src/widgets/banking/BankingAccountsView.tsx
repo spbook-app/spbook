@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { Account, BankAccount, Party } from "../../domain";
+import type { BankingAccountsViewProps } from "../../shared/model/widget-props";
 import {
   BankAccountEditableFields,
   mapBankAccountToFormState,
@@ -22,13 +23,26 @@ type BankingAccountRoute =
   | { mode: "card"; bankAccountId: string }
   | { mode: "edit"; bankAccountId: string };
 
-export function BankingAccountsView({
-  data,
-  onDataStateChange
-}: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
+export function BankingAccountsView(props: BankingAccountsViewProps) {
+  const { workspace, bankAccounts, accounts, bankTransactions, parties, onDataStateChange } = props;
+  
+  // Reconstruct data object for use in child components
+  const data: ReadyAppData = {
+    workspace,
+    bankAccounts,
+    accounts,
+    bankTransactions,
+    parties,
+    invoices: [],
+    invoice: null,
+    invoiceParty: null,
+    supplierInvoices: [],
+    supplierInvoice: null,
+    supplierInvoiceParty: null,
+    journalEntries: [],
+    balances: [],
+    initializedWorkspace: false
+  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });

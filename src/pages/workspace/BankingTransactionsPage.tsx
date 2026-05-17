@@ -6,7 +6,16 @@ export function BankingTransactionsPage() {
 
   return (
     <div className="section-stack">
-      <BankTransactionList data={data} onDataStateChange={onDataStateChange} />
+      <BankTransactionList
+        workspace={data.workspace}
+        bankTransactions={data.bankTransactions}
+        parties={data.parties}
+        accounts={data.accounts}
+        invoices={data.invoices}
+        supplierInvoices={data.supplierInvoices}
+        bankAccounts={data.bankAccounts}
+        onDataStateChange={onDataStateChange}
+      />
     </div>
   );
 }

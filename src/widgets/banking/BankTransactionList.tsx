@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { BankTransaction, Party } from "../../domain";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { BankTransactionListProps } from "../../shared/model/widget-props";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 import {
   getBankTransactionDisplayState,
@@ -85,13 +86,33 @@ const quickFilterOptions: Array<[BankTransactionQuickFilter, string]> = [
   ["manual_unmatched", "Manual"]
 ];
 
-export function BankTransactionList({
-  data,
-  onDataStateChange
-}: {
-  data: ReadyWorkspaceData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
+export function BankTransactionList(props: BankTransactionListProps) {
+  const {
+    workspace,
+    bankTransactions,
+    parties,
+    accounts,
+    invoices,
+    supplierInvoices,
+    bankAccounts,
+    onDataStateChange
+  } = props;
+  const data: ReadyWorkspaceData = {
+    workspace,
+    bankTransactions,
+    parties,
+    accounts,
+    invoices,
+    supplierInvoices,
+    bankAccounts,
+    invoice: null,
+    invoiceParty: null,
+    supplierInvoice: null,
+    supplierInvoiceParty: null,
+    journalEntries: [],
+    balances: [],
+    initializedWorkspace: false
+  };
   const navigate = useNavigate();
   const pathname = useRouterState({
     select: (state) => state.location.pathname

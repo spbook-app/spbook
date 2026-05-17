@@ -23,8 +23,11 @@ export function WorkspaceView() {
   return (
     <div className="workspace-layout">
       <WorkspaceSidebar
+        workspace={data.workspace}
+        invoices={data.invoices}
+        supplierInvoices={data.supplierInvoices}
+        bankTransactions={data.bankTransactions}
         activeSection={activeSection}
-        data={data}
       />
       <section className="workspace-main" aria-label={activeSectionMeta.label}>
         <header className="workspace-toolbar">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { BankTransaction, Invoice, Party } from "../../domain";
+import type { SalesInvoicesViewProps } from "../../shared/model/widget-props";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
 import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
@@ -24,13 +25,35 @@ type SalesInvoiceRoute =
   | { mode: "detail"; invoiceId: string }
   | { mode: "edit"; invoiceId: string };
 
-export function SalesInvoicesView({
-  data,
-  onDataStateChange
-}: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
+export function SalesInvoicesView(props: SalesInvoicesViewProps) {
+  const {
+    workspace,
+    invoices,
+    parties,
+    bankTransactions,
+    journalEntries,
+    bankAccounts,
+    accounts,
+    onDataStateChange
+  } = props;
+  
+  // Reconstruct data object for use in child components
+  const data: ReadyAppData = {
+    workspace,
+    invoices,
+    parties,
+    bankTransactions,
+    journalEntries,
+    bankAccounts,
+    accounts,
+    invoice: null,
+    invoiceParty: null,
+    supplierInvoices: [],
+    supplierInvoice: null,
+    supplierInvoiceParty: null,
+    balances: [],
+    initializedWorkspace: false
+  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });

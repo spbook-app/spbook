@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { Party } from "../../domain";
+import type { CounterpartiesViewProps } from "../../shared/model/widget-props";
 import {
   PartyEditableFields,
   type PartyFormState
@@ -19,13 +20,26 @@ type CounterpartyRoute =
   | { mode: "card"; partyId: string }
   | { mode: "edit"; partyId: string };
 
-export function CounterpartiesView({
-  data,
-  onDataStateChange
-}: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
+export function CounterpartiesView(props: CounterpartiesViewProps) {
+  const { workspace, parties, invoices, supplierInvoices, onDataStateChange } = props;
+  
+  // Reconstruct data object for use in child components
+  const data: ReadyAppData = {
+    workspace,
+    parties,
+    invoices,
+    supplierInvoices,
+    accounts: [],
+    bankAccounts: [],
+    bankTransactions: [],
+    invoice: null,
+    invoiceParty: null,
+    supplierInvoice: null,
+    supplierInvoiceParty: null,
+    journalEntries: [],
+    balances: [],
+    initializedWorkspace: false
+  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });

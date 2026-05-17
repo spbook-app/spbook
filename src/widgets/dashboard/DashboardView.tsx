@@ -1,25 +1,34 @@
-import type { ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { Account, Invoice, SupplierInvoice } from "../../domain";
+import type { DashboardViewProps } from "../../shared/model/widget-props";
 import { BalancesTable } from "../../entities/account/BalancesTable";
 
-export function DashboardView({
-  data,
-  accountNames
-}: {
-  data: ReadyWorkspaceData;
-  accountNames: Map<string, string>;
-}) {
-  const unpaidInvoices = data.invoices.filter((invoice) => invoice.status !== "paid");
-  const unpaidSupplierInvoices = data.supplierInvoices.filter(
+export function DashboardView(props: DashboardViewProps) {
+  const {
+    invoices,
+    supplierInvoices,
+    bankTransactions,
+    journalEntries,
+    accounts,
+    balances,
+    accountNames
+  } = props;
+  const unpaidInvoices = invoices.filter((invoice) => invoice.status !== "paid");
+  const unpaidSupplierInvoices = supplierInvoices.filter(
     (supplierInvoice) => supplierInvoice.status !== "paid"
   );
-  const unmatchedBankTransactions = data.bankTransactions.filter(
+  const unmatchedBankTransactions = bankTransactions.filter(
     (bankTransaction) => bankTransaction.status === "unmatched"
   );
-  const recentJournalEntries = data.journalEntries.slice(-3).reverse();
+  const recentJournalEntries = journalEntries.slice(-3).reverse();
 
   return (
     <div className="section-stack">
-      <MetricStrip data={data} />
+      <MetricStrip
+        invoices={invoices}
+        supplierInvoices={supplierInvoices}
+        accounts={accounts}
+        journalEntryCount={journalEntries.length}
+      />
       <div className="dashboard-grid">
         <section className="panel" aria-labelledby="work-queue-title">
           <div className="panel-header">
@@ -41,7 +50,7 @@ export function DashboardView({
           </div>
         </section>
 
-        <BalancesTable balances={data.balances.slice(0, 5)} accountNames={accountNames} />
+        <BalancesTable balances={balances.slice(0, 5)} accountNames={accountNames} />
       </div>
 
       <section className="panel panel-wide" aria-labelledby="recent-journal-title">
@@ -75,18 +84,32 @@ export function DashboardView({
   );
 }
 
-function MetricStrip({ data }: { data: ReadyWorkspaceData }) {
-  const postingAccounts = data.accounts.filter((account) => account.role === "posting");
+interface MetricStripProps {
+  invoices: Invoice[];
+  supplierInvoices: SupplierInvoice[];
+  accounts: Account[];
+  journalEntryCount: number;
+}
+
+function MetricStrip({
+  invoices,
+  supplierInvoices,
+  accounts,
+  journalEntryCount
+}: MetricStripProps) {
+  const postingAccounts = accounts.filter((account) => account.role === "posting");
+  const latestInvoice = invoices.length > 0 ? invoices[invoices.length - 1] : null;
+  const latestSupplierInvoice = supplierInvoices.length > 0 ? supplierInvoices[supplierInvoices.length - 1] : null;
 
   return (
     <dl className="metric-strip" aria-label="MVP summary">
       <div>
         <dt>Sales invoice</dt>
-        <dd>{data.invoice?.number ?? "Not created"}</dd>
+        <dd>{latestInvoice?.number ?? "Not created"}</dd>
       </div>
       <div>
         <dt>Supplier invoice</dt>
-        <dd>{data.supplierInvoice?.number ?? "Not received"}</dd>
+        <dd>{latestSupplierInvoice?.number ?? "Not received"}</dd>
       </div>
       <div>
         <dt>Posting accounts</dt>
@@ -94,7 +117,7 @@ function MetricStrip({ data }: { data: ReadyWorkspaceData }) {
       </div>
       <div>
         <dt>Journal entries</dt>
-        <dd>{data.journalEntries.length}</dd>
+        <dd>{journalEntryCount}</dd>
       </div>
     </dl>
   );

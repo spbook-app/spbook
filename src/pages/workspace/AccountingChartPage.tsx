@@ -6,7 +6,13 @@ export function AccountingChartPage() {
 
   return (
     <div className="section-stack">
-      <ChartOfAccountsView data={data} onDataStateChange={onDataStateChange} />
+      <ChartOfAccountsView
+        workspace={data.workspace}
+        accounts={data.accounts}
+        journalEntries={data.journalEntries}
+        balances={data.balances}
+        onDataStateChange={onDataStateChange}
+      />
     </div>
   );
 }

@@ -5,6 +5,12 @@ export function SettingsPage() {
   const { data, onDataStateChange, showReset } = useWorkspaceData();
 
   return (
-    <SettingsPanel data={data} onDataStateChange={onDataStateChange} showReset={showReset} />
+    <SettingsPanel
+      workspace={data.workspace}
+      accounts={data.accounts}
+      initializedWorkspace={data.initializedWorkspace}
+      onDataStateChange={onDataStateChange}
+      showReset={showReset}
+    />
   );
 }

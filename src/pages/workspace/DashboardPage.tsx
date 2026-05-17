@@ -9,5 +9,16 @@ export function DashboardPage() {
     [data.accounts]
   );
 
-  return <DashboardView data={data} accountNames={accountNames} />;
+  return (
+    <DashboardView
+      workspace={data.workspace}
+      invoices={data.invoices}
+      supplierInvoices={data.supplierInvoices}
+      bankTransactions={data.bankTransactions}
+      journalEntries={data.journalEntries}
+      accounts={data.accounts}
+      balances={data.balances}
+      accountNames={accountNames}
+    />
+  );
 }

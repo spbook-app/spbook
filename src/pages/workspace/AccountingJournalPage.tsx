@@ -12,8 +12,11 @@ export function AccountingJournalPage() {
   return (
     <div className="section-stack">
       <JournalEntriesView
+        workspace={data.workspace}
+        accounts={data.accounts}
+        journalEntries={data.journalEntries}
+        balances={data.balances}
         accountNames={accountNames}
-        data={data}
         onDataStateChange={onDataStateChange}
       />
     </div>

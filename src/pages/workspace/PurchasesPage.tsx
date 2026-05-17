@@ -6,7 +6,15 @@ export function PurchasesPage() {
 
   return (
     <div className="section-stack">
-      <PurchasesView data={data} onDataStateChange={onDataStateChange} />
+      <PurchasesView
+        workspace={data.workspace}
+        supplierInvoices={data.supplierInvoices}
+        parties={data.parties}
+        bankTransactions={data.bankTransactions}
+        journalEntries={data.journalEntries}
+        accounts={data.accounts}
+        onDataStateChange={onDataStateChange}
+      />
     </div>
   );
 }

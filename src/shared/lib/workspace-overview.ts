@@ -4,6 +4,7 @@ import type { AppDataState, ReadyWorkspaceData, WorkspaceDataUpdate } from "../m
 export function mapOverviewToReadyState(overview: WorkspaceOverview) {
   return {
     state: "ready" as const,
+    workspace: overview.workspace,
     accounts: overview.accounts,
     bankAccounts: overview.bankAccounts,
     bankTransactions: overview.bankTransactions,

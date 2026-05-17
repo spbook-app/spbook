@@ -6,7 +6,13 @@ export function CounterpartiesPage() {
 
   return (
     <div className="section-stack">
-      <CounterpartiesView data={data} onDataStateChange={onDataStateChange} />
+      <CounterpartiesView
+        workspace={data.workspace}
+        parties={data.parties}
+        invoices={data.invoices}
+        supplierInvoices={data.supplierInvoices}
+        onDataStateChange={onDataStateChange}
+      />
     </div>
   );
 }
