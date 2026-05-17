@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
-import { createWorkflowStorage } from "../storage/workflow-persistence";
+import { createWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
+import type { Account, Invoice } from "../domain";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
 import {
@@ -52,7 +53,7 @@ describe("invoice workflow", () => {
         total: "250.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(overview.invoiceParty?.id).toBe(partyOverview.parties[0]!.id);
@@ -83,15 +84,15 @@ describe("invoice workflow", () => {
         total: "1000.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const paidOverview = await recordInvoicePayment(
       issuedOverview.invoice?.id ?? "",
-      database
+      createWorkflowStorage(database)
     );
     const secondPaymentOverview = await recordInvoicePayment(
       paidOverview.invoice?.id ?? "",
-      database
+      createWorkflowStorage(database)
     );
 
     expect(paidOverview.invoice?.status).toBe("paid");
@@ -121,7 +122,7 @@ describe("invoice workflow", () => {
         total: "100.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const updatedOverview = await updateSalesInvoice(
       {
@@ -131,11 +132,11 @@ describe("invoice workflow", () => {
         issueDate: "2026-05-11",
         total: "150.00"
       },
-      database
+      createWorkflowStorage(database)
     );
     const deletedOverview = await deleteSalesInvoice(
       issuedOverview.invoice!.id,
-      database
+      createWorkflowStorage(database)
     );
 
     expect(updatedOverview.invoice).toMatchObject({
@@ -158,7 +159,7 @@ describe("invoice workflow", () => {
   });
 
   it("rejects payment for a missing invoice", async () => {
-    await expect(recordInvoicePayment("missing", database)).rejects.toThrow(
+    await expect(recordInvoicePayment("missing", createWorkflowStorage(database))).rejects.toThrow(
       'Invoice "missing" was not found.'
     );
   });
@@ -183,11 +184,11 @@ describe("invoice workflow", () => {
         total: "40.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const paidOverview = await recordSupplierPayment(
       issuedOverview.supplierInvoice?.id ?? "",
-      database
+      createWorkflowStorage(database)
     );
 
     expect(issuedOverview.supplierInvoice?.status).toBe("received");
@@ -219,7 +220,7 @@ describe("invoice workflow", () => {
         total: "40.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const updatedOverview = await updateSupplierInvoice(
       {
@@ -230,11 +231,11 @@ describe("invoice workflow", () => {
         total: "50.00",
         expenseAccountCode: "4120"
       },
-      database
+      createWorkflowStorage(database)
     );
     const deletedOverview = await deleteSupplierInvoice(
       issuedOverview.supplierInvoice!.id,
-      database
+      createWorkflowStorage(database)
     );
 
     expect(updatedOverview.supplierInvoice).toMatchObject({
@@ -308,7 +309,7 @@ describe("invoice workflow", () => {
           total: "100.00",
           currency: "EUR"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("Invoice data is invalid.");
 
@@ -322,9 +323,93 @@ describe("invoice workflow", () => {
           total: "100.00",
           currency: "EUR"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("Supplier invoice data is invalid.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mock factory
+// ---------------------------------------------------------------------------
+
+function makeMockStorage(overrides: Partial<WorkflowStorage["repos"]> = {}): WorkflowStorage {
+  const noop = vi.fn().mockResolvedValue(undefined);
+  const emptyList = vi.fn().mockResolvedValue([]);
+  return {
+    repos: {
+      workspace: { count: vi.fn(), getFirst: vi.fn() },
+      accounts: { getById: vi.fn().mockResolvedValue(undefined), getByWorkspaceId: emptyList, save: noop },
+      parties: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      bankAccounts: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      bankTransactions: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop, saveAll: noop },
+      invoices: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      supplierInvoices: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      journalEntries: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      ...overrides
+    },
+    persistence: {
+      saveInvoiceWorkflowData: noop,
+      saveInvoiceJournalEntryData: noop,
+      deleteInvoiceWorkflowData: noop,
+      saveInvoicePaymentData: noop,
+      saveSupplierInvoiceWorkflowData: noop,
+      saveSupplierInvoiceJournalEntryData: noop,
+      deleteSupplierInvoiceWorkflowData: noop,
+      saveSupplierInvoicePaymentData: noop,
+      saveBankTransactionPostingData: noop,
+      undoBankTransactionPostingData: noop,
+      savePartyJournalEntryData: noop
+    }
+  };
+}
+
+describe("invoice workflow (mock storage)", () => {
+  it("records invoice payment via persistence without Dexie", async () => {
+    const invoice: Invoice = {
+      id: "inv-1",
+      workspaceId: "ws-1",
+      number: "2026-0001",
+      issueDate: "2026-05-10",
+      partyId: "party-1",
+      currency: "EUR",
+      total: "1000.00",
+      status: "issued"
+    };
+    const accounts: Account[] = [
+      { id: "acc-1100", workspaceId: "ws-1", code: "1100", name: "Bank Account", role: "posting", currency: "EUR", active: true },
+      { id: "acc-1200", workspaceId: "ws-1", code: "1200", name: "Accounts Receivable", role: "posting", currency: "EUR", active: true }
+    ];
+    const saveInvoicePaymentData = vi.fn().mockResolvedValue(undefined);
+    const storage = makeMockStorage({
+      invoices: {
+        getById: vi.fn().mockResolvedValue(invoice),
+        getByWorkspaceId: vi.fn().mockResolvedValue([invoice]),
+        save: vi.fn()
+      },
+      accounts: {
+        getById: vi.fn(),
+        getByWorkspaceId: vi.fn().mockResolvedValue(accounts),
+        save: vi.fn()
+      }
+    });
+    storage.persistence.saveInvoicePaymentData = saveInvoicePaymentData;
+
+    const result = await recordInvoicePayment("inv-1", storage);
+
+    expect(saveInvoicePaymentData).toHaveBeenCalledOnce();
+    expect(saveInvoicePaymentData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        invoice: expect.objectContaining({ status: "paid" }),
+        journalEntry: expect.objectContaining({
+          lines: [
+            expect.objectContaining({ accountCode: "1100", side: "debit" }),
+            expect.objectContaining({ accountCode: "1200", side: "credit" })
+          ]
+        })
+      })
+    );
+    expect(result.invoice?.status).toBe("paid");
   });
 });
 

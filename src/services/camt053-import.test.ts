@@ -54,7 +54,7 @@ describe("CAMT.053 import", () => {
         currency: "EUR",
         iban: "SI56 0284 3030 0037 670"
       },
-      database
+      createWorkflowStorage(database)
     );
     const xml = await readFile(sampleStatementPath, "utf8");
     const firstImport = await importCamt053BankTransactions(
@@ -98,7 +98,7 @@ describe("CAMT.053 import", () => {
         currency: "EUR",
         iban: "SI56 0284 3030 0037 670"
       },
-      database
+      createWorkflowStorage(database)
     );
     const partyOverview = await createParty(
       {
@@ -138,7 +138,7 @@ describe("CAMT.053 import", () => {
         currency: "EUR",
         iban: "SI56 0284 3030 0037 670"
       },
-      database
+      createWorkflowStorage(database)
     );
     const xml = await readFile(
       `${sampleStatementDirectory}/SI56028430300037670_20260330_1.xml`,

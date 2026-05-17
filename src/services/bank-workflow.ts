@@ -7,15 +7,8 @@ import type {
 } from "../domain";
 import { parseMoneyAmount, validateJournalEntry } from "../domain";
 import { isValidIban } from "../shared/lib/iban";
-import { db, type SpbookDatabase } from "../storage/db";
 import type { Repositories } from "../storage/interfaces";
-import {
-  createRepositories,
-  saveBankTransactionPostingData,
-  saveInvoicePaymentData,
-  saveSupplierInvoicePaymentData,
-  undoBankTransactionPostingData
-} from "../storage/repositories";
+import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import {
   loadBankingSlice,
   loadInvoicesSlice,
@@ -67,9 +60,9 @@ export type LinkBankTransactionPartyInput = {
 
 export async function createBankAccount(
   input: CreateBankAccountInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const accounts = await repos.accounts.getByWorkspaceId(input.workspaceId);
   const account = accounts.find((candidate) => candidate.code === input.accountCode);
   await ensureBankParty(input.workspaceId, input.partyId, repos);
@@ -102,9 +95,9 @@ export async function createBankAccount(
 
 export async function updateBankAccount(
   input: UpdateBankAccountInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const existingBankAccount = await repos.bankAccounts.getById(input.bankAccountId);
 
   if (!existingBankAccount) {
@@ -148,9 +141,9 @@ export async function updateBankAccount(
 
 export async function createBankTransaction(
   input: CreateBankTransactionInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const bankAccount = await repos.bankAccounts.getById(input.bankAccountId);
 
   if (!bankAccount) {
@@ -181,9 +174,9 @@ export async function createBankTransaction(
 
 export async function updateBankTransaction(
   input: UpdateBankTransactionInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const existingBankTransaction = await repos.bankTransactions.getById(
     input.bankTransactionId
   );
@@ -224,9 +217,9 @@ export async function updateBankTransaction(
 
 export async function linkBankTransactionParty(
   input: LinkBankTransactionPartyInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const existingBankTransaction = await repos.bankTransactions.getById(
     input.bankTransactionId
   );
@@ -298,9 +291,9 @@ async function ensureBankParty(
 export async function matchInvoicePaymentFromBankTransaction(
   invoiceId: string,
   bankTransactionId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const invoice = await repos.invoices.getById(invoiceId);
   const bankContext = await loadBankTransactionContext(bankTransactionId, repos);
 
@@ -323,14 +316,11 @@ export async function matchInvoicePaymentFromBankTransaction(
     journalEntry.id
   );
 
-  await saveInvoicePaymentData(
-    {
-      invoice: paidInvoice,
-      journalEntry,
-      bankTransaction: matchedBankTransaction
-    },
-    database
-  );
+  await storage.persistence.saveInvoicePaymentData({
+    invoice: paidInvoice,
+    journalEntry,
+    bankTransaction: matchedBankTransaction
+  });
 
   const [bankingSlice, invoicesSlice, ledgerSlice] = await Promise.all([
     loadBankingSlice(invoice.workspaceId, repos),
@@ -343,9 +333,9 @@ export async function matchInvoicePaymentFromBankTransaction(
 export async function matchSupplierPaymentFromBankTransaction(
   supplierInvoiceId: string,
   bankTransactionId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const supplierInvoice = await repos.supplierInvoices.getById(supplierInvoiceId);
   const bankContext = await loadBankTransactionContext(bankTransactionId, repos);
 
@@ -368,14 +358,11 @@ export async function matchSupplierPaymentFromBankTransaction(
     journalEntry.id
   );
 
-  await saveSupplierInvoicePaymentData(
-    {
-      supplierInvoice: paidSupplierInvoice,
-      journalEntry,
-      bankTransaction: matchedBankTransaction
-    },
-    database
-  );
+  await storage.persistence.saveSupplierInvoicePaymentData({
+    supplierInvoice: paidSupplierInvoice,
+    journalEntry,
+    bankTransaction: matchedBankTransaction
+  });
 
   const [bankingSlice, supplierInvoicesSlice, ledgerSlice] = await Promise.all([
     loadBankingSlice(supplierInvoice.workspaceId, repos),
@@ -387,9 +374,9 @@ export async function matchSupplierPaymentFromBankTransaction(
 
 export async function postBankFeeFromBankTransaction(
   bankTransactionId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const bankContext = await loadBankTransactionContext(bankTransactionId, repos);
 
   ensureUnmatched(bankContext.bankTransaction);
@@ -405,9 +392,8 @@ export async function postBankFeeFromBankTransaction(
     journalEntry.id
   );
 
-  await saveBankTransactionPostingData(
-    { bankTransaction: postedBankTransaction, journalEntry },
-    database
+  await storage.persistence.saveBankTransactionPostingData(
+    { bankTransaction: postedBankTransaction, journalEntry }
   );
 
   const [bankingSlice, ledgerSlice] = await Promise.all([
@@ -419,9 +405,9 @@ export async function postBankFeeFromBankTransaction(
 
 export async function undoBankTransactionPosting(
   bankTransactionId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const bankTransaction = await repos.bankTransactions.getById(bankTransactionId);
 
   if (!bankTransaction) {
@@ -459,17 +445,14 @@ export async function undoBankTransactionPosting(
       ? await repos.supplierInvoices.getById(bankTransaction.matchedDocumentId)
       : undefined;
 
-  await undoBankTransactionPostingData(
-    {
-      bankTransaction: unmatchedBankTransaction,
-      invoice: invoice ? { ...invoice, status: "issued" } : undefined,
-      supplierInvoice: supplierInvoice
-        ? { ...supplierInvoice, status: "approved" }
-        : undefined,
-      journalEntryId: journalEntry.id
-    },
-    database
-  );
+  await storage.persistence.undoBankTransactionPostingData({
+    bankTransaction: unmatchedBankTransaction,
+    invoice: invoice ? { ...invoice, status: "issued" } : undefined,
+    supplierInvoice: supplierInvoice
+      ? { ...supplierInvoice, status: "approved" }
+      : undefined,
+    journalEntryId: journalEntry.id
+  });
 
   const [bankingSlice, invoicesSlice, supplierInvoicesSlice, ledgerSlice] = await Promise.all([
     loadBankingSlice(bankTransaction.workspaceId, repos),

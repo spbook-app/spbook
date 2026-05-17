@@ -173,7 +173,7 @@ describe("party workflow", () => {
         total: "1000.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     await expect(

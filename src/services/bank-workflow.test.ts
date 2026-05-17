@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import type { BankTransaction } from "../domain";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Account, BankAccount, BankTransaction } from "../domain";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
-import { createWorkflowStorage } from "../storage/workflow-persistence";
+import { createWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
 import { saveBankTransaction } from "../storage/repositories";
@@ -49,7 +49,7 @@ describe("bank workflow", () => {
         iban: "SI56 1910 0000 0123 438",
         partyId: partyOverview.parties[0]!.id
       },
-      database
+      createWorkflowStorage(database)
     );
     const transactionOverview = await createBankTransaction(
       {
@@ -60,7 +60,7 @@ describe("bank workflow", () => {
         currency: "EUR",
         description: "Customer payment"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(transactionOverview.bankAccounts).toHaveLength(1);
@@ -94,7 +94,7 @@ describe("bank workflow", () => {
           currency: "EUR",
           partyId: partyOverview.parties[0]!.id
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("Bank account party must have the bank role.");
   });
@@ -120,7 +120,7 @@ describe("bank workflow", () => {
         currency: "EUR",
         iban: "SI56 1910 0000 0123 438"
       },
-      database
+      createWorkflowStorage(database)
     );
     const updatedOverview = await updateBankAccount(
       {
@@ -130,7 +130,7 @@ describe("bank workflow", () => {
         iban: "SI56 1910 0000 0123 438",
         active: true
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(updatedOverview.bankAccounts[0]).toMatchObject({
@@ -153,7 +153,7 @@ describe("bank workflow", () => {
           currency: "EUR",
           iban: "SI56000000000000000"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("IBAN is invalid.");
   });
@@ -167,7 +167,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     await expect(
@@ -178,7 +178,7 @@ describe("bank workflow", () => {
           accountCode: "1100",
           currency: "EUR"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("A bank account already uses this posting account.");
   });
@@ -192,7 +192,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const transactionOverview = await createBankTransaction(
       {
@@ -203,7 +203,7 @@ describe("bank workflow", () => {
         currency: "EUR",
         description: "Customer payment"
       },
-      database
+      createWorkflowStorage(database)
     );
     const updatedOverview = await updateBankTransaction(
       {
@@ -214,7 +214,7 @@ describe("bank workflow", () => {
         description: "Updated customer payment",
         reference: "INV-2026-0001"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(updatedOverview.bankTransactions[0]).toMatchObject({
@@ -231,7 +231,7 @@ describe("bank workflow", () => {
     const matchedOverview = await matchInvoicePaymentFromBankTransaction(
       context.invoiceId,
       context.bankTransactionId,
-      database
+      createWorkflowStorage(database)
     );
 
     await expect(
@@ -243,7 +243,7 @@ describe("bank workflow", () => {
           amount: "999.50",
           description: "Updated payment"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow(`Bank transaction "${context.bankTransactionId}" is already processed.`);
   });
@@ -257,7 +257,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const importedBankTransaction: BankTransaction = {
       id: `bt_${crypto.randomUUID()}`,
@@ -282,7 +282,7 @@ describe("bank workflow", () => {
           amount: "999.50",
           description: "Updated imported payment"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("Imported bank statement entries cannot be edited.");
   });
@@ -296,7 +296,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const partyOverview = await createParty(
       {
@@ -327,7 +327,7 @@ describe("bank workflow", () => {
         bankTransactionId: importedBankTransaction.id,
         partyId: partyOverview.parties[0]!.id
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(overview.bankTransactions[0]).toMatchObject({
@@ -341,7 +341,7 @@ describe("bank workflow", () => {
     const matchedOverview = await matchInvoicePaymentFromBankTransaction(
       context.invoiceId,
       context.bankTransactionId,
-      database
+      createWorkflowStorage(database)
     );
 
     expect(matchedOverview.invoice?.status).toBe("paid");
@@ -358,11 +358,11 @@ describe("bank workflow", () => {
     await matchInvoicePaymentFromBankTransaction(
       context.invoiceId,
       context.bankTransactionId,
-      database
+      createWorkflowStorage(database)
     );
     const undoneOverview = await undoBankTransactionPosting(
       context.bankTransactionId,
-      database
+      createWorkflowStorage(database)
     );
 
     expect(undoneOverview.invoice?.status).toBe("issued");
@@ -380,7 +380,7 @@ describe("bank workflow", () => {
     const matchedOverview = await matchSupplierPaymentFromBankTransaction(
       context.supplierInvoiceId,
       context.bankTransactionId,
-      database
+      createWorkflowStorage(database)
     );
 
     expect(matchedOverview.supplierInvoice?.status).toBe("paid");
@@ -401,7 +401,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const transactionOverview = await createBankTransaction(
       {
@@ -412,11 +412,11 @@ describe("bank workflow", () => {
         currency: "EUR",
         description: "Monthly bank fee"
       },
-      database
+      createWorkflowStorage(database)
     );
     const postedOverview = await postBankFeeFromBankTransaction(
       transactionOverview.bankTransactions[0]!.id,
-      database
+      createWorkflowStorage(database)
     );
 
     expect(postedOverview.bankTransactions[0]?.status).toBe("posted");
@@ -434,7 +434,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const transactionOverview = await createBankTransaction(
       {
@@ -445,15 +445,15 @@ describe("bank workflow", () => {
         currency: "EUR",
         description: "Monthly bank fee"
       },
-      database
+      createWorkflowStorage(database)
     );
     const postedOverview = await postBankFeeFromBankTransaction(
       transactionOverview.bankTransactions[0]!.id,
-      database
+      createWorkflowStorage(database)
     );
     const undoneOverview = await undoBankTransactionPosting(
       transactionOverview.bankTransactions[0]!.id,
-      database
+      createWorkflowStorage(database)
     );
 
     expect(postedOverview.journalEntries).toHaveLength(1);
@@ -483,7 +483,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const invoiceOverview = await createSalesInvoice(
       {
@@ -494,7 +494,7 @@ describe("bank workflow", () => {
         total,
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const transactionOverview = await createBankTransaction(
       {
@@ -505,7 +505,7 @@ describe("bank workflow", () => {
         currency: "EUR",
         description: "Customer payment"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     return {
@@ -532,7 +532,7 @@ describe("bank workflow", () => {
         accountCode: "1100",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const supplierInvoiceOverview = await createSupplierInvoice(
       {
@@ -543,7 +543,7 @@ describe("bank workflow", () => {
         total,
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const transactionOverview = await createBankTransaction(
       {
@@ -554,7 +554,7 @@ describe("bank workflow", () => {
         currency: "EUR",
         description: "Supplier payment"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     return {
@@ -562,6 +562,106 @@ describe("bank workflow", () => {
       bankTransactionId: transactionOverview.bankTransactions![0]!.id
     };
   }
+});
+
+// ---------------------------------------------------------------------------
+// Mock factory
+// ---------------------------------------------------------------------------
+
+function makeMockStorage(overrides: Partial<WorkflowStorage["repos"]> = {}): WorkflowStorage {
+  const noop = vi.fn().mockResolvedValue(undefined);
+  const emptyList = vi.fn().mockResolvedValue([]);
+  return {
+    repos: {
+      workspace: { count: vi.fn(), getFirst: vi.fn() },
+      accounts: { getById: vi.fn().mockResolvedValue(undefined), getByWorkspaceId: emptyList, save: noop },
+      parties: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      bankAccounts: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      bankTransactions: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop, saveAll: noop },
+      invoices: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      supplierInvoices: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      journalEntries: { getById: vi.fn(), getByWorkspaceId: emptyList, save: noop },
+      ...overrides
+    },
+    persistence: {
+      saveInvoiceWorkflowData: noop,
+      saveInvoiceJournalEntryData: noop,
+      deleteInvoiceWorkflowData: noop,
+      saveInvoicePaymentData: noop,
+      saveSupplierInvoiceWorkflowData: noop,
+      saveSupplierInvoiceJournalEntryData: noop,
+      deleteSupplierInvoiceWorkflowData: noop,
+      saveSupplierInvoicePaymentData: noop,
+      saveBankTransactionPostingData: noop,
+      undoBankTransactionPostingData: noop,
+      savePartyJournalEntryData: noop
+    }
+  };
+}
+
+describe("bank workflow (mock storage)", () => {
+  it("posts bank fee via persistence without Dexie", async () => {
+    const bankTransaction: BankTransaction = {
+      id: "bt-1",
+      workspaceId: "ws-1",
+      bankAccountId: "ba-1",
+      bookingDate: "2026-05-15",
+      amount: "-3.50",
+      currency: "EUR",
+      description: "Monthly bank fee",
+      status: "unmatched"
+    };
+    const bankAccount: BankAccount = {
+      id: "ba-1",
+      workspaceId: "ws-1",
+      accountCode: "1100",
+      name: "NLB EUR",
+      currency: "EUR",
+      active: true
+    };
+    const accounts: Account[] = [
+      { id: "acc-1100", workspaceId: "ws-1", code: "1100", name: "Bank Account", role: "posting", currency: "EUR", active: true },
+      { id: "acc-4100", workspaceId: "ws-1", code: "4100", name: "Bank Fees", role: "posting", currency: "EUR", active: true }
+    ];
+    const saveBankTransactionPostingData = vi.fn().mockResolvedValue(undefined);
+    const storage = makeMockStorage({
+      bankTransactions: {
+        getById: vi.fn().mockResolvedValue(bankTransaction),
+        getByWorkspaceId: vi.fn().mockResolvedValue([bankTransaction]),
+        save: vi.fn(),
+        saveAll: vi.fn()
+      },
+      bankAccounts: {
+        getById: vi.fn().mockResolvedValue(bankAccount),
+        getByWorkspaceId: vi.fn().mockResolvedValue([bankAccount]),
+        save: vi.fn()
+      },
+      accounts: {
+        getById: vi.fn(),
+        getByWorkspaceId: vi.fn().mockResolvedValue(accounts),
+        save: vi.fn()
+      }
+    });
+    storage.persistence.saveBankTransactionPostingData = saveBankTransactionPostingData;
+
+    await postBankFeeFromBankTransaction("bt-1", storage);
+
+    expect(saveBankTransactionPostingData).toHaveBeenCalledOnce();
+    expect(saveBankTransactionPostingData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bankTransaction: expect.objectContaining({
+          status: "posted",
+          matchedDocumentType: "bank_fee"
+        }),
+        journalEntry: expect.objectContaining({
+          lines: [
+            expect.objectContaining({ accountCode: "4100", side: "debit" }),
+            expect.objectContaining({ accountCode: "1100", side: "credit" })
+          ]
+        })
+      })
+    );
+  });
 });
 
 function balanceFor(

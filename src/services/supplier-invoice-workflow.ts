@@ -1,12 +1,6 @@
 import type { JournalEntry, SupplierInvoice } from "../domain";
 import { validateJournalEntry, validateSupplierInvoice } from "../domain";
-import { db, type SpbookDatabase } from "../storage/db";
-import {
-  createRepositories,
-  deleteSupplierInvoiceWorkflowData,
-  saveSupplierInvoicePaymentData,
-  saveSupplierInvoiceJournalEntryData
-} from "../storage/repositories";
+import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { loadSupplierInvoicesSlice, loadLedgerSlice } from "./workspace-overview";
 import type { WorkspaceDataUpdate } from "../shared/model/workspace";
 
@@ -31,9 +25,9 @@ export type UpdateSupplierInvoiceInput = {
 
 export async function createSupplierInvoice(
   input: CreateSupplierInvoiceInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const [accounts, parties] = await Promise.all([
     repos.accounts.getByWorkspaceId(input.workspaceId),
     repos.parties.getByWorkspaceId(input.workspaceId)
@@ -55,7 +49,7 @@ export async function createSupplierInvoice(
     throw new Error("Supplier invoice journal entry is invalid.");
   }
 
-  await saveSupplierInvoiceJournalEntryData({ supplierInvoice, journalEntry }, database);
+  await storage.persistence.saveSupplierInvoiceJournalEntryData({ supplierInvoice, journalEntry });
 
   const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
     loadSupplierInvoicesSlice(input.workspaceId, supplierInvoice, repos),
@@ -66,9 +60,9 @@ export async function createSupplierInvoice(
 
 export async function recordSupplierPayment(
   supplierInvoiceId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const supplierInvoice = await repos.supplierInvoices.getById(supplierInvoiceId);
 
   if (!supplierInvoice) {
@@ -97,9 +91,8 @@ export async function recordSupplierPayment(
     throw new Error("Supplier payment journal entry is invalid.");
   }
 
-  await saveSupplierInvoicePaymentData(
-    { supplierInvoice: paidSupplierInvoice, journalEntry },
-    database
+  await storage.persistence.saveSupplierInvoicePaymentData(
+    { supplierInvoice: paidSupplierInvoice, journalEntry }
   );
 
   const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
@@ -111,9 +104,9 @@ export async function recordSupplierPayment(
 
 export async function updateSupplierInvoice(
   input: UpdateSupplierInvoiceInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const existingSupplierInvoice = await repos.supplierInvoices.getById(
     input.supplierInvoiceId
   );
@@ -160,9 +153,8 @@ export async function updateSupplierInvoice(
     throw new Error("Supplier invoice journal entry is invalid.");
   }
 
-  await saveSupplierInvoiceJournalEntryData(
-    { supplierInvoice: updatedSupplierInvoice, journalEntry },
-    database
+  await storage.persistence.saveSupplierInvoiceJournalEntryData(
+    { supplierInvoice: updatedSupplierInvoice, journalEntry }
   );
 
   const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
@@ -174,9 +166,9 @@ export async function updateSupplierInvoice(
 
 export async function deleteSupplierInvoice(
   supplierInvoiceId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const supplierInvoice = await repos.supplierInvoices.getById(supplierInvoiceId);
 
   if (!supplierInvoice) {
@@ -197,13 +189,10 @@ export async function deleteSupplierInvoice(
     )
     .map((entry) => entry.id);
 
-  await deleteSupplierInvoiceWorkflowData(
-    {
-      supplierInvoiceId: supplierInvoice.id,
-      journalEntryIds: supplierInvoiceJournalEntryIds
-    },
-    database
-  );
+  await storage.persistence.deleteSupplierInvoiceWorkflowData({
+    supplierInvoiceId: supplierInvoice.id,
+    journalEntryIds: supplierInvoiceJournalEntryIds
+  });
 
   const nextSupplierInvoice = supplierInvoices.find(
     (candidate) => candidate.id !== supplierInvoice.id

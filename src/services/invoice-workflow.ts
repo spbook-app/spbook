@@ -1,12 +1,6 @@
 import type { Invoice, JournalEntry } from "../domain";
 import { validateInvoice, validateJournalEntry } from "../domain";
-import { db, type SpbookDatabase } from "../storage/db";
-import {
-  createRepositories,
-  deleteInvoiceWorkflowData,
-  saveInvoiceJournalEntryData,
-  saveInvoicePaymentData,
-} from "../storage/repositories";
+import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { loadInvoicesSlice, loadLedgerSlice } from "./workspace-overview";
 import type { WorkspaceDataUpdate } from "../shared/model/workspace";
 
@@ -29,9 +23,9 @@ export type UpdateSalesInvoiceInput = {
 
 export async function createSalesInvoice(
   input: CreateSalesInvoiceInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const [accounts, parties] = await Promise.all([
     repos.accounts.getByWorkspaceId(input.workspaceId),
     repos.parties.getByWorkspaceId(input.workspaceId)
@@ -50,7 +44,7 @@ export async function createSalesInvoice(
     throw new Error("Invoice journal entry is invalid.");
   }
 
-  await saveInvoiceJournalEntryData({ invoice, journalEntry }, database);
+  await storage.persistence.saveInvoiceJournalEntryData({ invoice, journalEntry });
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
     loadInvoicesSlice(input.workspaceId, invoice, repos),
@@ -61,9 +55,9 @@ export async function createSalesInvoice(
 
 export async function recordInvoicePayment(
   invoiceId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const invoice = await repos.invoices.getById(invoiceId);
 
   if (!invoice) {
@@ -87,13 +81,10 @@ export async function recordInvoicePayment(
     throw new Error("Payment journal entry is invalid.");
   }
 
-  await saveInvoicePaymentData(
-    {
-      invoice: paidInvoice,
-      journalEntry
-    },
-    database
-  );
+  await storage.persistence.saveInvoicePaymentData({
+    invoice: paidInvoice,
+    journalEntry
+  });
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
     loadInvoicesSlice(invoice.workspaceId, paidInvoice, repos),
@@ -104,9 +95,9 @@ export async function recordInvoicePayment(
 
 export async function updateSalesInvoice(
   input: UpdateSalesInvoiceInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const existingInvoice = await repos.invoices.getById(input.invoiceId);
 
   if (!existingInvoice) {
@@ -158,7 +149,7 @@ export async function updateSalesInvoice(
     throw new Error("Invoice journal entry is invalid.");
   }
 
-  await saveInvoiceJournalEntryData({ invoice: updatedInvoice, journalEntry }, database);
+  await storage.persistence.saveInvoiceJournalEntryData({ invoice: updatedInvoice, journalEntry });
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
     loadInvoicesSlice(existingInvoice.workspaceId, updatedInvoice, repos),
@@ -169,9 +160,9 @@ export async function updateSalesInvoice(
 
 export async function deleteSalesInvoice(
   invoiceId: string,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const repos = createRepositories(database);
+  const repos = storage.repos;
   const invoice = await repos.invoices.getById(invoiceId);
 
   if (!invoice) {
@@ -190,13 +181,10 @@ export async function deleteSalesInvoice(
     .filter((entry) => entry.lines.some((line) => line.invoiceId === invoice.id))
     .map((entry) => entry.id);
 
-  await deleteInvoiceWorkflowData(
-    {
-      invoiceId: invoice.id,
-      journalEntryIds: invoiceJournalEntryIds
-    },
-    database
-  );
+  await storage.persistence.deleteInvoiceWorkflowData({
+    invoiceId: invoice.id,
+    journalEntryIds: invoiceJournalEntryIds
+  });
 
   const nextInvoice = invoices.find((candidate) => candidate.id !== invoice.id);
 
