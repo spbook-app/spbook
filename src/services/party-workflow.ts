@@ -6,7 +6,7 @@ import {
   getSupplierInvoicesByWorkspaceId,
   saveParty
 } from "../storage/repositories";
-import { isValidIban } from "./bank-workflow";
+import { isValidIban } from "../shared/lib/iban";
 import { loadWorkspaceOverview } from "./workspace-overview";
 
 export type CreatePartyInput = {
