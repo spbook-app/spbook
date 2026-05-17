@@ -1,11 +1,6 @@
 import type { JournalEntry, JournalLine, JournalLineSide } from "../domain";
 import { validateJournalEntry } from "../domain";
-import { db, type SpbookDatabase } from "../storage/db";
-import {
-  getAccountsByWorkspaceId,
-  getJournalEntryById,
-  saveJournalEntry
-} from "../storage/repositories";
+import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { loadLedgerSlice } from "./workspace-overview";
 
 export type UpdateJournalEntryLineInput = {
@@ -29,15 +24,15 @@ export type UpdateJournalEntryInput = {
 
 export async function updateJournalEntry(
   input: UpdateJournalEntryInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const existing = await getJournalEntryById(input.journalEntryId, database);
+  const existing = await storage.repos.journalEntries.getById(input.journalEntryId);
 
   if (!existing) {
     throw new Error(`Journal entry "${input.journalEntryId}" was not found.`);
   }
 
-  const accounts = await getAccountsByWorkspaceId(existing.workspaceId, database);
+  const accounts = await storage.repos.accounts.getByWorkspaceId(existing.workspaceId);
 
   const lines: JournalLine[] = input.lines.map((line) => ({
     accountCode: line.accountCode.trim(),
@@ -64,7 +59,7 @@ export async function updateJournalEntry(
     throw new Error(validation.issues[0]?.message ?? "Journal entry is invalid.");
   }
 
-  await saveJournalEntry(updated, database);
+  await storage.repos.journalEntries.save(updated);
 
-  return loadLedgerSlice(existing.workspaceId, database);
+  return loadLedgerSlice(existing.workspaceId, storage.repos);
 }

@@ -9,6 +9,7 @@ import type {
   Workspace
 } from "../domain";
 import { db, type SpbookDatabase } from "./db";
+import type { Repositories } from "./interfaces";
 
 export function getWorkspaceCount(database: SpbookDatabase = db) {
   return database.workspaces.count();
@@ -155,6 +156,13 @@ export function saveBankTransactions(
 
 export function saveInvoice(invoice: Invoice, database: SpbookDatabase = db) {
   return database.invoices.put(invoice);
+}
+
+export function saveSupplierInvoice(
+  supplierInvoice: SupplierInvoice,
+  database: SpbookDatabase = db
+) {
+  return database.supplierInvoices.put(supplierInvoice);
 }
 
 export function saveJournalEntry(
@@ -434,3 +442,62 @@ export async function clearDatabase(database: SpbookDatabase = db) {
     }
   );
 }
+
+// ---------------------------------------------------------------------------
+// Repository factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a {@link Repositories} object wrapping all simple (non-transactional)
+ * repository operations for the given database instance.
+ *
+ * Transactional workflow writes (saveInvoiceWorkflowData, etc.) remain as
+ * standalone free functions and are not part of this interface.
+ */
+export function createRepositories(database: SpbookDatabase = db): Repositories {
+  return {
+    workspace: {
+      count: () => getWorkspaceCount(database),
+      getFirst: () => getFirstWorkspace(database),
+    },
+    accounts: {
+      getById: (id) => getAccountById(id, database),
+      getByWorkspaceId: (wid) => getAccountsByWorkspaceId(wid, database),
+      save: (account) => saveAccount(account, database).then(() => undefined),
+    },
+    parties: {
+      getById: (id) => getPartyById(id, database),
+      getByWorkspaceId: (wid) => getPartiesByWorkspaceId(wid, database),
+      save: (party) => saveParty(party, database).then(() => undefined),
+    },
+    bankAccounts: {
+      getById: (id) => getBankAccountById(id, database),
+      getByWorkspaceId: (wid) => getBankAccountsByWorkspaceId(wid, database),
+      save: (ba) => saveBankAccount(ba, database).then(() => undefined),
+    },
+    bankTransactions: {
+      getById: (id) => getBankTransactionById(id, database),
+      getByWorkspaceId: (wid) => getBankTransactionsByWorkspaceId(wid, database),
+      save: (tx) => saveBankTransaction(tx, database).then(() => undefined),
+      saveAll: (txs) => saveBankTransactions(txs, database).then(() => undefined),
+    },
+    invoices: {
+      getById: (id) => getInvoiceById(id, database),
+      getByWorkspaceId: (wid) => getInvoicesByWorkspaceId(wid, database),
+      save: (invoice) => saveInvoice(invoice, database).then(() => undefined),
+    },
+    supplierInvoices: {
+      getById: (id) => getSupplierInvoiceById(id, database),
+      getByWorkspaceId: (wid) => getSupplierInvoicesByWorkspaceId(wid, database),
+      save: (si) => saveSupplierInvoice(si, database).then(() => undefined),
+    },
+    journalEntries: {
+      getById: (id) => getJournalEntryById(id, database),
+      getByWorkspaceId: (wid) => getJournalEntriesByWorkspaceId(wid, database),
+      save: (je) => saveJournalEntry(je, database).then(() => undefined),
+    },
+  };
+}
+
+/** Default repository instance backed by the production IndexedDB singleton. */
+export const defaultRepositories: Repositories = createRepositories(db);

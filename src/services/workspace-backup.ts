@@ -9,7 +9,7 @@ import type {
   Workspace
 } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
-import { clearDatabase } from "../storage/repositories";
+import { clearDatabase, createRepositories } from "../storage/repositories";
 import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
 
 export type WorkspaceBackup = {
@@ -79,7 +79,7 @@ export async function importWorkspaceBackup(
     }
   );
 
-  return loadWorkspaceOverview(backup.data.workspaces[0]!.id, database);
+  return loadWorkspaceOverview(backup.data.workspaces[0]!.id, createRepositories(database));
 }
 
 export function parseWorkspaceBackup(json: string): WorkspaceBackup {

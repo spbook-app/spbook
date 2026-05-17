@@ -1,10 +1,5 @@
 import type { Account, AccountRole } from "../domain";
-import { db, type SpbookDatabase } from "../storage/db";
-import {
-  getAccountById,
-  getAccountsByWorkspaceId,
-  saveAccount
-} from "../storage/repositories";
+import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { loadAccountsSlice } from "./workspace-overview";
 
 export type CreateWorkspaceAccountInput = {
@@ -26,9 +21,9 @@ export type UpdateWorkspaceAccountInput = {
 
 export async function createWorkspaceAccount(
   input: CreateWorkspaceAccountInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const accounts = await getAccountsByWorkspaceId(input.workspaceId, database);
+  const accounts = await storage.repos.accounts.getByWorkspaceId(input.workspaceId);
   const account: Account = {
     id: createEntityId("acc"),
     workspaceId: input.workspaceId,
@@ -41,22 +36,22 @@ export async function createWorkspaceAccount(
   };
 
   validateAccount(account, accounts);
-  await saveAccount(account, database);
+  await storage.repos.accounts.save(account);
 
-  return loadAccountsSlice(input.workspaceId, database);
+  return loadAccountsSlice(input.workspaceId, storage.repos);
 }
 
 export async function updateWorkspaceAccount(
   input: UpdateWorkspaceAccountInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const existingAccount = await getAccountById(input.accountId, database);
+  const existingAccount = await storage.repos.accounts.getById(input.accountId);
 
   if (!existingAccount) {
     throw new Error(`Account "${input.accountId}" was not found.`);
   }
 
-  const accounts = await getAccountsByWorkspaceId(existingAccount.workspaceId, database);
+  const accounts = await storage.repos.accounts.getByWorkspaceId(existingAccount.workspaceId);
   const updatedAccount: Account = {
     ...existingAccount,
     name: input.name.trim(),
@@ -69,9 +64,9 @@ export async function updateWorkspaceAccount(
     updatedAccount,
     accounts.filter((account) => account.id !== existingAccount.id)
   );
-  await saveAccount(updatedAccount, database);
+  await storage.repos.accounts.save(updatedAccount);
 
-  return loadAccountsSlice(existingAccount.workspaceId, database);
+  return loadAccountsSlice(existingAccount.workspaceId, storage.repos);
 }
 
 function validateAccount(account: Account, otherAccounts: Account[]) {

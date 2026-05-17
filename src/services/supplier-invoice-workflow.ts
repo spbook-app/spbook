@@ -2,12 +2,8 @@ import type { JournalEntry, SupplierInvoice } from "../domain";
 import { validateJournalEntry, validateSupplierInvoice } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
+  createRepositories,
   deleteSupplierInvoiceWorkflowData,
-  getAccountsByWorkspaceId,
-  getJournalEntriesByWorkspaceId,
-  getPartiesByWorkspaceId,
-  getSupplierInvoiceById,
-  getSupplierInvoicesByWorkspaceId,
   saveSupplierInvoicePaymentData,
   saveSupplierInvoiceJournalEntryData
 } from "../storage/repositories";
@@ -37,9 +33,10 @@ export async function createSupplierInvoice(
   input: CreateSupplierInvoiceInput,
   database: SpbookDatabase = db
 ) {
+  const repos = createRepositories(database);
   const [accounts, parties] = await Promise.all([
-    getAccountsByWorkspaceId(input.workspaceId, database),
-    getPartiesByWorkspaceId(input.workspaceId, database)
+    repos.accounts.getByWorkspaceId(input.workspaceId),
+    repos.parties.getByWorkspaceId(input.workspaceId)
   ]);
   const supplierInvoice = createReceivedSupplierInvoice(input);
   const journalEntry = createSupplierInvoiceJournalEntry(
@@ -61,8 +58,8 @@ export async function createSupplierInvoice(
   await saveSupplierInvoiceJournalEntryData({ supplierInvoice, journalEntry }, database);
 
   const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
-    loadSupplierInvoicesSlice(input.workspaceId, supplierInvoice, database),
-    loadLedgerSlice(input.workspaceId, database)
+    loadSupplierInvoicesSlice(input.workspaceId, supplierInvoice, repos),
+    loadLedgerSlice(input.workspaceId, repos)
   ]);
   return { ...supplierInvoicesSlice, ...ledgerSlice };
 }
@@ -71,7 +68,8 @@ export async function recordSupplierPayment(
   supplierInvoiceId: string,
   database: SpbookDatabase = db
 ) {
-  const supplierInvoice = await getSupplierInvoiceById(supplierInvoiceId, database);
+  const repos = createRepositories(database);
+  const supplierInvoice = await repos.supplierInvoices.getById(supplierInvoiceId);
 
   if (!supplierInvoice) {
     throw new Error(`Supplier invoice "${supplierInvoiceId}" was not found.`);
@@ -79,15 +77,14 @@ export async function recordSupplierPayment(
 
   if (supplierInvoice.status === "paid") {
     const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
-      loadSupplierInvoicesSlice(supplierInvoice.workspaceId, supplierInvoice, database),
-      loadLedgerSlice(supplierInvoice.workspaceId, database)
+      loadSupplierInvoicesSlice(supplierInvoice.workspaceId, supplierInvoice, repos),
+      loadLedgerSlice(supplierInvoice.workspaceId, repos)
     ]);
     return { ...supplierInvoicesSlice, ...ledgerSlice };
   }
 
-  const accounts = await getAccountsByWorkspaceId(
-    supplierInvoice.workspaceId,
-    database
+  const accounts = await repos.accounts.getByWorkspaceId(
+    supplierInvoice.workspaceId
   );
   const journalEntry = createSupplierPaymentJournalEntry(supplierInvoice);
   const paidSupplierInvoice: SupplierInvoice = {
@@ -106,8 +103,8 @@ export async function recordSupplierPayment(
   );
 
   const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
-    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, paidSupplierInvoice, database),
-    loadLedgerSlice(supplierInvoice.workspaceId, database)
+    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, paidSupplierInvoice, repos),
+    loadLedgerSlice(supplierInvoice.workspaceId, repos)
   ]);
   return { ...supplierInvoicesSlice, ...ledgerSlice };
 }
@@ -116,9 +113,9 @@ export async function updateSupplierInvoice(
   input: UpdateSupplierInvoiceInput,
   database: SpbookDatabase = db
 ) {
-  const existingSupplierInvoice = await getSupplierInvoiceById(
-    input.supplierInvoiceId,
-    database
+  const repos = createRepositories(database);
+  const existingSupplierInvoice = await repos.supplierInvoices.getById(
+    input.supplierInvoiceId
   );
 
   if (!existingSupplierInvoice) {
@@ -130,9 +127,9 @@ export async function updateSupplierInvoice(
   }
 
   const [accounts, parties, journalEntries] = await Promise.all([
-    getAccountsByWorkspaceId(existingSupplierInvoice.workspaceId, database),
-    getPartiesByWorkspaceId(existingSupplierInvoice.workspaceId, database),
-    getJournalEntriesByWorkspaceId(existingSupplierInvoice.workspaceId, database)
+    repos.accounts.getByWorkspaceId(existingSupplierInvoice.workspaceId),
+    repos.parties.getByWorkspaceId(existingSupplierInvoice.workspaceId),
+    repos.journalEntries.getByWorkspaceId(existingSupplierInvoice.workspaceId)
   ]);
   const updatedSupplierInvoice: SupplierInvoice = {
     ...existingSupplierInvoice,
@@ -169,8 +166,8 @@ export async function updateSupplierInvoice(
   );
 
   const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
-    loadSupplierInvoicesSlice(existingSupplierInvoice.workspaceId, updatedSupplierInvoice, database),
-    loadLedgerSlice(existingSupplierInvoice.workspaceId, database)
+    loadSupplierInvoicesSlice(existingSupplierInvoice.workspaceId, updatedSupplierInvoice, repos),
+    loadLedgerSlice(existingSupplierInvoice.workspaceId, repos)
   ]);
   return { ...supplierInvoicesSlice, ...ledgerSlice };
 }
@@ -179,7 +176,8 @@ export async function deleteSupplierInvoice(
   supplierInvoiceId: string,
   database: SpbookDatabase = db
 ) {
-  const supplierInvoice = await getSupplierInvoiceById(supplierInvoiceId, database);
+  const repos = createRepositories(database);
+  const supplierInvoice = await repos.supplierInvoices.getById(supplierInvoiceId);
 
   if (!supplierInvoice) {
     throw new Error(`Supplier invoice "${supplierInvoiceId}" was not found.`);
@@ -190,8 +188,8 @@ export async function deleteSupplierInvoice(
   }
 
   const [supplierInvoices, journalEntries] = await Promise.all([
-    getSupplierInvoicesByWorkspaceId(supplierInvoice.workspaceId, database),
-    getJournalEntriesByWorkspaceId(supplierInvoice.workspaceId, database)
+    repos.supplierInvoices.getByWorkspaceId(supplierInvoice.workspaceId),
+    repos.journalEntries.getByWorkspaceId(supplierInvoice.workspaceId)
   ]);
   const supplierInvoiceJournalEntryIds = journalEntries
     .filter((entry) =>
@@ -212,8 +210,8 @@ export async function deleteSupplierInvoice(
   );
 
   const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
-    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, nextSupplierInvoice, database),
-    loadLedgerSlice(supplierInvoice.workspaceId, database)
+    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, nextSupplierInvoice, repos),
+    loadLedgerSlice(supplierInvoice.workspaceId, repos)
   ]);
   return { ...supplierInvoicesSlice, ...ledgerSlice };
 }

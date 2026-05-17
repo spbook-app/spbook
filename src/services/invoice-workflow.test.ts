@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
+import { createWorkflowStorage } from "../storage/workflow-persistence";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
 import {
@@ -20,6 +21,7 @@ import {
   updateSupplierInvoice
 } from "./supplier-invoice-workflow";
 import { loadWorkspaceOverview } from "./workspace-overview";
+import { createRepositories } from "../storage/repositories";
 
 describe("invoice workflow", () => {
   let database: SpbookDatabase;
@@ -39,7 +41,7 @@ describe("invoice workflow", () => {
         countryCode: "SI",
         vatId: "SI12345678"
       },
-      database
+      createWorkflowStorage(database)
     );
     const overview = await createSalesInvoice(
       {
@@ -70,7 +72,7 @@ describe("invoice workflow", () => {
         type: "business",
         roles: ["customer"]
       },
-      database
+      createWorkflowStorage(database)
     );
     const issuedOverview = await createSalesInvoice(
       {
@@ -108,7 +110,7 @@ describe("invoice workflow", () => {
         type: "business",
         roles: ["customer"]
       },
-      database
+      createWorkflowStorage(database)
     );
     const issuedOverview = await createSalesInvoice(
       {
@@ -148,7 +150,7 @@ describe("invoice workflow", () => {
 
   it("loads an empty overview before an invoice is created", async () => {
     const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
-    const overview = await loadWorkspaceOverview(initialization.workspace.id, database);
+    const overview = await loadWorkspaceOverview(initialization.workspace.id, createRepositories(database));
 
     expect(overview.latestInvoice).toBeNull();
     expect(overview.journalEntries).toHaveLength(0);
@@ -170,7 +172,7 @@ describe("invoice workflow", () => {
         type: "business",
         roles: ["supplier"]
       },
-      database
+      createWorkflowStorage(database)
     );
     const issuedOverview = await createSupplierInvoice(
       {
@@ -206,7 +208,7 @@ describe("invoice workflow", () => {
         type: "business",
         roles: ["supplier"]
       },
-      database
+      createWorkflowStorage(database)
     );
     const issuedOverview = await createSupplierInvoice(
       {
@@ -255,7 +257,7 @@ describe("invoice workflow", () => {
         amount: "300.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const withdrawalOverview = await recordOwnerWithdrawal(
       {
@@ -264,7 +266,7 @@ describe("invoice workflow", () => {
         amount: "75.00",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(contributionOverview.journalEntries).toHaveLength(1);
@@ -284,7 +286,7 @@ describe("invoice workflow", () => {
         type: "business",
         roles: ["supplier"]
       },
-      database
+      createWorkflowStorage(database)
     );
     const customerOverview = await createParty(
       {
@@ -293,7 +295,7 @@ describe("invoice workflow", () => {
         type: "business",
         roles: ["customer"]
       },
-      database
+      createWorkflowStorage(database)
     );
 
     await expect(

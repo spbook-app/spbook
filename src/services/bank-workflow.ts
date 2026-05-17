@@ -8,17 +8,9 @@ import type {
 import { parseMoneyAmount, validateJournalEntry } from "../domain";
 import { isValidIban } from "../shared/lib/iban";
 import { db, type SpbookDatabase } from "../storage/db";
+import type { Repositories } from "../storage/interfaces";
 import {
-  getAccountsByWorkspaceId,
-  getBankAccountsByWorkspaceId,
-  getBankAccountById,
-  getBankTransactionById,
-  getInvoiceById,
-  getJournalEntryById,
-  getPartyById,
-  getSupplierInvoiceById,
-  saveBankAccount,
-  saveBankTransaction,
+  createRepositories,
   saveBankTransactionPostingData,
   saveInvoicePaymentData,
   saveSupplierInvoicePaymentData,
@@ -77,15 +69,16 @@ export async function createBankAccount(
   input: CreateBankAccountInput,
   database: SpbookDatabase = db
 ) {
-  const accounts = await getAccountsByWorkspaceId(input.workspaceId, database);
+  const repos = createRepositories(database);
+  const accounts = await repos.accounts.getByWorkspaceId(input.workspaceId);
   const account = accounts.find((candidate) => candidate.code === input.accountCode);
-  await ensureBankParty(input.workspaceId, input.partyId, database);
+  await ensureBankParty(input.workspaceId, input.partyId, repos);
 
   if (!account || account.role !== "posting") {
     throw new Error("Bank account must reference an existing posting account.");
   }
 
-  await ensureUniqueBankPostingAccount(input.workspaceId, input.accountCode, undefined, database);
+  await ensureUniqueBankPostingAccount(input.workspaceId, input.accountCode, undefined, repos);
 
   const bankAccount: BankAccount = {
     id: createEntityId("ba"),
@@ -102,24 +95,25 @@ export async function createBankAccount(
     throw new Error("Bank account name is required.");
   }
 
-  await saveBankAccount(bankAccount, database);
+  await repos.bankAccounts.save(bankAccount);
 
-  return loadBankingSlice(input.workspaceId, database);
+  return loadBankingSlice(input.workspaceId, repos);
 }
 
 export async function updateBankAccount(
   input: UpdateBankAccountInput,
   database: SpbookDatabase = db
 ) {
-  const existingBankAccount = await getBankAccountById(input.bankAccountId, database);
+  const repos = createRepositories(database);
+  const existingBankAccount = await repos.bankAccounts.getById(input.bankAccountId);
 
   if (!existingBankAccount) {
     throw new Error(`Bank account "${input.bankAccountId}" was not found.`);
   }
 
-  const accounts = await getAccountsByWorkspaceId(existingBankAccount.workspaceId, database);
+  const accounts = await repos.accounts.getByWorkspaceId(existingBankAccount.workspaceId);
   const account = accounts.find((candidate) => candidate.code === input.accountCode);
-  await ensureBankParty(existingBankAccount.workspaceId, input.partyId, database);
+  await ensureBankParty(existingBankAccount.workspaceId, input.partyId, repos);
 
   if (!account || account.role !== "posting") {
     throw new Error("Bank account must reference an existing posting account.");
@@ -130,7 +124,7 @@ export async function updateBankAccount(
       existingBankAccount.workspaceId,
       input.accountCode,
       existingBankAccount.id,
-      database
+      repos
     );
   }
 
@@ -147,16 +141,17 @@ export async function updateBankAccount(
     throw new Error("Bank account name is required.");
   }
 
-  await saveBankAccount(updatedBankAccount, database);
+  await repos.bankAccounts.save(updatedBankAccount);
 
-  return loadBankingSlice(existingBankAccount.workspaceId, database);
+  return loadBankingSlice(existingBankAccount.workspaceId, repos);
 }
 
 export async function createBankTransaction(
   input: CreateBankTransactionInput,
   database: SpbookDatabase = db
 ) {
-  const bankAccount = await getBankAccountById(input.bankAccountId, database);
+  const repos = createRepositories(database);
+  const bankAccount = await repos.bankAccounts.getById(input.bankAccountId);
 
   if (!bankAccount) {
     throw new Error(`Bank account "${input.bankAccountId}" was not found.`);
@@ -179,18 +174,18 @@ export async function createBankTransaction(
 
   ensureBankTransactionFields(bankTransaction.bookingDate, bankTransaction.description);
 
-  await saveBankTransaction(bankTransaction, database);
+  await repos.bankTransactions.save(bankTransaction);
 
-  return loadBankingSlice(input.workspaceId, database);
+  return loadBankingSlice(input.workspaceId, repos);
 }
 
 export async function updateBankTransaction(
   input: UpdateBankTransactionInput,
   database: SpbookDatabase = db
 ) {
-  const existingBankTransaction = await getBankTransactionById(
-    input.bankTransactionId,
-    database
+  const repos = createRepositories(database);
+  const existingBankTransaction = await repos.bankTransactions.getById(
+    input.bankTransactionId
   );
 
   if (!existingBankTransaction) {
@@ -200,7 +195,7 @@ export async function updateBankTransaction(
   ensureUnmatched(existingBankTransaction);
   ensureManualBankTransaction(existingBankTransaction);
 
-  const bankAccount = await getBankAccountById(input.bankAccountId, database);
+  const bankAccount = await repos.bankAccounts.getById(input.bankAccountId);
 
   if (!bankAccount) {
     throw new Error(`Bank account "${input.bankAccountId}" was not found.`);
@@ -222,18 +217,18 @@ export async function updateBankTransaction(
     updatedBankTransaction.description
   );
 
-  await saveBankTransaction(updatedBankTransaction, database);
+  await repos.bankTransactions.save(updatedBankTransaction);
 
-  return loadBankingSlice(existingBankTransaction.workspaceId, database);
+  return loadBankingSlice(existingBankTransaction.workspaceId, repos);
 }
 
 export async function linkBankTransactionParty(
   input: LinkBankTransactionPartyInput,
   database: SpbookDatabase = db
 ) {
-  const existingBankTransaction = await getBankTransactionById(
-    input.bankTransactionId,
-    database
+  const repos = createRepositories(database);
+  const existingBankTransaction = await repos.bankTransactions.getById(
+    input.bankTransactionId
   );
 
   if (!existingBankTransaction) {
@@ -244,31 +239,30 @@ export async function linkBankTransactionParty(
   const partyId = normalizeOptional(input.partyId);
 
   if (partyId) {
-    const party = await getPartyById(partyId, database);
+    const party = await repos.parties.getById(partyId);
 
     if (!party || party.workspaceId !== existingBankTransaction.workspaceId) {
       throw new Error(`Party "${partyId}" was not found.`);
     }
   }
 
-  await saveBankTransaction(
+  await repos.bankTransactions.save(
     {
       ...existingBankTransaction,
       partyId
-    },
-    database
+    }
   );
 
-  return loadBankingSlice(existingBankTransaction.workspaceId, database);
+  return loadBankingSlice(existingBankTransaction.workspaceId, repos);
 }
 
 async function ensureUniqueBankPostingAccount(
   workspaceId: string,
   accountCode: string,
   ignoredBankAccountId: string | undefined,
-  database: SpbookDatabase
+  repos: Repositories
 ) {
-  const bankAccounts = await getBankAccountsByWorkspaceId(workspaceId, database);
+  const bankAccounts = await repos.bankAccounts.getByWorkspaceId(workspaceId);
   const duplicate = bankAccounts.find(
     (bankAccount) =>
       bankAccount.active &&
@@ -284,13 +278,13 @@ async function ensureUniqueBankPostingAccount(
 async function ensureBankParty(
   workspaceId: string,
   partyId: string | undefined,
-  database: SpbookDatabase
+  repos: Repositories
 ) {
   const normalizedPartyId = normalizeOptional(partyId);
 
   if (!normalizedPartyId) return;
 
-  const party = await getPartyById(normalizedPartyId, database);
+  const party = await repos.parties.getById(normalizedPartyId);
 
   if (!party || party.workspaceId !== workspaceId) {
     throw new Error(`Bank party "${normalizedPartyId}" was not found.`);
@@ -306,8 +300,9 @@ export async function matchInvoicePaymentFromBankTransaction(
   bankTransactionId: string,
   database: SpbookDatabase = db
 ) {
-  const invoice = await getInvoiceById(invoiceId, database);
-  const bankContext = await loadBankTransactionContext(bankTransactionId, database);
+  const repos = createRepositories(database);
+  const invoice = await repos.invoices.getById(invoiceId);
+  const bankContext = await loadBankTransactionContext(bankTransactionId, repos);
 
   if (!invoice) {
     throw new Error(`Invoice "${invoiceId}" was not found.`);
@@ -318,7 +313,7 @@ export async function matchInvoicePaymentFromBankTransaction(
   ensureAmountMatches(bankContext.bankTransaction, invoice.total);
 
   const journalEntry = createInvoicePaymentEntry(invoice, bankContext);
-  await validateBankJournalEntry(journalEntry, invoice.workspaceId, database);
+  await validateBankJournalEntry(journalEntry, invoice.workspaceId, repos);
 
   const paidInvoice: Invoice = { ...invoice, status: "paid" };
   const matchedBankTransaction = matchBankTransaction(
@@ -338,9 +333,9 @@ export async function matchInvoicePaymentFromBankTransaction(
   );
 
   const [bankingSlice, invoicesSlice, ledgerSlice] = await Promise.all([
-    loadBankingSlice(invoice.workspaceId, database),
-    loadInvoicesSlice(invoice.workspaceId, paidInvoice, database),
-    loadLedgerSlice(invoice.workspaceId, database)
+    loadBankingSlice(invoice.workspaceId, repos),
+    loadInvoicesSlice(invoice.workspaceId, paidInvoice, repos),
+    loadLedgerSlice(invoice.workspaceId, repos)
   ]);
   return { ...bankingSlice, ...invoicesSlice, ...ledgerSlice };
 }
@@ -350,8 +345,9 @@ export async function matchSupplierPaymentFromBankTransaction(
   bankTransactionId: string,
   database: SpbookDatabase = db
 ) {
-  const supplierInvoice = await getSupplierInvoiceById(supplierInvoiceId, database);
-  const bankContext = await loadBankTransactionContext(bankTransactionId, database);
+  const repos = createRepositories(database);
+  const supplierInvoice = await repos.supplierInvoices.getById(supplierInvoiceId);
+  const bankContext = await loadBankTransactionContext(bankTransactionId, repos);
 
   if (!supplierInvoice) {
     throw new Error(`Supplier invoice "${supplierInvoiceId}" was not found.`);
@@ -362,7 +358,7 @@ export async function matchSupplierPaymentFromBankTransaction(
   ensureAmountMatches(bankContext.bankTransaction, supplierInvoice.total);
 
   const journalEntry = createSupplierPaymentEntry(supplierInvoice, bankContext);
-  await validateBankJournalEntry(journalEntry, supplierInvoice.workspaceId, database);
+  await validateBankJournalEntry(journalEntry, supplierInvoice.workspaceId, repos);
 
   const paidSupplierInvoice: SupplierInvoice = { ...supplierInvoice, status: "paid" };
   const matchedBankTransaction = matchBankTransaction(
@@ -382,9 +378,9 @@ export async function matchSupplierPaymentFromBankTransaction(
   );
 
   const [bankingSlice, supplierInvoicesSlice, ledgerSlice] = await Promise.all([
-    loadBankingSlice(supplierInvoice.workspaceId, database),
-    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, paidSupplierInvoice, database),
-    loadLedgerSlice(supplierInvoice.workspaceId, database)
+    loadBankingSlice(supplierInvoice.workspaceId, repos),
+    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, paidSupplierInvoice, repos),
+    loadLedgerSlice(supplierInvoice.workspaceId, repos)
   ]);
   return { ...bankingSlice, ...supplierInvoicesSlice, ...ledgerSlice };
 }
@@ -393,13 +389,14 @@ export async function postBankFeeFromBankTransaction(
   bankTransactionId: string,
   database: SpbookDatabase = db
 ) {
-  const bankContext = await loadBankTransactionContext(bankTransactionId, database);
+  const repos = createRepositories(database);
+  const bankContext = await loadBankTransactionContext(bankTransactionId, repos);
 
   ensureUnmatched(bankContext.bankTransaction);
   ensureSignedAmount(bankContext.bankTransaction, "outgoing");
 
   const journalEntry = createBankFeeEntry(bankContext);
-  await validateBankJournalEntry(journalEntry, bankContext.bankTransaction.workspaceId, database);
+  await validateBankJournalEntry(journalEntry, bankContext.bankTransaction.workspaceId, repos);
 
   const postedBankTransaction = matchBankTransaction(
     bankContext.bankTransaction,
@@ -414,8 +411,8 @@ export async function postBankFeeFromBankTransaction(
   );
 
   const [bankingSlice, ledgerSlice] = await Promise.all([
-    loadBankingSlice(bankContext.bankTransaction.workspaceId, database),
-    loadLedgerSlice(bankContext.bankTransaction.workspaceId, database)
+    loadBankingSlice(bankContext.bankTransaction.workspaceId, repos),
+    loadLedgerSlice(bankContext.bankTransaction.workspaceId, repos)
   ]);
   return { ...bankingSlice, ...ledgerSlice };
 }
@@ -424,7 +421,8 @@ export async function undoBankTransactionPosting(
   bankTransactionId: string,
   database: SpbookDatabase = db
 ) {
-  const bankTransaction = await getBankTransactionById(bankTransactionId, database);
+  const repos = createRepositories(database);
+  const bankTransaction = await repos.bankTransactions.getById(bankTransactionId);
 
   if (!bankTransaction) {
     throw new Error(`Bank transaction "${bankTransactionId}" was not found.`);
@@ -438,7 +436,7 @@ export async function undoBankTransactionPosting(
     throw new Error("Bank transaction has no linked journal entry.");
   }
 
-  const journalEntry = await getJournalEntryById(bankTransaction.journalEntryId, database);
+  const journalEntry = await repos.journalEntries.getById(bankTransaction.journalEntryId);
 
   if (!journalEntry) {
     throw new Error(`Journal entry "${bankTransaction.journalEntryId}" was not found.`);
@@ -453,12 +451,12 @@ export async function undoBankTransactionPosting(
   };
   const invoice =
     bankTransaction.matchedDocumentType === "invoice" && bankTransaction.matchedDocumentId
-      ? await getInvoiceById(bankTransaction.matchedDocumentId, database)
+      ? await repos.invoices.getById(bankTransaction.matchedDocumentId)
       : undefined;
   const supplierInvoice =
     bankTransaction.matchedDocumentType === "supplier_invoice" &&
     bankTransaction.matchedDocumentId
-      ? await getSupplierInvoiceById(bankTransaction.matchedDocumentId, database)
+      ? await repos.supplierInvoices.getById(bankTransaction.matchedDocumentId)
       : undefined;
 
   await undoBankTransactionPostingData(
@@ -474,10 +472,10 @@ export async function undoBankTransactionPosting(
   );
 
   const [bankingSlice, invoicesSlice, supplierInvoicesSlice, ledgerSlice] = await Promise.all([
-    loadBankingSlice(bankTransaction.workspaceId, database),
-    loadInvoicesSlice(bankTransaction.workspaceId, undefined, database),
-    loadSupplierInvoicesSlice(bankTransaction.workspaceId, undefined, database),
-    loadLedgerSlice(bankTransaction.workspaceId, database)
+    loadBankingSlice(bankTransaction.workspaceId, repos),
+    loadInvoicesSlice(bankTransaction.workspaceId, undefined, repos),
+    loadSupplierInvoicesSlice(bankTransaction.workspaceId, undefined, repos),
+    loadLedgerSlice(bankTransaction.workspaceId, repos)
   ]);
   return { ...bankingSlice, ...invoicesSlice, ...supplierInvoicesSlice, ...ledgerSlice };
 }
@@ -491,15 +489,15 @@ type BankTransactionContext = {
 
 async function loadBankTransactionContext(
   bankTransactionId: string,
-  database: SpbookDatabase
+  repos: Repositories
 ): Promise<BankTransactionContext> {
-  const bankTransaction = await getBankTransactionById(bankTransactionId, database);
+  const bankTransaction = await repos.bankTransactions.getById(bankTransactionId);
 
   if (!bankTransaction) {
     throw new Error(`Bank transaction "${bankTransactionId}" was not found.`);
   }
 
-  const bankAccount = await getBankAccountById(bankTransaction.bankAccountId, database);
+  const bankAccount = await repos.bankAccounts.getById(bankTransaction.bankAccountId);
 
   if (!bankAccount) {
     throw new Error(`Bank account "${bankTransaction.bankAccountId}" was not found.`);
@@ -617,11 +615,11 @@ function createBankFeeEntry(context: BankTransactionContext): JournalEntry {
 async function validateBankJournalEntry(
   journalEntry: JournalEntry,
   workspaceId: string,
-  database: SpbookDatabase
+  repos: Repositories
 ) {
   const validation = validateJournalEntry(
     journalEntry,
-    await getAccountsByWorkspaceId(workspaceId, database)
+    await repos.accounts.getByWorkspaceId(workspaceId)
   );
 
   if (!validation.ok) {

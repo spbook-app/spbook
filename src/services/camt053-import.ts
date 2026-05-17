@@ -2,6 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 import type { BankTransaction } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
+  createRepositories,
   getBankAccountById,
   getBankTransactionsByWorkspaceId,
   getPartiesByWorkspaceId,
@@ -146,7 +147,7 @@ export async function importCamt053BankTransactions(
   }
 
   return {
-    bankingSlice: await loadBankingSlice(input.workspaceId, database),
+    bankingSlice: await loadBankingSlice(input.workspaceId, createRepositories(database)),
     statement,
     importedCount: bankTransactions.length,
     skippedCount: statement.entries.length - bankTransactions.length
@@ -183,7 +184,7 @@ export async function autoLinkImportedBankTransactions(
   }
 
   return {
-    bankingSlice: await loadBankingSlice(workspaceId, database),
+    bankingSlice: await loadBankingSlice(workspaceId, createRepositories(database)),
     linkedCount: linkedBankTransactions.length
   };
 }

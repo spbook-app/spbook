@@ -1,10 +1,6 @@
 import type { JournalEntry, Party } from "../domain";
 import { validateJournalEntry } from "../domain";
-import { db, type SpbookDatabase } from "../storage/db";
-import {
-  getAccountsByWorkspaceId,
-  savePartyJournalEntryData
-} from "../storage/repositories";
+import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { loadLedgerSlice } from "./workspace-overview";
 
 export type OwnerTransactionInput = {
@@ -16,24 +12,24 @@ export type OwnerTransactionInput = {
 
 export async function recordOwnerContribution(
   input: OwnerTransactionInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  return recordOwnerTransaction(input, "contribution", database);
+  return recordOwnerTransaction(input, "contribution", storage);
 }
 
 export async function recordOwnerWithdrawal(
   input: OwnerTransactionInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  return recordOwnerTransaction(input, "withdrawal", database);
+  return recordOwnerTransaction(input, "withdrawal", storage);
 }
 
 async function recordOwnerTransaction(
   input: OwnerTransactionInput,
   transactionType: "contribution" | "withdrawal",
-  database: SpbookDatabase
+  storage: WorkflowStorage
 ) {
-  const accounts = await getAccountsByWorkspaceId(input.workspaceId, database);
+  const accounts = await storage.repos.accounts.getByWorkspaceId(input.workspaceId);
   const owner = createOwnerParty(input.workspaceId);
   const journalEntry = createOwnerJournalEntry(input, owner.id, transactionType);
   const journalValidation = validateJournalEntry(journalEntry, accounts);
@@ -42,9 +38,9 @@ async function recordOwnerTransaction(
     throw new Error("Owner transaction journal entry is invalid.");
   }
 
-  await savePartyJournalEntryData({ party: owner, journalEntry }, database);
+  await storage.persistence.savePartyJournalEntryData({ party: owner, journalEntry });
 
-  return loadLedgerSlice(input.workspaceId, database);
+  return loadLedgerSlice(input.workspaceId, storage.repos);
 }
 
 function createOwnerParty(workspaceId: string): Party {

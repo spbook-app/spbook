@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
+import { createWorkflowStorage } from "../storage/workflow-persistence";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
 import { createBankAccount } from "./bank-workflow";
@@ -107,7 +108,7 @@ describe("CAMT.053 import", () => {
         roles: ["bank"],
         iban: "SI56 0290 0000 0200 020"
       },
-      database
+      createWorkflowStorage(database)
     );
     const xml = await readFile(
       `${sampleStatementDirectory}/SI56028430300037670_20260330_1.xml`,
@@ -159,7 +160,7 @@ describe("CAMT.053 import", () => {
         roles: ["bank"],
         iban: "SI56 0290 0000 0200 020"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     const result = await autoLinkImportedBankTransactions(

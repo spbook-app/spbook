@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
+import { createWorkflowStorage } from "../storage/workflow-persistence";
 import { createSalesInvoice } from "./invoice-workflow";
 import { createParty, updateParty } from "./party-workflow";
 
@@ -31,7 +32,7 @@ describe("party workflow", () => {
         contactName: "Ana Novak",
         email: "INFO@ACME.SI"
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(overview.parties).toHaveLength(1);
@@ -64,7 +65,7 @@ describe("party workflow", () => {
           type: "business",
           roles: []
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("At least one party role is required.");
   });
@@ -79,7 +80,7 @@ describe("party workflow", () => {
         roles: ["customer"],
         countryCode: "SI"
       },
-      database
+      createWorkflowStorage(database)
     );
     const updatedOverview = await updateParty(
       {
@@ -99,7 +100,7 @@ describe("party workflow", () => {
         email: "billing@acme.si",
         active: false
       },
-      database
+      createWorkflowStorage(database)
     );
 
     expect(updatedOverview.parties[0]).toMatchObject({
@@ -130,7 +131,7 @@ describe("party workflow", () => {
           roles: ["customer"],
           email: "not-an-email"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("Party email is invalid.");
   });
@@ -147,7 +148,7 @@ describe("party workflow", () => {
           roles: ["supplier"],
           iban: "not-an-iban"
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("IBAN is invalid.");
   });
@@ -161,7 +162,7 @@ describe("party workflow", () => {
         type: "business",
         roles: ["customer"]
       },
-      database
+      createWorkflowStorage(database)
     );
     await createSalesInvoice(
       {
@@ -184,7 +185,7 @@ describe("party workflow", () => {
           roles: ["supplier"],
           active: true
         },
-        database
+        createWorkflowStorage(database)
       )
     ).rejects.toThrow("Party with issued invoices must keep the customer role.");
   });

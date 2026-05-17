@@ -2,12 +2,8 @@ import type { Invoice, JournalEntry } from "../domain";
 import { validateInvoice, validateJournalEntry } from "../domain";
 import { db, type SpbookDatabase } from "../storage/db";
 import {
+  createRepositories,
   deleteInvoiceWorkflowData,
-  getAccountsByWorkspaceId,
-  getInvoiceById,
-  getInvoicesByWorkspaceId,
-  getJournalEntriesByWorkspaceId,
-  getPartiesByWorkspaceId,
   saveInvoiceJournalEntryData,
   saveInvoicePaymentData,
 } from "../storage/repositories";
@@ -35,9 +31,10 @@ export async function createSalesInvoice(
   input: CreateSalesInvoiceInput,
   database: SpbookDatabase = db
 ) {
+  const repos = createRepositories(database);
   const [accounts, parties] = await Promise.all([
-    getAccountsByWorkspaceId(input.workspaceId, database),
-    getPartiesByWorkspaceId(input.workspaceId, database)
+    repos.accounts.getByWorkspaceId(input.workspaceId),
+    repos.parties.getByWorkspaceId(input.workspaceId)
   ]);
   const invoice = createIssuedInvoice(input);
   const journalEntry = createInvoiceJournalEntry(input, invoice.id);
@@ -56,8 +53,8 @@ export async function createSalesInvoice(
   await saveInvoiceJournalEntryData({ invoice, journalEntry }, database);
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
-    loadInvoicesSlice(input.workspaceId, invoice, database),
-    loadLedgerSlice(input.workspaceId, database)
+    loadInvoicesSlice(input.workspaceId, invoice, repos),
+    loadLedgerSlice(input.workspaceId, repos)
   ]);
   return { ...invoicesSlice, ...ledgerSlice };
 }
@@ -66,7 +63,8 @@ export async function recordInvoicePayment(
   invoiceId: string,
   database: SpbookDatabase = db
 ) {
-  const invoice = await getInvoiceById(invoiceId, database);
+  const repos = createRepositories(database);
+  const invoice = await repos.invoices.getById(invoiceId);
 
   if (!invoice) {
     throw new Error(`Invoice "${invoiceId}" was not found.`);
@@ -74,13 +72,13 @@ export async function recordInvoicePayment(
 
   if (invoice.status === "paid") {
     const [invoicesSlice, ledgerSlice] = await Promise.all([
-      loadInvoicesSlice(invoice.workspaceId, invoice, database),
-      loadLedgerSlice(invoice.workspaceId, database)
+      loadInvoicesSlice(invoice.workspaceId, invoice, repos),
+      loadLedgerSlice(invoice.workspaceId, repos)
     ]);
     return { ...invoicesSlice, ...ledgerSlice };
   }
 
-  const accounts = await getAccountsByWorkspaceId(invoice.workspaceId, database);
+  const accounts = await repos.accounts.getByWorkspaceId(invoice.workspaceId);
   const journalEntry = createPaymentJournalEntry(invoice);
   const paidInvoice: Invoice = { ...invoice, status: "paid" };
   const journalValidation = validateJournalEntry(journalEntry, accounts);
@@ -98,8 +96,8 @@ export async function recordInvoicePayment(
   );
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
-    loadInvoicesSlice(invoice.workspaceId, paidInvoice, database),
-    loadLedgerSlice(invoice.workspaceId, database)
+    loadInvoicesSlice(invoice.workspaceId, paidInvoice, repos),
+    loadLedgerSlice(invoice.workspaceId, repos)
   ]);
   return { ...invoicesSlice, ...ledgerSlice };
 }
@@ -108,7 +106,8 @@ export async function updateSalesInvoice(
   input: UpdateSalesInvoiceInput,
   database: SpbookDatabase = db
 ) {
-  const existingInvoice = await getInvoiceById(input.invoiceId, database);
+  const repos = createRepositories(database);
+  const existingInvoice = await repos.invoices.getById(input.invoiceId);
 
   if (!existingInvoice) {
     throw new Error(`Invoice "${input.invoiceId}" was not found.`);
@@ -119,9 +118,9 @@ export async function updateSalesInvoice(
   }
 
   const [accounts, parties, journalEntries] = await Promise.all([
-    getAccountsByWorkspaceId(existingInvoice.workspaceId, database),
-    getPartiesByWorkspaceId(existingInvoice.workspaceId, database),
-    getJournalEntriesByWorkspaceId(existingInvoice.workspaceId, database)
+    repos.accounts.getByWorkspaceId(existingInvoice.workspaceId),
+    repos.parties.getByWorkspaceId(existingInvoice.workspaceId),
+    repos.journalEntries.getByWorkspaceId(existingInvoice.workspaceId)
   ]);
   const updatedInvoice: Invoice = {
     ...existingInvoice,
@@ -162,8 +161,8 @@ export async function updateSalesInvoice(
   await saveInvoiceJournalEntryData({ invoice: updatedInvoice, journalEntry }, database);
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
-    loadInvoicesSlice(existingInvoice.workspaceId, updatedInvoice, database),
-    loadLedgerSlice(existingInvoice.workspaceId, database)
+    loadInvoicesSlice(existingInvoice.workspaceId, updatedInvoice, repos),
+    loadLedgerSlice(existingInvoice.workspaceId, repos)
   ]);
   return { ...invoicesSlice, ...ledgerSlice };
 }
@@ -172,7 +171,8 @@ export async function deleteSalesInvoice(
   invoiceId: string,
   database: SpbookDatabase = db
 ) {
-  const invoice = await getInvoiceById(invoiceId, database);
+  const repos = createRepositories(database);
+  const invoice = await repos.invoices.getById(invoiceId);
 
   if (!invoice) {
     throw new Error(`Invoice "${invoiceId}" was not found.`);
@@ -183,8 +183,8 @@ export async function deleteSalesInvoice(
   }
 
   const [invoices, journalEntries] = await Promise.all([
-    getInvoicesByWorkspaceId(invoice.workspaceId, database),
-    getJournalEntriesByWorkspaceId(invoice.workspaceId, database)
+    repos.invoices.getByWorkspaceId(invoice.workspaceId),
+    repos.journalEntries.getByWorkspaceId(invoice.workspaceId)
   ]);
   const invoiceJournalEntryIds = journalEntries
     .filter((entry) => entry.lines.some((line) => line.invoiceId === invoice.id))
@@ -201,8 +201,8 @@ export async function deleteSalesInvoice(
   const nextInvoice = invoices.find((candidate) => candidate.id !== invoice.id);
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
-    loadInvoicesSlice(invoice.workspaceId, nextInvoice, database),
-    loadLedgerSlice(invoice.workspaceId, database)
+    loadInvoicesSlice(invoice.workspaceId, nextInvoice, repos),
+    loadLedgerSlice(invoice.workspaceId, repos)
   ]);
   return { ...invoicesSlice, ...ledgerSlice };
 }

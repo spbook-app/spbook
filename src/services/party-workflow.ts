@@ -1,11 +1,5 @@
 import type { Party, PartyRole, PartyType } from "../domain";
-import { db, type SpbookDatabase } from "../storage/db";
-import {
-  getInvoicesByWorkspaceId,
-  getPartyById,
-  getSupplierInvoicesByWorkspaceId,
-  saveParty
-} from "../storage/repositories";
+import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { isValidIban } from "../shared/lib/iban";
 import { loadPartiesSlice } from "./workspace-overview";
 
@@ -49,22 +43,22 @@ export type UpdatePartyInput = {
 
 export async function createParty(
   input: CreatePartyInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
   const party = buildParty(input);
 
   validatePartyInput(party);
 
-  await saveParty(party, database);
+  await storage.repos.parties.save(party);
 
-  return loadPartiesSlice(input.workspaceId, database);
+  return loadPartiesSlice(input.workspaceId, storage.repos);
 }
 
 export async function updateParty(
   input: UpdatePartyInput,
-  database: SpbookDatabase = db
+  storage: WorkflowStorage = defaultWorkflowStorage
 ) {
-  const existingParty = await getPartyById(input.partyId, database);
+  const existingParty = await storage.repos.parties.getById(input.partyId);
 
   if (!existingParty) {
     throw new Error(`Party "${input.partyId}" was not found.`);
@@ -90,10 +84,10 @@ export async function updateParty(
   };
 
   validatePartyInput(updatedParty);
-  await ensureUsedPartyRoles(updatedParty, database);
-  await saveParty(updatedParty, database);
+  await ensureUsedPartyRoles(updatedParty, storage.repos);
+  await storage.repos.parties.save(updatedParty);
 
-  return loadPartiesSlice(existingParty.workspaceId, database);
+  return loadPartiesSlice(existingParty.workspaceId, storage.repos);
 }
 
 function buildParty(input: CreatePartyInput): Party {
@@ -132,10 +126,10 @@ function validatePartyInput(party: Party) {
   }
 }
 
-async function ensureUsedPartyRoles(party: Party, database: SpbookDatabase) {
+async function ensureUsedPartyRoles(party: Party, repos: WorkflowStorage["repos"]) {
   const [invoices, supplierInvoices] = await Promise.all([
-    getInvoicesByWorkspaceId(party.workspaceId, database),
-    getSupplierInvoicesByWorkspaceId(party.workspaceId, database)
+    repos.invoices.getByWorkspaceId(party.workspaceId),
+    repos.supplierInvoices.getByWorkspaceId(party.workspaceId)
   ]);
 
   if (

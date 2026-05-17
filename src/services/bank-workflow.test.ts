@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { BankTransaction } from "../domain";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
+import { createWorkflowStorage } from "../storage/workflow-persistence";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
 import { saveBankTransaction } from "../storage/repositories";
@@ -37,7 +38,7 @@ describe("bank workflow", () => {
         roles: ["bank"],
         countryCode: "SI"
       },
-      database
+      createWorkflowStorage(database)
     );
     const accountOverview = await createBankAccount(
       {
@@ -81,7 +82,7 @@ describe("bank workflow", () => {
         type: "business",
         roles: ["customer"]
       },
-      database
+      createWorkflowStorage(database)
     );
 
     await expect(
@@ -109,7 +110,7 @@ describe("bank workflow", () => {
         parentCode: "11",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const accountOverview = await createBankAccount(
       {
@@ -305,7 +306,7 @@ describe("bank workflow", () => {
         roles: ["customer"],
         iban: "SI56 1910 0000 0123 438"
       },
-      database
+      createWorkflowStorage(database)
     );
     const importedBankTransaction: BankTransaction = {
       id: `bt_${crypto.randomUUID()}`,
@@ -473,7 +474,7 @@ describe("bank workflow", () => {
         type: "business",
         roles: ["customer"]
       },
-      database
+      createWorkflowStorage(database)
     );
     const accountOverview = await createBankAccount(
       {
@@ -522,7 +523,7 @@ describe("bank workflow", () => {
         type: "business",
         roles: ["supplier"]
       },
-      database
+      createWorkflowStorage(database)
     );
     const accountOverview = await createBankAccount(
       {

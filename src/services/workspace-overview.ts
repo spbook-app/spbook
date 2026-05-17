@@ -8,17 +8,8 @@ import type {
   SupplierInvoice,
   Workspace
 } from "../domain";
-import { db, type SpbookDatabase } from "../storage/db";
-import {
-  getAccountsByWorkspaceId,
-  getBankAccountsByWorkspaceId,
-  getBankTransactionsByWorkspaceId,
-  getFirstWorkspace,
-  getInvoicesByWorkspaceId,
-  getJournalEntriesByWorkspaceId,
-  getPartiesByWorkspaceId,
-  getSupplierInvoicesByWorkspaceId
-} from "../storage/repositories";
+import type { Repositories } from "../storage/interfaces";
+import { defaultRepositories } from "../storage/repositories";
 import { calculateAccountBalances, type AccountBalance } from "./balances";
 
 // ---------------------------------------------------------------------------
@@ -28,36 +19,36 @@ import { calculateAccountBalances, type AccountBalance } from "./balances";
 
 export async function loadAccountsSlice(
   workspaceId: string,
-  database: SpbookDatabase = db
+  repos: Repositories = defaultRepositories
 ) {
-  const accounts = await getAccountsByWorkspaceId(workspaceId, database);
+  const accounts = await repos.accounts.getByWorkspaceId(workspaceId);
   return { accounts };
 }
 
 export async function loadPartiesSlice(
   workspaceId: string,
-  database: SpbookDatabase = db
+  repos: Repositories = defaultRepositories
 ) {
-  const parties = await getPartiesByWorkspaceId(workspaceId, database);
+  const parties = await repos.parties.getByWorkspaceId(workspaceId);
   return { parties };
 }
 
 export async function loadBankingSlice(
   workspaceId: string,
-  database: SpbookDatabase = db
+  repos: Repositories = defaultRepositories
 ) {
   const [bankAccounts, bankTransactions] = await Promise.all([
-    getBankAccountsByWorkspaceId(workspaceId, database),
-    getBankTransactionsByWorkspaceId(workspaceId, database)
+    repos.bankAccounts.getByWorkspaceId(workspaceId),
+    repos.bankTransactions.getByWorkspaceId(workspaceId),
   ]);
   return { bankAccounts, bankTransactions };
 }
 
 export async function loadLedgerSlice(
   workspaceId: string,
-  database: SpbookDatabase = db
+  repos: Repositories = defaultRepositories
 ) {
-  const journalEntries = await getJournalEntriesByWorkspaceId(workspaceId, database);
+  const journalEntries = await repos.journalEntries.getByWorkspaceId(workspaceId);
   return { journalEntries, balances: calculateAccountBalances(journalEntries) };
 }
 
@@ -70,11 +61,11 @@ export async function loadLedgerSlice(
 export async function loadInvoicesSlice(
   workspaceId: string,
   selectedInvoice?: Invoice,
-  database: SpbookDatabase = db
+  repos: Repositories = defaultRepositories
 ) {
   const [invoices, parties] = await Promise.all([
-    getInvoicesByWorkspaceId(workspaceId, database),
-    getPartiesByWorkspaceId(workspaceId, database)
+    repos.invoices.getByWorkspaceId(workspaceId),
+    repos.parties.getByWorkspaceId(workspaceId),
   ]);
   const invoice = selectedInvoice ?? invoices.at(-1) ?? null;
   const invoiceParty = invoice
@@ -92,11 +83,11 @@ export async function loadInvoicesSlice(
 export async function loadSupplierInvoicesSlice(
   workspaceId: string,
   selectedSupplierInvoice?: SupplierInvoice,
-  database: SpbookDatabase = db
+  repos: Repositories = defaultRepositories
 ) {
   const [supplierInvoices, parties] = await Promise.all([
-    getSupplierInvoicesByWorkspaceId(workspaceId, database),
-    getPartiesByWorkspaceId(workspaceId, database)
+    repos.supplierInvoices.getByWorkspaceId(workspaceId),
+    repos.parties.getByWorkspaceId(workspaceId),
   ]);
   const supplierInvoice =
     selectedSupplierInvoice ?? supplierInvoices.at(-1) ?? null;
@@ -124,9 +115,9 @@ export type WorkspaceOverview = {
 
 export async function loadWorkspaceOverview(
   workspaceId: string,
-  database: SpbookDatabase = db
+  repos: Repositories = defaultRepositories
 ): Promise<WorkspaceOverview> {
-  const workspace = await getFirstWorkspace(database);
+  const workspace = await repos.workspace.getFirst();
 
   if (!workspace || workspace.id !== workspaceId) {
     throw new Error(`Workspace "${workspaceId}" was not found.`);
@@ -142,13 +133,13 @@ export async function loadWorkspaceOverview(
     journalEntries
   ] =
     await Promise.all([
-      getAccountsByWorkspaceId(workspaceId, database),
-      getBankAccountsByWorkspaceId(workspaceId, database),
-      getBankTransactionsByWorkspaceId(workspaceId, database),
-      getPartiesByWorkspaceId(workspaceId, database),
-      getInvoicesByWorkspaceId(workspaceId, database),
-      getSupplierInvoicesByWorkspaceId(workspaceId, database),
-      getJournalEntriesByWorkspaceId(workspaceId, database)
+      repos.accounts.getByWorkspaceId(workspaceId),
+      repos.bankAccounts.getByWorkspaceId(workspaceId),
+      repos.bankTransactions.getByWorkspaceId(workspaceId),
+      repos.parties.getByWorkspaceId(workspaceId),
+      repos.invoices.getByWorkspaceId(workspaceId),
+      repos.supplierInvoices.getByWorkspaceId(workspaceId),
+      repos.journalEntries.getByWorkspaceId(workspaceId),
     ]);
   const latestInvoice = invoices.at(-1) ?? null;
   const latestSupplierInvoice = supplierInvoices.at(-1) ?? null;

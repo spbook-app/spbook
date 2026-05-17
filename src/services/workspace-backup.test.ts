@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
+import { createWorkflowStorage } from "../storage/workflow-persistence";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
 import { clearDatabase } from "../storage/repositories";
@@ -30,7 +31,7 @@ describe("workspace backup", () => {
         parentCode: "11",
         currency: "EUR"
       },
-      database
+      createWorkflowStorage(database)
     );
     const backup = await exportWorkspaceBackup(database);
 
