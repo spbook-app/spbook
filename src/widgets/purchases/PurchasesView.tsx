@@ -16,7 +16,7 @@ import {
   updateSupplierInvoice
 } from "../../services/supplier-invoice-workflow";
 import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 type PurchaseRoute =
@@ -180,12 +180,12 @@ function SupplierInvoiceDetailPage({
         throw new Error("Select an outgoing bank transaction first.");
       }
 
-      const overview = await matchSupplierPaymentFromBankTransaction(
+      const update = await matchSupplierPaymentFromBankTransaction(
         supplierInvoice.id,
         selectedOutgoingBankTransactionId
       );
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not recorded."
@@ -202,8 +202,8 @@ function SupplierInvoiceDetailPage({
     setErrorMessage(null);
 
     try {
-      const overview = await undoBankTransactionPosting(linkedBankTransaction.id);
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      const update = await undoBankTransactionPosting(linkedBankTransaction.id);
+      onDataStateChange(applyWorkspaceUpdate(data, update));
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not undone."
@@ -219,7 +219,7 @@ function SupplierInvoiceDetailPage({
     setErrorMessage(null);
 
     try {
-      const overview = await updateSupplierInvoice({
+      const update = await updateSupplierInvoice({
         supplierInvoiceId: supplierInvoice.id,
         partyId: editPartyId,
         number: editNumber,
@@ -228,7 +228,7 @@ function SupplierInvoiceDetailPage({
         expenseAccountCode: editExpenseAccountCode
       });
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({
         to: "/workspace/purchases/supplier-invoices/$supplierInvoiceId",
         params: { supplierInvoiceId: supplierInvoice.id }
@@ -247,8 +247,8 @@ function SupplierInvoiceDetailPage({
     setErrorMessage(null);
 
     try {
-      const overview = await deleteSupplierInvoice(supplierInvoice.id);
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      const update = await deleteSupplierInvoice(supplierInvoice.id);
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({ to: "/workspace/purchases/supplier-invoices" });
     } catch (error) {
       setErrorMessage(

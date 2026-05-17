@@ -4,7 +4,7 @@ import {
   autoLinkImportedBankTransactions,
   importCamt053BankTransactions
 } from "../../services/camt053-import";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 export function BankStatementImport({
   data,
@@ -34,7 +34,7 @@ export function BankStatementImport({
         throw new Error("Create or select a bank account first.");
       }
 
-      let nextOverview = null;
+      let nextUpdate = null;
       let importedCount = 0;
       let skippedCount = 0;
       const failedFiles: string[] = [];
@@ -47,7 +47,7 @@ export function BankStatementImport({
             xml: await file.text()
           });
 
-          nextOverview = result.overview;
+          nextUpdate = result.bankingSlice;
           importedCount += result.importedCount;
           skippedCount += result.skippedCount;
         } catch {
@@ -55,11 +55,11 @@ export function BankStatementImport({
         }
       }
 
-      if (!nextOverview) {
+      if (!nextUpdate) {
         throw new Error("No selected bank statements could be imported.");
       }
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(nextOverview) });
+      onDataStateChange(applyWorkspaceUpdate(data, nextUpdate));
       setImportMessage(
         `Imported ${importedCount} transactions, skipped ${skippedCount} duplicates from ${files.length - failedFiles.length} files.`
       );
@@ -85,7 +85,7 @@ export function BankStatementImport({
     try {
       const result = await autoLinkImportedBankTransactions(data.workspace.id);
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(result.overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, result.bankingSlice));
       setImportMessage(`Linked ${result.linkedCount} imported transactions.`);
     } catch (error) {
       setErrorMessage(

@@ -52,9 +52,9 @@ describe("invoice workflow", () => {
       database
     );
 
-    expect(overview.parties).toHaveLength(1);
-    expect(overview.latestInvoice?.status).toBe("issued");
-    expect(overview.latestInvoice?.total).toBe("250.00");
+    expect(overview.invoiceParty?.id).toBe(partyOverview.parties[0]!.id);
+    expect(overview.invoice?.status).toBe("issued");
+    expect(overview.invoice?.total).toBe("250.00");
     expect(overview.journalEntries).toHaveLength(1);
     expect(balanceFor(overview.balances, "1200")).toBe("250.00");
     expect(balanceFor(overview.balances, "7600")).toBe("-250.00");
@@ -83,15 +83,15 @@ describe("invoice workflow", () => {
       database
     );
     const paidOverview = await recordInvoicePayment(
-      issuedOverview.latestInvoice?.id ?? "",
+      issuedOverview.invoice?.id ?? "",
       database
     );
     const secondPaymentOverview = await recordInvoicePayment(
-      paidOverview.latestInvoice?.id ?? "",
+      paidOverview.invoice?.id ?? "",
       database
     );
 
-    expect(paidOverview.latestInvoice?.status).toBe("paid");
+    expect(paidOverview.invoice?.status).toBe("paid");
     expect(secondPaymentOverview.journalEntries).toHaveLength(2);
     expect(balanceFor(secondPaymentOverview.balances, "1100")).toBe("1000.00");
     expect(balanceFor(secondPaymentOverview.balances, "1200")).toBe("0.00");
@@ -122,7 +122,7 @@ describe("invoice workflow", () => {
     );
     const updatedOverview = await updateSalesInvoice(
       {
-        invoiceId: issuedOverview.latestInvoice!.id,
+        invoiceId: issuedOverview.invoice!.id,
         partyId: partyOverview.parties[0]!.id,
         number: "2026-0005-UPDATED",
         issueDate: "2026-05-11",
@@ -131,11 +131,11 @@ describe("invoice workflow", () => {
       database
     );
     const deletedOverview = await deleteSalesInvoice(
-      issuedOverview.latestInvoice!.id,
+      issuedOverview.invoice!.id,
       database
     );
 
-    expect(updatedOverview.latestInvoice).toMatchObject({
+    expect(updatedOverview.invoice).toMatchObject({
       number: "2026-0005-UPDATED",
       issueDate: "2026-05-11",
       total: "150.00"
@@ -183,14 +183,14 @@ describe("invoice workflow", () => {
       database
     );
     const paidOverview = await recordSupplierPayment(
-      issuedOverview.latestSupplierInvoice?.id ?? "",
+      issuedOverview.supplierInvoice?.id ?? "",
       database
     );
 
-    expect(issuedOverview.latestSupplierInvoice?.status).toBe("received");
+    expect(issuedOverview.supplierInvoice?.status).toBe("received");
     expect(balanceFor(issuedOverview.balances, "4100")).toBe("40.00");
     expect(balanceFor(issuedOverview.balances, "2200")).toBe("-40.00");
-    expect(paidOverview.latestSupplierInvoice?.status).toBe("paid");
+    expect(paidOverview.supplierInvoice?.status).toBe("paid");
     expect(balanceFor(paidOverview.balances, "4100")).toBe("40.00");
     expect(balanceFor(paidOverview.balances, "2200")).toBe("0.00");
     expect(balanceFor(paidOverview.balances, "1100")).toBe("-40.00");
@@ -220,7 +220,7 @@ describe("invoice workflow", () => {
     );
     const updatedOverview = await updateSupplierInvoice(
       {
-        supplierInvoiceId: issuedOverview.latestSupplierInvoice!.id,
+        supplierInvoiceId: issuedOverview.supplierInvoice!.id,
         partyId: partyOverview.parties[0]!.id,
         number: "SUP-2026-0003-UPDATED",
         issueDate: "2026-05-11",
@@ -230,11 +230,11 @@ describe("invoice workflow", () => {
       database
     );
     const deletedOverview = await deleteSupplierInvoice(
-      issuedOverview.latestSupplierInvoice!.id,
+      issuedOverview.supplierInvoice!.id,
       database
     );
 
-    expect(updatedOverview.latestSupplierInvoice).toMatchObject({
+    expect(updatedOverview.supplierInvoice).toMatchObject({
       number: "SUP-2026-0003-UPDATED",
       issueDate: "2026-05-11",
       total: "50.00",

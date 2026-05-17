@@ -10,7 +10,7 @@ import {
 import { BankAccountCreateForm } from "../../features/bank-account-create/BankAccountCreateForm";
 import { updateBankAccount } from "../../services/bank-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 import { getBankTransactionDisplayState } from "./bank-transaction-display";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 
@@ -171,7 +171,7 @@ function BankAccountDetailPage({
       }
 
       setActionState("updating");
-      const overview = await updateBankAccount({
+      const update = await updateBankAccount({
         bankAccountId: bankAccount.id,
         name: formState.name,
         accountCode: formState.accountCode,
@@ -180,7 +180,7 @@ function BankAccountDetailPage({
         active: formState.active
       });
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({
         to: "/workspace/banking/accounts/$bankAccountId/card",
         params: { bankAccountId: bankAccount.id }

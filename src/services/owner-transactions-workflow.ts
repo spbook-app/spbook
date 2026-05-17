@@ -5,7 +5,7 @@ import {
   getAccountsByWorkspaceId,
   savePartyJournalEntryData
 } from "../storage/repositories";
-import { loadWorkspaceOverview } from "./workspace-overview";
+import { loadLedgerSlice } from "./workspace-overview";
 
 export type OwnerTransactionInput = {
   workspaceId: string;
@@ -44,7 +44,7 @@ async function recordOwnerTransaction(
 
   await savePartyJournalEntryData({ party: owner, journalEntry }, database);
 
-  return loadWorkspaceOverview(input.workspaceId, database);
+  return loadLedgerSlice(input.workspaceId, database);
 }
 
 function createOwnerParty(workspaceId: string): Party {

@@ -4,7 +4,7 @@ import type { Party } from "../../domain";
 import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
 import { createSalesInvoice } from "../../services/invoice-workflow";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 
@@ -35,7 +35,7 @@ export function InvoiceCreateForm({
         throw new Error("Select a customer counterparty first.");
       }
 
-      const overview = await createSalesInvoice({
+      const update = await createSalesInvoice({
         workspaceId: data.workspace.id,
         partyId,
         number,
@@ -43,12 +43,9 @@ export function InvoiceCreateForm({
         total,
         currency: data.workspace.baseCurrency
       });
-      const createdInvoice = overview.latestInvoice;
+      const createdInvoice = update.invoice;
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
 
       if (createdInvoice) {
         void navigate({

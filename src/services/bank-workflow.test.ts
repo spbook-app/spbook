@@ -342,7 +342,7 @@ describe("bank workflow", () => {
       database
     );
 
-    expect(matchedOverview.latestInvoice?.status).toBe("paid");
+    expect(matchedOverview.invoice?.status).toBe("paid");
     expect(matchedOverview.bankTransactions[0]?.status).toBe("matched");
     expect(matchedOverview.bankTransactions[0]?.matchedDocumentType).toBe("invoice");
     expect(matchedOverview.journalEntries).toHaveLength(2);
@@ -363,7 +363,7 @@ describe("bank workflow", () => {
       database
     );
 
-    expect(undoneOverview.latestInvoice?.status).toBe("issued");
+    expect(undoneOverview.invoice?.status).toBe("issued");
     expect(undoneOverview.bankTransactions[0]).toMatchObject({
       status: "unmatched",
       matchedDocumentType: undefined,
@@ -381,7 +381,7 @@ describe("bank workflow", () => {
       database
     );
 
-    expect(matchedOverview.latestSupplierInvoice?.status).toBe("paid");
+    expect(matchedOverview.supplierInvoice?.status).toBe("paid");
     expect(matchedOverview.bankTransactions[0]?.status).toBe("matched");
     expect(matchedOverview.bankTransactions[0]?.matchedDocumentType).toBe(
       "supplier_invoice"
@@ -507,8 +507,8 @@ describe("bank workflow", () => {
     );
 
     return {
-      invoiceId: invoiceOverview.latestInvoice!.id,
-      bankTransactionId: transactionOverview.bankTransactions[0]!.id
+      invoiceId: invoiceOverview.invoice!.id,
+      bankTransactionId: transactionOverview.bankTransactions![0]!.id
     };
   }
 
@@ -535,7 +535,7 @@ describe("bank workflow", () => {
     const supplierInvoiceOverview = await createSupplierInvoice(
       {
         workspaceId: initialization.workspace.id,
-        partyId: partyOverview.parties[0]!.id,
+        partyId: partyOverview.parties![0]!.id,
         number: "SUP-2026-0001",
         issueDate: "2026-05-15",
         total,
@@ -546,7 +546,7 @@ describe("bank workflow", () => {
     const transactionOverview = await createBankTransaction(
       {
         workspaceId: initialization.workspace.id,
-        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bankAccountId: accountOverview.bankAccounts![0]!.id,
         bookingDate: "2026-05-16",
         amount: `-${total}`,
         currency: "EUR",
@@ -556,8 +556,8 @@ describe("bank workflow", () => {
     );
 
     return {
-      supplierInvoiceId: supplierInvoiceOverview.latestSupplierInvoice!.id,
-      bankTransactionId: transactionOverview.bankTransactions[0]!.id
+      supplierInvoiceId: supplierInvoiceOverview.supplierInvoice!.id,
+      bankTransactionId: transactionOverview.bankTransactions![0]!.id
     };
   }
 });

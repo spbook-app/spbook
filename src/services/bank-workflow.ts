@@ -24,7 +24,12 @@ import {
   saveSupplierInvoicePaymentData,
   undoBankTransactionPostingData
 } from "../storage/repositories";
-import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
+import {
+  loadBankingSlice,
+  loadInvoicesSlice,
+  loadLedgerSlice,
+  loadSupplierInvoicesSlice
+} from "./workspace-overview";
 
 export type CreateBankAccountInput = {
   workspaceId: string;
@@ -99,7 +104,7 @@ export async function createBankAccount(
 
   await saveBankAccount(bankAccount, database);
 
-  return loadWorkspaceOverview(input.workspaceId, database);
+  return loadBankingSlice(input.workspaceId, database);
 }
 
 export async function updateBankAccount(
@@ -144,7 +149,7 @@ export async function updateBankAccount(
 
   await saveBankAccount(updatedBankAccount, database);
 
-  return loadWorkspaceOverview(existingBankAccount.workspaceId, database);
+  return loadBankingSlice(existingBankAccount.workspaceId, database);
 }
 
 export async function createBankTransaction(
@@ -176,7 +181,7 @@ export async function createBankTransaction(
 
   await saveBankTransaction(bankTransaction, database);
 
-  return loadWorkspaceOverview(input.workspaceId, database);
+  return loadBankingSlice(input.workspaceId, database);
 }
 
 export async function updateBankTransaction(
@@ -219,7 +224,7 @@ export async function updateBankTransaction(
 
   await saveBankTransaction(updatedBankTransaction, database);
 
-  return loadWorkspaceOverview(existingBankTransaction.workspaceId, database);
+  return loadBankingSlice(existingBankTransaction.workspaceId, database);
 }
 
 export async function linkBankTransactionParty(
@@ -254,7 +259,7 @@ export async function linkBankTransactionParty(
     database
   );
 
-  return loadWorkspaceOverview(existingBankTransaction.workspaceId, database);
+  return loadBankingSlice(existingBankTransaction.workspaceId, database);
 }
 
 async function ensureUniqueBankPostingAccount(
@@ -332,10 +337,12 @@ export async function matchInvoicePaymentFromBankTransaction(
     database
   );
 
-  return selectInvoiceInOverview(
-    await loadWorkspaceOverview(invoice.workspaceId, database),
-    paidInvoice
-  );
+  const [bankingSlice, invoicesSlice, ledgerSlice] = await Promise.all([
+    loadBankingSlice(invoice.workspaceId, database),
+    loadInvoicesSlice(invoice.workspaceId, paidInvoice, database),
+    loadLedgerSlice(invoice.workspaceId, database)
+  ]);
+  return { ...bankingSlice, ...invoicesSlice, ...ledgerSlice };
 }
 
 export async function matchSupplierPaymentFromBankTransaction(
@@ -374,10 +381,12 @@ export async function matchSupplierPaymentFromBankTransaction(
     database
   );
 
-  return selectSupplierInvoiceInOverview(
-    await loadWorkspaceOverview(supplierInvoice.workspaceId, database),
-    paidSupplierInvoice
-  );
+  const [bankingSlice, supplierInvoicesSlice, ledgerSlice] = await Promise.all([
+    loadBankingSlice(supplierInvoice.workspaceId, database),
+    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, paidSupplierInvoice, database),
+    loadLedgerSlice(supplierInvoice.workspaceId, database)
+  ]);
+  return { ...bankingSlice, ...supplierInvoicesSlice, ...ledgerSlice };
 }
 
 export async function postBankFeeFromBankTransaction(
@@ -404,7 +413,11 @@ export async function postBankFeeFromBankTransaction(
     database
   );
 
-  return loadWorkspaceOverview(bankContext.bankTransaction.workspaceId, database);
+  const [bankingSlice, ledgerSlice] = await Promise.all([
+    loadBankingSlice(bankContext.bankTransaction.workspaceId, database),
+    loadLedgerSlice(bankContext.bankTransaction.workspaceId, database)
+  ]);
+  return { ...bankingSlice, ...ledgerSlice };
 }
 
 export async function undoBankTransactionPosting(
@@ -460,7 +473,13 @@ export async function undoBankTransactionPosting(
     database
   );
 
-  return loadWorkspaceOverview(bankTransaction.workspaceId, database);
+  const [bankingSlice, invoicesSlice, supplierInvoicesSlice, ledgerSlice] = await Promise.all([
+    loadBankingSlice(bankTransaction.workspaceId, database),
+    loadInvoicesSlice(bankTransaction.workspaceId, undefined, database),
+    loadSupplierInvoicesSlice(bankTransaction.workspaceId, undefined, database),
+    loadLedgerSlice(bankTransaction.workspaceId, database)
+  ]);
+  return { ...bankingSlice, ...invoicesSlice, ...supplierInvoicesSlice, ...ledgerSlice };
 }
 
 type BankTransactionContext = {
@@ -738,28 +757,4 @@ function normalizeIban(value: string | undefined) {
 
 function createEntityId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
-}
-
-function selectInvoiceInOverview(
-  overview: WorkspaceOverview,
-  invoice: Invoice
-): WorkspaceOverview {
-  return {
-    ...overview,
-    latestInvoice: invoice,
-    latestInvoiceParty:
-      overview.parties.find((party) => party.id === invoice.partyId) ?? null
-  };
-}
-
-function selectSupplierInvoiceInOverview(
-  overview: WorkspaceOverview,
-  supplierInvoice: SupplierInvoice
-): WorkspaceOverview {
-  return {
-    ...overview,
-    latestSupplierInvoice: supplierInvoice,
-    latestSupplierInvoiceParty:
-      overview.parties.find((party) => party.id === supplierInvoice.partyId) ?? null
-  };
 }

@@ -9,7 +9,7 @@ import {
 } from "../../services/account-workflow";
 import type { AccountBalance } from "../../services/balances";
 import { updateJournalEntry } from "../../services/journal-workflow";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 type AccountingRoute =
@@ -190,14 +190,14 @@ function JournalEntryDetailPage({
     setActionState("saving");
 
     try {
-      const overview = await updateJournalEntry({
+      const update = await updateJournalEntry({
         journalEntryId: entry.id,
         description: editDescription,
         entryDate: editDate,
         lines: editLines
       });
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({
         to: "/workspace/accounting/journal-entries/$journalEntryId",
         params: { journalEntryId: entry.id }
@@ -619,7 +619,7 @@ function AccountDetailPage({
     setActionState("updating");
 
     try {
-      const overview = await updateWorkspaceAccount({
+      const update = await updateWorkspaceAccount({
         accountId: account.id,
         name: editName,
         parentCode: account.role === "posting" ? editParentCode : undefined,
@@ -627,7 +627,7 @@ function AccountDetailPage({
         active: editActive
       });
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({
         to: "/workspace/accounting/chart/$accountId",
         params: { accountId: account.id }

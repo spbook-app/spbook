@@ -7,7 +7,7 @@ import {
   getPartiesByWorkspaceId,
   saveBankTransactions
 } from "../storage/repositories";
-import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
+import { loadBankingSlice, loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
 
 export type Camt053CreditDebitIndicator = "CRDT" | "DBIT";
 
@@ -35,14 +35,14 @@ export type Camt053Statement = {
 };
 
 export type ImportCamt053BankTransactionsResult = {
-  overview: WorkspaceOverview;
+  bankingSlice: Awaited<ReturnType<typeof loadBankingSlice>>;
   statement: Camt053Statement;
   importedCount: number;
   skippedCount: number;
 };
 
 export type AutoLinkImportedBankTransactionsResult = {
-  overview: WorkspaceOverview;
+  bankingSlice: Awaited<ReturnType<typeof loadBankingSlice>>;
   linkedCount: number;
 };
 
@@ -146,7 +146,7 @@ export async function importCamt053BankTransactions(
   }
 
   return {
-    overview: await loadWorkspaceOverview(input.workspaceId, database),
+    bankingSlice: await loadBankingSlice(input.workspaceId, database),
     statement,
     importedCount: bankTransactions.length,
     skippedCount: statement.entries.length - bankTransactions.length
@@ -183,7 +183,7 @@ export async function autoLinkImportedBankTransactions(
   }
 
   return {
-    overview: await loadWorkspaceOverview(workspaceId, database),
+    bankingSlice: await loadBankingSlice(workspaceId, database),
     linkedCount: linkedBankTransactions.length
   };
 }

@@ -6,7 +6,7 @@ import {
   getJournalEntryById,
   saveJournalEntry
 } from "../storage/repositories";
-import { loadWorkspaceOverview } from "./workspace-overview";
+import { loadLedgerSlice } from "./workspace-overview";
 
 export type UpdateJournalEntryLineInput = {
   accountCode: string;
@@ -66,5 +66,5 @@ export async function updateJournalEntry(
 
   await saveJournalEntry(updated, database);
 
-  return loadWorkspaceOverview(existing.workspaceId, database);
+  return loadLedgerSlice(existing.workspaceId, database);
 }

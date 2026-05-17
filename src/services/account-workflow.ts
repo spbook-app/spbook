@@ -5,7 +5,7 @@ import {
   getAccountsByWorkspaceId,
   saveAccount
 } from "../storage/repositories";
-import { loadWorkspaceOverview } from "./workspace-overview";
+import { loadAccountsSlice } from "./workspace-overview";
 
 export type CreateWorkspaceAccountInput = {
   workspaceId: string;
@@ -43,7 +43,7 @@ export async function createWorkspaceAccount(
   validateAccount(account, accounts);
   await saveAccount(account, database);
 
-  return loadWorkspaceOverview(input.workspaceId, database);
+  return loadAccountsSlice(input.workspaceId, database);
 }
 
 export async function updateWorkspaceAccount(
@@ -71,7 +71,7 @@ export async function updateWorkspaceAccount(
   );
   await saveAccount(updatedAccount, database);
 
-  return loadWorkspaceOverview(existingAccount.workspaceId, database);
+  return loadAccountsSlice(existingAccount.workspaceId, database);
 }
 
 function validateAccount(account: Account, otherAccounts: Account[]) {

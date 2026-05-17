@@ -8,7 +8,7 @@ import {
 import { createBankAccount } from "../../services/bank-workflow";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 
@@ -77,7 +77,7 @@ export function BankAccountCreateForm({
       }
 
       setActionState("creating");
-      const overview = await createBankAccount({
+      const update = await createBankAccount({
         workspaceId: data.workspace.id,
         name: formState.name,
         accountCode: formState.accountCode,
@@ -85,9 +85,9 @@ export function BankAccountCreateForm({
         iban: formState.iban,
         partyId: formState.partyId
       });
-      const createdBankAccount = overview.bankAccounts.at(-1);
+      const createdBankAccount = update.bankAccounts?.at(-1);
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
 
       if (createdBankAccount) {
         void navigate({

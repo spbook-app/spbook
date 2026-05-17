@@ -8,7 +8,7 @@ import {
 import { createParty } from "../../services/party-workflow";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 
@@ -32,7 +32,7 @@ export function PartyCreateForm({
     setErrorMessage(null);
 
     try {
-      const overview = await createParty({
+      const update = await createParty({
         workspaceId: data.workspace.id,
         name: formState.name,
         type: formState.type,
@@ -50,12 +50,9 @@ export function PartyCreateForm({
         email: formState.email,
         active: true
       });
-      const createdParty = overview.parties.at(-1);
+      const createdParty = update.parties?.at(-1);
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
 
       if (createdParty) {
         void navigate({

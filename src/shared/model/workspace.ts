@@ -31,3 +31,13 @@ export type AppDataState =
   | { state: "loading" }
   | ({ state: "ready" } & ReadyWorkspaceData)
   | { state: "error"; message: string };
+
+/**
+ * Partial workspace state produced by a single workflow mutation.
+ * Contains only the entity groups that were affected.
+ * Excludes `workspace` and `initializedWorkspace` — those are set at
+ * initialization time and never changed by runtime mutations.
+ */
+export type WorkspaceDataUpdate = Partial<
+  Omit<ReadyWorkspaceData, "workspace" | "initializedWorkspace">
+>;

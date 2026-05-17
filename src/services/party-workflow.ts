@@ -7,7 +7,7 @@ import {
   saveParty
 } from "../storage/repositories";
 import { isValidIban } from "../shared/lib/iban";
-import { loadWorkspaceOverview } from "./workspace-overview";
+import { loadPartiesSlice } from "./workspace-overview";
 
 export type CreatePartyInput = {
   workspaceId: string;
@@ -57,7 +57,7 @@ export async function createParty(
 
   await saveParty(party, database);
 
-  return loadWorkspaceOverview(input.workspaceId, database);
+  return loadPartiesSlice(input.workspaceId, database);
 }
 
 export async function updateParty(
@@ -93,7 +93,7 @@ export async function updateParty(
   await ensureUsedPartyRoles(updatedParty, database);
   await saveParty(updatedParty, database);
 
-  return loadWorkspaceOverview(existingParty.workspaceId, database);
+  return loadPartiesSlice(existingParty.workspaceId, database);
 }
 
 function buildParty(input: CreatePartyInput): Party {

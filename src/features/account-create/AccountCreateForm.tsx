@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import type { Account, AccountRole } from "../../domain";
 import { createWorkspaceAccount } from "../../services/account-workflow";
 import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 
@@ -103,7 +103,7 @@ export function AccountCreateForm({
     setActionState("creating");
 
     try {
-      const overview = await createWorkspaceAccount({
+      const update = await createWorkspaceAccount({
         workspaceId: data.workspace.id,
         code,
         name,
@@ -111,9 +111,9 @@ export function AccountCreateForm({
         parentCode: role === "posting" ? parentCode : undefined,
         currency: role === "posting" ? currency : undefined
       });
-      const createdAccount = overview.accounts.find((account) => account.code === code.trim());
+      const createdAccount = update.accounts?.find((account) => account.code === code.trim());
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
 
       if (createdAccount) {
         void navigate({

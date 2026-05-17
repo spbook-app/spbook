@@ -76,14 +76,14 @@ describe("CAMT.053 import", () => {
     expect(firstImport.skippedCount).toBe(0);
     expect(secondImport.importedCount).toBe(0);
     expect(secondImport.skippedCount).toBe(firstImport.statement.entries.length);
-    expect(secondImport.overview.bankTransactions).toHaveLength(
+    expect(secondImport.bankingSlice.bankTransactions).toHaveLength(
       firstImport.statement.entries.length
     );
-    expect(secondImport.overview.bankTransactions[0]).toMatchObject({
+    expect(secondImport.bankingSlice.bankTransactions[0]).toMatchObject({
       importSource: "camt053",
       status: "unmatched"
     });
-    expect(secondImport.overview.bankTransactions[0]?.entryReference).toBeTruthy();
+    expect(secondImport.bankingSlice.bankTransactions[0]?.entryReference).toBeTruthy();
   });
 
   it("links imported entries to existing counterparties by IBAN", async () => {
@@ -121,7 +121,7 @@ describe("CAMT.053 import", () => {
       database
     );
 
-    expect(result.overview.bankTransactions.some(
+    expect(result.bankingSlice.bankTransactions.some(
       (bankTransaction) => bankTransaction.partyId === partyOverview.parties[0]!.id
     )).toBe(true);
   });
@@ -167,7 +167,7 @@ describe("CAMT.053 import", () => {
     );
 
     expect(result.linkedCount).toBeGreaterThan(0);
-    expect(result.overview.bankTransactions.some(
+    expect(result.bankingSlice.bankTransactions.some(
       (bankTransaction) => bankTransaction.partyId === partyOverview.parties[0]!.id
     )).toBe(true);
   });

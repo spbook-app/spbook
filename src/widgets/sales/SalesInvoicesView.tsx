@@ -15,7 +15,7 @@ import {
   updateSalesInvoice
 } from "../../services/invoice-workflow";
 import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 type SalesInvoiceRoute =
@@ -162,15 +162,12 @@ function InvoiceDetailPage({
         throw new Error("Select an incoming bank transaction first.");
       }
 
-      const overview = await matchInvoicePaymentFromBankTransaction(
+      const update = await matchInvoicePaymentFromBankTransaction(
         invoice.id,
         selectedIncomingBankTransactionId
       );
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not recorded.");
     } finally {
@@ -185,12 +182,9 @@ function InvoiceDetailPage({
     setErrorMessage(null);
 
     try {
-      const overview = await undoBankTransactionPosting(linkedInvoiceBankTransaction.id);
+      const update = await undoBankTransactionPosting(linkedInvoiceBankTransaction.id);
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not undone.");
     } finally {
@@ -204,7 +198,7 @@ function InvoiceDetailPage({
     setErrorMessage(null);
 
     try {
-      const overview = await updateSalesInvoice({
+      const update = await updateSalesInvoice({
         invoiceId: invoice.id,
         partyId: editPartyId,
         number: editNumber,
@@ -212,10 +206,7 @@ function InvoiceDetailPage({
         total: editTotal
       });
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({
         to: "/workspace/sales/invoices/$invoiceId",
         params: { invoiceId: invoice.id }
@@ -232,12 +223,9 @@ function InvoiceDetailPage({
     setErrorMessage(null);
 
     try {
-      const overview = await deleteSalesInvoice(invoice.id);
+      const update = await deleteSalesInvoice(invoice.id);
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({ to: "/workspace/sales/invoices" });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Invoice was not deleted.");

@@ -11,7 +11,8 @@ import {
   saveInvoiceJournalEntryData,
   saveInvoicePaymentData,
 } from "../storage/repositories";
-import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
+import { loadInvoicesSlice, loadLedgerSlice } from "./workspace-overview";
+import type { WorkspaceDataUpdate } from "../shared/model/workspace";
 
 export type CreateSalesInvoiceInput = {
   workspaceId: string;
@@ -54,10 +55,11 @@ export async function createSalesInvoice(
 
   await saveInvoiceJournalEntryData({ invoice, journalEntry }, database);
 
-  return selectInvoiceInOverview(
-    await loadWorkspaceOverview(input.workspaceId, database),
-    invoice
-  );
+  const [invoicesSlice, ledgerSlice] = await Promise.all([
+    loadInvoicesSlice(input.workspaceId, invoice, database),
+    loadLedgerSlice(input.workspaceId, database)
+  ]);
+  return { ...invoicesSlice, ...ledgerSlice };
 }
 
 export async function recordInvoicePayment(
@@ -71,10 +73,11 @@ export async function recordInvoicePayment(
   }
 
   if (invoice.status === "paid") {
-    return selectInvoiceInOverview(
-      await loadWorkspaceOverview(invoice.workspaceId, database),
-      invoice
-    );
+    const [invoicesSlice, ledgerSlice] = await Promise.all([
+      loadInvoicesSlice(invoice.workspaceId, invoice, database),
+      loadLedgerSlice(invoice.workspaceId, database)
+    ]);
+    return { ...invoicesSlice, ...ledgerSlice };
   }
 
   const accounts = await getAccountsByWorkspaceId(invoice.workspaceId, database);
@@ -94,10 +97,11 @@ export async function recordInvoicePayment(
     database
   );
 
-  return selectInvoiceInOverview(
-    await loadWorkspaceOverview(invoice.workspaceId, database),
-    paidInvoice
-  );
+  const [invoicesSlice, ledgerSlice] = await Promise.all([
+    loadInvoicesSlice(invoice.workspaceId, paidInvoice, database),
+    loadLedgerSlice(invoice.workspaceId, database)
+  ]);
+  return { ...invoicesSlice, ...ledgerSlice };
 }
 
 export async function updateSalesInvoice(
@@ -157,10 +161,11 @@ export async function updateSalesInvoice(
 
   await saveInvoiceJournalEntryData({ invoice: updatedInvoice, journalEntry }, database);
 
-  return selectInvoiceInOverview(
-    await loadWorkspaceOverview(existingInvoice.workspaceId, database),
-    updatedInvoice
-  );
+  const [invoicesSlice, ledgerSlice] = await Promise.all([
+    loadInvoicesSlice(existingInvoice.workspaceId, updatedInvoice, database),
+    loadLedgerSlice(existingInvoice.workspaceId, database)
+  ]);
+  return { ...invoicesSlice, ...ledgerSlice };
 }
 
 export async function deleteSalesInvoice(
@@ -194,9 +199,12 @@ export async function deleteSalesInvoice(
   );
 
   const nextInvoice = invoices.find((candidate) => candidate.id !== invoice.id);
-  const overview = await loadWorkspaceOverview(invoice.workspaceId, database);
 
-  return nextInvoice ? selectInvoiceInOverview(overview, nextInvoice) : overview;
+  const [invoicesSlice, ledgerSlice] = await Promise.all([
+    loadInvoicesSlice(invoice.workspaceId, nextInvoice, database),
+    loadLedgerSlice(invoice.workspaceId, database)
+  ]);
+  return { ...invoicesSlice, ...ledgerSlice };
 }
 
 function createIssuedInvoice(input: CreateSalesInvoiceInput): Invoice {
@@ -276,14 +284,4 @@ function createEntityId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
-function selectInvoiceInOverview(
-  overview: WorkspaceOverview,
-  invoice: Invoice
-): WorkspaceOverview {
-  return {
-    ...overview,
-    latestInvoice: invoice,
-    latestInvoiceParty:
-      overview.parties.find((party) => party.id === invoice.partyId) ?? null
-  };
-}
+

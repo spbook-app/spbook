@@ -9,7 +9,7 @@ import {
 import { PartyCreateForm } from "../../features/party-create/PartyCreateForm";
 import { updateParty } from "../../services/party-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = ReadyWorkspaceData;
 type CounterpartyRoute =
@@ -124,7 +124,7 @@ function CounterpartyDetailPage({
         throw new Error(ibanValidationMessage);
       }
 
-      const overview = await updateParty({
+      const update = await updateParty({
         partyId: party.id,
         name: formState.name,
         type: formState.type,
@@ -143,10 +143,7 @@ function CounterpartyDetailPage({
         active: formState.active
       });
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({
         to: "/workspace/counterparties/$partyId/card",
         params: { partyId: party.id }

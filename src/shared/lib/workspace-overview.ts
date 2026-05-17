@@ -1,4 +1,5 @@
 import type { WorkspaceOverview } from "../../services/workspace-overview";
+import type { AppDataState, ReadyWorkspaceData, WorkspaceDataUpdate } from "../model/workspace";
 
 export function mapOverviewToReadyState(overview: WorkspaceOverview) {
   return {
@@ -16,4 +17,16 @@ export function mapOverviewToReadyState(overview: WorkspaceOverview) {
     journalEntries: overview.journalEntries,
     balances: overview.balances
   };
+}
+
+/**
+ * Merges a granular workspace update into the existing ready state.
+ * Only the slices present in `update` are replaced; everything else
+ * (including `workspace` and `initializedWorkspace`) is preserved.
+ */
+export function applyWorkspaceUpdate(
+  data: ReadyWorkspaceData,
+  update: WorkspaceDataUpdate
+): AppDataState {
+  return { state: "ready", ...data, ...update };
 }

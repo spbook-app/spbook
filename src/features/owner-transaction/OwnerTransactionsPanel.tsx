@@ -4,7 +4,7 @@ import {
   recordOwnerContribution,
   recordOwnerWithdrawal
 } from "../../services/owner-transactions-workflow";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 export function OwnerTransactionsPanel({
   data,
@@ -33,15 +33,12 @@ export function OwnerTransactionsPanel({
         amount,
         currency: data.workspace.baseCurrency
       };
-      const overview =
+      const update =
         transactionType === "contribution"
           ? await recordOwnerContribution(input)
           : await recordOwnerWithdrawal(input);
 
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Owner transaction was not recorded."

@@ -11,7 +11,8 @@ import {
   saveSupplierInvoicePaymentData,
   saveSupplierInvoiceJournalEntryData
 } from "../storage/repositories";
-import { loadWorkspaceOverview, type WorkspaceOverview } from "./workspace-overview";
+import { loadSupplierInvoicesSlice, loadLedgerSlice } from "./workspace-overview";
+import type { WorkspaceDataUpdate } from "../shared/model/workspace";
 
 export type CreateSupplierInvoiceInput = {
   workspaceId: string;
@@ -59,10 +60,11 @@ export async function createSupplierInvoice(
 
   await saveSupplierInvoiceJournalEntryData({ supplierInvoice, journalEntry }, database);
 
-  return selectSupplierInvoiceInOverview(
-    await loadWorkspaceOverview(input.workspaceId, database),
-    supplierInvoice
-  );
+  const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
+    loadSupplierInvoicesSlice(input.workspaceId, supplierInvoice, database),
+    loadLedgerSlice(input.workspaceId, database)
+  ]);
+  return { ...supplierInvoicesSlice, ...ledgerSlice };
 }
 
 export async function recordSupplierPayment(
@@ -76,10 +78,11 @@ export async function recordSupplierPayment(
   }
 
   if (supplierInvoice.status === "paid") {
-    return selectSupplierInvoiceInOverview(
-      await loadWorkspaceOverview(supplierInvoice.workspaceId, database),
-      supplierInvoice
-    );
+    const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
+      loadSupplierInvoicesSlice(supplierInvoice.workspaceId, supplierInvoice, database),
+      loadLedgerSlice(supplierInvoice.workspaceId, database)
+    ]);
+    return { ...supplierInvoicesSlice, ...ledgerSlice };
   }
 
   const accounts = await getAccountsByWorkspaceId(
@@ -102,10 +105,11 @@ export async function recordSupplierPayment(
     database
   );
 
-  return selectSupplierInvoiceInOverview(
-    await loadWorkspaceOverview(supplierInvoice.workspaceId, database),
-    paidSupplierInvoice
-  );
+  const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
+    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, paidSupplierInvoice, database),
+    loadLedgerSlice(supplierInvoice.workspaceId, database)
+  ]);
+  return { ...supplierInvoicesSlice, ...ledgerSlice };
 }
 
 export async function updateSupplierInvoice(
@@ -164,10 +168,11 @@ export async function updateSupplierInvoice(
     database
   );
 
-  return selectSupplierInvoiceInOverview(
-    await loadWorkspaceOverview(existingSupplierInvoice.workspaceId, database),
-    updatedSupplierInvoice
-  );
+  const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
+    loadSupplierInvoicesSlice(existingSupplierInvoice.workspaceId, updatedSupplierInvoice, database),
+    loadLedgerSlice(existingSupplierInvoice.workspaceId, database)
+  ]);
+  return { ...supplierInvoicesSlice, ...ledgerSlice };
 }
 
 export async function deleteSupplierInvoice(
@@ -205,11 +210,12 @@ export async function deleteSupplierInvoice(
   const nextSupplierInvoice = supplierInvoices.find(
     (candidate) => candidate.id !== supplierInvoice.id
   );
-  const overview = await loadWorkspaceOverview(supplierInvoice.workspaceId, database);
 
-  return nextSupplierInvoice
-    ? selectSupplierInvoiceInOverview(overview, nextSupplierInvoice)
-    : overview;
+  const [supplierInvoicesSlice, ledgerSlice] = await Promise.all([
+    loadSupplierInvoicesSlice(supplierInvoice.workspaceId, nextSupplierInvoice, database),
+    loadLedgerSlice(supplierInvoice.workspaceId, database)
+  ]);
+  return { ...supplierInvoicesSlice, ...ledgerSlice };
 }
 
 function createReceivedSupplierInvoice(
@@ -293,17 +299,4 @@ function createSupplierPaymentJournalEntry(
 
 function createEntityId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
-}
-
-function selectSupplierInvoiceInOverview(
-  overview: WorkspaceOverview,
-  supplierInvoice: SupplierInvoice
-): WorkspaceOverview {
-  return {
-    ...overview,
-    latestSupplierInvoice: supplierInvoice,
-    latestSupplierInvoiceParty:
-      overview.parties.find((party) => party.id === supplierInvoice.partyId) ??
-      null
-  };
 }

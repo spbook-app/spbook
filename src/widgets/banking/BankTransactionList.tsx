@@ -19,7 +19,7 @@ import {
   updateBankTransaction
 } from "../../services/bank-workflow";
 import { createParty } from "../../services/party-workflow";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
+import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 import { BankStatementImport } from "../../features/bank-statement-import/BankStatementImport";
 
 function isSameStatementCounterparty(
@@ -321,7 +321,7 @@ export function BankTransactionList({
         throw new Error("Create a bank account first.");
       }
 
-      const overview = await createBankTransaction({
+      const update = await createBankTransaction({
         workspaceId: data.workspace.id,
         bankAccountId: selectedBankAccountId,
         bookingDate,
@@ -330,9 +330,9 @@ export function BankTransactionList({
         description,
         reference
       });
-      const createdBankTransaction = overview.bankTransactions.at(-1);
+      const createdBankTransaction = update.bankTransactions?.at(-1);
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
 
       if (createdBankTransaction) {
         void navigate({
@@ -359,7 +359,7 @@ export function BankTransactionList({
       }
 
       setActionState("updating");
-      const overview = await updateBankTransaction({
+      const update = await updateBankTransaction({
         bankTransactionId: selectedEditBankTransaction.id,
         bankAccountId: editTransactionBankAccountId,
         bookingDate: editBookingDate,
@@ -368,7 +368,7 @@ export function BankTransactionList({
         reference: editReference
       });
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       void navigate({
         to: "/workspace/banking/transactions/$bankTransactionId",
         params: { bankTransactionId: selectedEditBankTransaction.id }
@@ -395,7 +395,7 @@ export function BankTransactionList({
       }
 
       setActionState("party-create");
-      const overview = await createParty({
+      const partiesUpdate = await createParty({
         workspaceId: data.workspace.id,
         name: selectedEditBankTransaction.counterpartyName,
         type: "business",
@@ -405,7 +405,7 @@ export function BankTransactionList({
           data.workspace.countryCode,
         iban: selectedEditBankTransaction.counterpartyIban
       });
-      const createdParty = overview.parties.find((party) =>
+      const createdParty = partiesUpdate.parties?.find((party) =>
         isSameStatementCounterparty(
           party.name,
           party.iban,
@@ -413,14 +413,14 @@ export function BankTransactionList({
           selectedEditBankTransaction.counterpartyIban
         )
       );
-      const linkedOverview = createdParty
+      const linkedUpdate = createdParty
         ? await linkBankTransactionParty({
             bankTransactionId: selectedEditBankTransaction.id,
             partyId: createdParty.id
           })
-        : overview;
+        : null;
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(linkedOverview) });
+      onDataStateChange(applyWorkspaceUpdate(data, linkedUpdate ? { ...partiesUpdate, ...linkedUpdate } : partiesUpdate));
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -440,12 +440,12 @@ export function BankTransactionList({
       }
 
       setActionState("party-link");
-      const overview = await linkBankTransactionParty({
+      const update = await linkBankTransactionParty({
         bankTransactionId: selectedEditBankTransaction.id,
         partyId: selectedStatementCounterpartyCandidate?.id
       });
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -465,12 +465,12 @@ export function BankTransactionList({
       }
 
       setActionState("party-link");
-      const overview = await linkBankTransactionParty({
+      const update = await linkBankTransactionParty({
         bankTransactionId: selectedEditBankTransaction.id,
         partyId: undefined
       });
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -490,12 +490,12 @@ export function BankTransactionList({
         throw new Error("Select a bank transaction first.");
       }
 
-      const overview = await matchInvoicePaymentFromBankTransaction(
+      const update = await matchInvoicePaymentFromBankTransaction(
         invoiceId,
         selectedEditBankTransaction.id
       );
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -515,12 +515,12 @@ export function BankTransactionList({
         throw new Error("Select a bank transaction first.");
       }
 
-      const overview = await matchSupplierPaymentFromBankTransaction(
+      const update = await matchSupplierPaymentFromBankTransaction(
         supplierInvoiceId,
         selectedEditBankTransaction.id
       );
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -538,9 +538,9 @@ export function BankTransactionList({
     setErrorMessage(null);
 
     try {
-      const overview = await postBankFeeFromBankTransaction(bankTransactionId);
+      const update = await postBankFeeFromBankTransaction(bankTransactionId);
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Bank fee was not posted.");
     } finally {
@@ -553,9 +553,9 @@ export function BankTransactionList({
     setErrorMessage(null);
 
     try {
-      const overview = await undoBankTransactionPosting(bankTransactionId);
+      const update = await undoBankTransactionPosting(bankTransactionId);
 
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
+      onDataStateChange(applyWorkspaceUpdate(data, update));
       setSelectedEditBankTransactionId(bankTransactionId);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Posting was not undone.");

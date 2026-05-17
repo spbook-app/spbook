@@ -21,6 +21,91 @@ import {
 } from "../storage/repositories";
 import { calculateAccountBalances, type AccountBalance } from "./balances";
 
+// ---------------------------------------------------------------------------
+// Granular slice loaders — load only the entity groups that changed.
+// Use these in workflow services instead of loadWorkspaceOverview.
+// ---------------------------------------------------------------------------
+
+export async function loadAccountsSlice(
+  workspaceId: string,
+  database: SpbookDatabase = db
+) {
+  const accounts = await getAccountsByWorkspaceId(workspaceId, database);
+  return { accounts };
+}
+
+export async function loadPartiesSlice(
+  workspaceId: string,
+  database: SpbookDatabase = db
+) {
+  const parties = await getPartiesByWorkspaceId(workspaceId, database);
+  return { parties };
+}
+
+export async function loadBankingSlice(
+  workspaceId: string,
+  database: SpbookDatabase = db
+) {
+  const [bankAccounts, bankTransactions] = await Promise.all([
+    getBankAccountsByWorkspaceId(workspaceId, database),
+    getBankTransactionsByWorkspaceId(workspaceId, database)
+  ]);
+  return { bankAccounts, bankTransactions };
+}
+
+export async function loadLedgerSlice(
+  workspaceId: string,
+  database: SpbookDatabase = db
+) {
+  const journalEntries = await getJournalEntriesByWorkspaceId(workspaceId, database);
+  return { journalEntries, balances: calculateAccountBalances(journalEntries) };
+}
+
+/**
+ * Loads the invoices slice.
+ * @param selectedInvoice When provided (e.g. after create/update), this invoice
+ *   is used as the `invoice` field so callers can navigate to it immediately.
+ *   Falls back to the last invoice in the list.
+ */
+export async function loadInvoicesSlice(
+  workspaceId: string,
+  selectedInvoice?: Invoice,
+  database: SpbookDatabase = db
+) {
+  const [invoices, parties] = await Promise.all([
+    getInvoicesByWorkspaceId(workspaceId, database),
+    getPartiesByWorkspaceId(workspaceId, database)
+  ]);
+  const invoice = selectedInvoice ?? invoices.at(-1) ?? null;
+  const invoiceParty = invoice
+    ? (parties.find((p) => p.id === invoice.partyId) ?? null)
+    : null;
+  return { invoices, invoice, invoiceParty };
+}
+
+/**
+ * Loads the supplier invoices slice.
+ * @param selectedSupplierInvoice When provided (e.g. after create/update), this
+ *   supplier invoice is used as the `supplierInvoice` field.
+ *   Falls back to the last supplier invoice in the list.
+ */
+export async function loadSupplierInvoicesSlice(
+  workspaceId: string,
+  selectedSupplierInvoice?: SupplierInvoice,
+  database: SpbookDatabase = db
+) {
+  const [supplierInvoices, parties] = await Promise.all([
+    getSupplierInvoicesByWorkspaceId(workspaceId, database),
+    getPartiesByWorkspaceId(workspaceId, database)
+  ]);
+  const supplierInvoice =
+    selectedSupplierInvoice ?? supplierInvoices.at(-1) ?? null;
+  const supplierInvoiceParty = supplierInvoice
+    ? (parties.find((p) => p.id === supplierInvoice.partyId) ?? null)
+    : null;
+  return { supplierInvoices, supplierInvoice, supplierInvoiceParty };
+}
+
 export type WorkspaceOverview = {
   workspace: Workspace;
   accounts: Account[];
