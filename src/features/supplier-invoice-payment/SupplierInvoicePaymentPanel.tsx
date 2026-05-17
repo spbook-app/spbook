@@ -1,21 +1,20 @@
 import { useState } from "react";
+import { useRouter } from "@tanstack/react-router";
 import type { BankTransaction, SupplierInvoice } from "../../domain";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
 import {
   matchSupplierPaymentFromBankTransaction,
   undoBankTransactionPosting
 } from "../../services/bank-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function SupplierInvoicePaymentPanel({
   bankTransactions,
-  onWorkspaceUpdate,
   supplierInvoice
 }: {
   bankTransactions: BankTransaction[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   supplierInvoice: SupplierInvoice;
 }) {
+  const router = useRouter();
   const [selectedPaymentBankTransactionId, setSelectedPaymentBankTransactionId] =
     useState("");
   const [actionState, setActionState] = useState<"idle" | "paying" | "undo">("idle");
@@ -44,7 +43,7 @@ export function SupplierInvoicePaymentPanel({
         selectedOutgoingBankTransactionId
       );
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not recorded."
@@ -62,7 +61,7 @@ export function SupplierInvoicePaymentPanel({
 
     try {
       const update = await undoBankTransactionPosting(linkedBankTransaction.id);
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not undone."

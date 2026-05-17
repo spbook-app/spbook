@@ -1,20 +1,18 @@
 import { useState, type ChangeEvent } from "react";
+import { useRouter } from "@tanstack/react-router";
 import type { Workspace } from "../../domain";
-import type { AppDataState } from "../../shared/model/workspace";
 import {
   exportWorkspaceBackup,
   importWorkspaceBackup,
   parseWorkspaceBackup
 } from "../../services/workspace-backup";
-import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
 export function BackupPanel({
-  workspace,
-  onDataStateChange
+  workspace
 }: {
   workspace: Workspace;
-  onDataStateChange: (state: AppDataState) => void;
 }) {
+  const router = useRouter();
   const [backupState, setBackupState] = useState<"idle" | "exporting" | "importing">("idle");
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
@@ -56,11 +54,8 @@ export function BackupPanel({
 
     try {
       const backup = parseWorkspaceBackup(await file.text());
-      const overview = await importWorkspaceBackup(backup);
-      onDataStateChange({
-        ...mapOverviewToReadyState(overview),
-        initializedWorkspace: false
-      });
+      await importWorkspaceBackup(backup);
+      await router.invalidate();
       setBackupMessage("Backup imported.");
     } catch (error) {
       setBackupError(error instanceof Error ? error.message : "Backup was not imported.");

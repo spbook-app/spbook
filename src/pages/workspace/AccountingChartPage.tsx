@@ -3,7 +3,7 @@ import {
   ChartOfAccountsView,
   type AccountingRoute
 } from "../../widgets/accounting/AccountingView";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
 
 export function AccountingChartPage() {
   return <AccountingChartPageContent route={{ mode: "chart-list" }} />;
@@ -33,7 +33,7 @@ function AccountingChartPageContent({
     { mode: "chart-list" | "account-create" | "account-detail" | "account-edit" }
   >;
 }) {
-  const { data, onWorkspaceUpdate } = useWorkspaceData();
+  const data = workspaceRoute.useLoaderData();
 
   return (
     <div className="section-stack">
@@ -46,7 +46,6 @@ function AccountingChartPageContent({
         invoices={data.invoices}
         supplierInvoices={data.supplierInvoices}
         bankAccounts={data.bankAccounts}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         route={route}
       />
     </div>

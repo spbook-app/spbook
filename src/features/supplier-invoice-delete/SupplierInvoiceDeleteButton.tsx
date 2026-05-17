@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import type { SupplierInvoice } from "../../domain";
 import { deleteSupplierInvoice } from "../../services/supplier-invoice-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function SupplierInvoiceDeleteButton({
-  onWorkspaceUpdate,
   supplierInvoice
 }: {
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   supplierInvoice: SupplierInvoice;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [actionState, setActionState] = useState<"idle" | "deleting">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -20,8 +18,8 @@ export function SupplierInvoiceDeleteButton({
     setErrorMessage(null);
 
     try {
-      const update = await deleteSupplierInvoice(supplierInvoice.id);
-      onWorkspaceUpdate(update);
+      await deleteSupplierInvoice(supplierInvoice.id);
+      await router.invalidate();
       void navigate({ to: "/workspace/purchases/supplier-invoices" });
     } catch (error) {
       setErrorMessage(

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Account, BankAccount, Party } from "../../domain";
 import {
   BankAccountEditableFields,
@@ -8,20 +8,18 @@ import {
 } from "../../entities/bank-account/BankAccountFields";
 import { updateBankAccount } from "../../services/bank-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function BankAccountEditForm({
   bankAccount,
   bankParties,
-  bankPostingAccounts,
-  onWorkspaceUpdate
+  bankPostingAccounts
 }: {
   bankAccount: BankAccount;
   bankParties: Party[];
   bankPostingAccounts: Account[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [formState, setFormState] = useState<BankAccountFormState>(() =>
     mapBankAccountToFormState(bankAccount)
   );
@@ -52,7 +50,7 @@ export function BankAccountEditForm({
         active: formState.active
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
       void navigate({
         to: "/workspace/banking/accounts/$bankAccountId/card",
         params: { bankAccountId: bankAccount.id }

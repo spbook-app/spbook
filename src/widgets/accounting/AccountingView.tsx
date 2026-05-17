@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type {
   Account,
   BankAccount,
@@ -34,14 +33,13 @@ export function ChartOfAccountsView(
     >;
   }
 ) {
-  const { workspace, accounts, journalEntries, balances, onWorkspaceUpdate, route } = props;
+  const { workspace, accounts, journalEntries, balances, route } = props;
 
   if (route.mode === "account-create") {
     return (
       <AccountCreateForm
         accounts={accounts}
         baseCurrency={workspace.baseCurrency}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         workspaceId={workspace.id}
       />
     );
@@ -61,7 +59,6 @@ export function ChartOfAccountsView(
         balances={balances}
         journalEntries={journalEntries}
         mode={route.mode === "account-edit" ? "edit" : "detail"}
-        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     );
   }
@@ -84,7 +81,6 @@ export function JournalEntriesView(
     accountNames,
     bankAccounts,
     invoices,
-    onWorkspaceUpdate,
     parties,
     supplierInvoices,
     route
@@ -107,7 +103,6 @@ export function JournalEntriesView(
         entry={journalEntry}
         invoices={invoices}
         mode={route.mode === "journal-edit" ? "edit" : "detail"}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         parties={parties}
         supplierInvoices={supplierInvoices}
       />
@@ -167,7 +162,6 @@ function JournalEntryDetailPage({
   entry,
   invoices,
   mode,
-  onWorkspaceUpdate,
   parties,
   supplierInvoices
 }: {
@@ -178,7 +172,6 @@ function JournalEntryDetailPage({
   entry: JournalEntry;
   invoices: Invoice[];
   mode: "detail" | "edit";
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   parties: Party[];
   supplierInvoices: SupplierInvoice[];
 }) {
@@ -308,7 +301,6 @@ function JournalEntryDetailPage({
           entry={entry}
           accounts={accounts}
           baseCurrency={baseCurrency}
-          onWorkspaceUpdate={onWorkspaceUpdate}
         />
       )}
     </section>
@@ -423,15 +415,13 @@ function AccountDetailPage({
   accounts,
   balances,
   journalEntries,
-  mode,
-  onWorkspaceUpdate
+  mode
 }: {
   account: Account;
   accounts: Account[];
   balances: AccountBalance[];
   journalEntries: JournalEntry[];
   mode: "detail" | "edit";
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const relatedBalances = balances.filter((balance) => balance.accountCode === account.code);
   const relatedEntries = journalEntries.filter((entry) =>
@@ -462,7 +452,7 @@ function AccountDetailPage({
       </div>
 
       {mode === "edit" ? (
-        <AccountEditForm account={account} accounts={accounts} onWorkspaceUpdate={onWorkspaceUpdate} />
+        <AccountEditForm account={account} accounts={accounts} />
       ) : (
         <>
           <dl className="detail-list copyable-details">

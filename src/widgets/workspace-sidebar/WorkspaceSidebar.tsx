@@ -1,15 +1,12 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import type { Account, BankTransaction, Invoice, SupplierInvoice, Workspace } from "../../domain";
-import type { AppDataState } from "../../shared/model/workspace";
 import type { WorkspaceSidebarProps } from "../../shared/model/widget-props";
 import {
   type WorkspaceSection,
   workspaceSections
 } from "../../pages/workspace/model";
-import { initializeDefaultWorkspace } from "../../storage/initialize-workspace";
 import { clearDatabase } from "../../storage/repositories";
-import { loadWorkspaceOverview } from "../../services/workspace-overview";
 
 export function WorkspaceSidebar(props: WorkspaceSidebarProps) {
   const { workspace, invoices, supplierInvoices, bankTransactions, activeSection } = props;
@@ -86,47 +83,24 @@ export function WorkspaceStatusCard({
   workspace,
   accounts,
   initializedWorkspace,
-  onDataStateChange,
   showReset
 }: {
   workspace: Workspace;
   accounts: Account[];
   initializedWorkspace: boolean;
-  onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {
   const [resetState, setResetState] = useState<"idle" | "resetting">("idle");
+  const router = useRouter();
 
   async function handleReset() {
     setResetState("resetting");
 
     try {
       await clearDatabase();
-      const initialization = await initializeDefaultWorkspace();
-      const overview = await loadWorkspaceOverview(initialization.workspace.id);
-
-      onDataStateChange({
-        state: "ready",
-        workspace: initialization.workspace,
-        accounts: overview.accounts,
-        bankAccounts: overview.bankAccounts,
-        bankTransactions: overview.bankTransactions,
-        parties: overview.parties,
-        invoices: overview.invoices,
-        invoice: overview.latestInvoice,
-        invoiceParty: overview.latestInvoiceParty,
-        supplierInvoices: overview.supplierInvoices,
-        supplierInvoice: overview.latestSupplierInvoice,
-        supplierInvoiceParty: overview.latestSupplierInvoiceParty,
-        journalEntries: overview.journalEntries,
-        balances: overview.balances,
-        initializedWorkspace: initialization.created
-      });
+      await router.invalidate();
     } catch (error) {
-      onDataStateChange({
-        state: "error",
-        message: error instanceof Error ? error.message : "Unknown reset error"
-      });
+      console.error("Reset failed:", error);
     } finally {
       setResetState("idle");
     }

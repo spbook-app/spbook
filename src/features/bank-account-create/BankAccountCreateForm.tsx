@@ -1,12 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Account, BankAccount, Party } from "../../domain";
 import {
   BankAccountEditableFields,
   type BankAccountFormState
 } from "../../entities/bank-account/BankAccountFields";
 import { createBankAccount } from "../../services/bank-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 
 function getCreateBankAccountOptions(bankPostingAccounts: Account[], bankAccounts: BankAccount[]) {
@@ -24,17 +23,16 @@ export function BankAccountCreateForm({
   bankAccounts,
   bankPostingAccounts,
   baseCurrency,
-  onWorkspaceUpdate,
   workspaceId
 }: {
   bankParties: Party[];
   bankAccounts: BankAccount[];
   bankPostingAccounts: Account[];
   baseCurrency: string;
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   workspaceId: string;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const createBankAccountOptions = getCreateBankAccountOptions(
     bankPostingAccounts,
     bankAccounts
@@ -88,7 +86,7 @@ export function BankAccountCreateForm({
       });
       const createdBankAccount = update.bankAccounts?.at(-1);
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
 
       if (createdBankAccount) {
         void navigate({

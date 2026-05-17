@@ -3,7 +3,7 @@ import {
   BankingAccountsView,
   type BankingAccountRoute
 } from "../../widgets/banking/BankingAccountsView";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
 
 export function BankingAccountsPage() {
   return <BankingAccountsPageContent route={{ mode: "list" }} />;
@@ -32,7 +32,7 @@ export function BankingAccountEditPage() {
 }
 
 function BankingAccountsPageContent({ route }: { route: BankingAccountRoute }) {
-  const { data, onWorkspaceUpdate } = useWorkspaceData();
+  const data = workspaceRoute.useLoaderData();
 
   return (
     <div className="section-stack">
@@ -44,7 +44,6 @@ function BankingAccountsPageContent({ route }: { route: BankingAccountRoute }) {
         invoices={data.invoices}
         parties={data.parties}
         supplierInvoices={data.supplierInvoices}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         route={route}
       />
     </div>

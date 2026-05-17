@@ -1,9 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Account, JournalEntry, JournalLineSide } from "../../domain";
 import { addMinorUnits, compareMinorUnits, parseMoneyAmount } from "../../domain/money";
 import { updateJournalEntry } from "../../services/journal-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 type JournalLineEdit = {
   side: JournalLineSide;
@@ -26,15 +25,14 @@ function formatMinorUnits(minorUnits: bigint): string {
 export function JournalEntryEditForm({
   entry,
   accounts,
-  baseCurrency,
-  onWorkspaceUpdate
+  baseCurrency
 }: {
   entry: JournalEntry;
   accounts: Account[];
   baseCurrency: string;
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const postingAccounts = accounts.filter((a) => a.role === "posting");
   const [editDescription, setEditDescription] = useState(entry.description);
   const [editDate, setEditDate] = useState(entry.entryDate);
@@ -99,7 +97,7 @@ export function JournalEntryEditForm({
         lines: editLines
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
       void navigate({
         to: "/workspace/accounting/journal-entries/$journalEntryId",
         params: { journalEntryId: entry.id }

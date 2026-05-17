@@ -1,22 +1,20 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Party } from "../../domain";
 import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
 import { createSalesInvoice } from "../../services/invoice-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function InvoiceCreateForm({
   baseCurrency,
   customerParties,
-  onWorkspaceUpdate,
   workspaceId
 }: {
   baseCurrency: string;
   customerParties: Party[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   workspaceId: string;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [partyId, setPartyId] = useState(customerParties[0]?.id ?? "");
   const [number, setNumber] = useState("2026-0001");
   const [issueDate, setIssueDate] = useState("2026-05-10");
@@ -44,7 +42,7 @@ export function InvoiceCreateForm({
       });
       const createdInvoice = update.invoice;
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
 
       if (createdInvoice) {
         void navigate({

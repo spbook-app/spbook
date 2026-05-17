@@ -1,20 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Party, SupplierInvoice } from "../../domain";
 import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
 import { updateSupplierInvoice } from "../../services/supplier-invoice-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function SupplierInvoiceEditForm({
-  onWorkspaceUpdate,
   supplierInvoice,
   supplierParties
 }: {
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   supplierInvoice: SupplierInvoice;
   supplierParties: Party[];
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [partyId, setPartyId] = useState(supplierInvoice.partyId);
   const [number, setNumber] = useState(supplierInvoice.number);
   const [issueDate, setIssueDate] = useState(supplierInvoice.issueDate);
@@ -48,7 +46,7 @@ export function SupplierInvoiceEditForm({
         expenseAccountCode
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
       void navigate({
         to: "/workspace/purchases/supplier-invoices/$supplierInvoiceId",
         params: { supplierInvoiceId: supplierInvoice.id }

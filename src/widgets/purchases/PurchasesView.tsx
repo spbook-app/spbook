@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
 import type { PurchasesViewProps } from "../../shared/model/widget-props";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
@@ -25,7 +24,6 @@ export function PurchasesView(props: PurchasesViewProps & { route: PurchaseRoute
     parties,
     bankTransactions,
     journalEntries,
-    onWorkspaceUpdate,
     route
   } = props;
   const supplierParties = useMemo(
@@ -37,7 +35,6 @@ export function PurchasesView(props: PurchasesViewProps & { route: PurchaseRoute
     return (
       <OwnerTransactionsPanel
         baseCurrency={workspace.baseCurrency}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         workspaceId={workspace.id}
       />
     );
@@ -47,7 +44,6 @@ export function PurchasesView(props: PurchasesViewProps & { route: PurchaseRoute
     return (
       <SupplierInvoiceCreateForm
         baseCurrency={workspace.baseCurrency}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         supplierParties={supplierParties}
         workspaceId={workspace.id}
       />
@@ -69,7 +65,6 @@ export function PurchasesView(props: PurchasesViewProps & { route: PurchaseRoute
         bankTransactions={bankTransactions}
         journalEntries={journalEntries}
         mode={route.mode === "supplier-edit" ? "edit" : "detail"}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         parties={parties}
         supplierInvoice={supplierInvoice}
         supplierParties={supplierParties}
@@ -132,7 +127,6 @@ function SupplierInvoiceDetailPage({
   bankTransactions,
   journalEntries,
   mode,
-  onWorkspaceUpdate,
   parties,
   supplierInvoice,
   supplierParties
@@ -140,7 +134,6 @@ function SupplierInvoiceDetailPage({
   bankTransactions: BankTransaction[];
   journalEntries: PurchasesViewProps["journalEntries"];
   mode: "detail" | "edit";
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   parties: Party[];
   supplierInvoice: SupplierInvoice;
   supplierParties: Party[];
@@ -180,7 +173,6 @@ function SupplierInvoiceDetailPage({
 
       {mode === "edit" ? (
         <SupplierInvoiceEditForm
-          onWorkspaceUpdate={onWorkspaceUpdate}
           supplierInvoice={supplierInvoice}
           supplierParties={supplierParties}
         />
@@ -226,11 +218,9 @@ function SupplierInvoiceDetailPage({
           <LinkedJournalEntries entries={supplierInvoiceEntries} />
           <SupplierInvoicePaymentPanel
             bankTransactions={bankTransactions}
-            onWorkspaceUpdate={onWorkspaceUpdate}
             supplierInvoice={supplierInvoice}
           />
           <SupplierInvoiceDeleteButton
-            onWorkspaceUpdate={onWorkspaceUpdate}
             supplierInvoice={supplierInvoice}
           />
         </>

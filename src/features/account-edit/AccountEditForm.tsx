@@ -1,8 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Account } from "../../domain";
 import { updateWorkspaceAccount } from "../../services/account-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 function AccountEditFields({
   account,
@@ -82,14 +81,13 @@ function AccountEditFields({
 
 export function AccountEditForm({
   account,
-  accounts,
-  onWorkspaceUpdate
+  accounts
 }: {
   account: Account;
   accounts: Account[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const groupAccounts = accounts.filter(
     (candidate) => candidate.role === "group" && candidate.id !== account.id
   );
@@ -121,7 +119,7 @@ export function AccountEditForm({
         active: editActive
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
       void navigate({
         to: "/workspace/accounting/chart/$accountId",
         params: { accountId: account.id }

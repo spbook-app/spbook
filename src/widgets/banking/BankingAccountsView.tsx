@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { Account, BankAccount, Party } from "../../domain";
 import type { BankingAccountsViewProps } from "../../shared/model/widget-props";
 import { BankAccountCreateForm } from "../../features/bank-account-create/BankAccountCreateForm";
@@ -26,7 +25,6 @@ export function BankingAccountsView(
     invoices,
     parties,
     supplierInvoices,
-    onWorkspaceUpdate,
     route
   } = props;
   const bankPostingAccounts = useMemo(
@@ -48,7 +46,6 @@ export function BankingAccountsView(
         bankParties={bankParties}
         bankPostingAccounts={bankPostingAccounts}
         baseCurrency={workspace.baseCurrency}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         workspaceId={workspace.id}
       />
     );
@@ -72,7 +69,6 @@ export function BankingAccountsView(
         accounts={accounts}
         invoices={invoices}
         mode={route.mode}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         parties={parties}
         supplierInvoices={supplierInvoices}
       />
@@ -135,7 +131,6 @@ function BankAccountDetailPage({
   accounts,
   invoices,
   mode,
-  onWorkspaceUpdate,
   parties,
   supplierInvoices
 }: {
@@ -147,7 +142,6 @@ function BankAccountDetailPage({
   accounts: Account[];
   invoices: BankingAccountsViewProps["invoices"];
   mode: "workspace" | "card" | "edit";
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   parties: Party[];
   supplierInvoices: BankingAccountsViewProps["supplierInvoices"];
 }) {
@@ -188,7 +182,6 @@ function BankAccountDetailPage({
           bankAccount={bankAccount}
           bankParties={bankParties}
           bankPostingAccounts={editBankAccountOptions}
-          onWorkspaceUpdate={onWorkspaceUpdate}
         />
       ) : mode === "card" ? (
         <dl className="detail-list copyable-details">

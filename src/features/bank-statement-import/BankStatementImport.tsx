@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from "react";
+import { useRouter } from "@tanstack/react-router";
 import type { BankAccount } from "../../domain";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import {
   autoLinkImportedBankTransactions,
   importCamt053BankTransactions
@@ -8,13 +8,12 @@ import {
 
 export function BankStatementImport({
   bankAccounts,
-  onWorkspaceUpdate,
   workspaceId
 }: {
   bankAccounts: BankAccount[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   workspaceId: string;
 }) {
+  const router = useRouter();
   const activeBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.active);
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id ?? "");
   const [actionState, setActionState] = useState<"idle" | "importing" | "auto-link">("idle");
@@ -61,7 +60,7 @@ export function BankStatementImport({
         throw new Error("No selected bank statements could be imported.");
       }
 
-      onWorkspaceUpdate(nextUpdate);
+      await router.invalidate();
       setImportMessage(
         `Imported ${importedCount} transactions, skipped ${skippedCount} duplicates from ${files.length - failedFiles.length} files.`
       );
@@ -87,7 +86,7 @@ export function BankStatementImport({
     try {
       const result = await autoLinkImportedBankTransactions(workspaceId);
 
-      onWorkspaceUpdate(result.bankingSlice);
+      await router.invalidate();
       setImportMessage(`Linked ${result.linkedCount} imported transactions.`);
     } catch (error) {
       setErrorMessage(

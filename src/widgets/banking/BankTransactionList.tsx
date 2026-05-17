@@ -52,7 +52,6 @@ export function BankTransactionList(
     invoices,
     supplierInvoices,
     bankAccounts,
-    onWorkspaceUpdate,
     route
   } = props;
   const navigate = useNavigate();
@@ -185,7 +184,6 @@ export function BankTransactionList(
       <BankTransactionCreateForm
         workspace={workspace}
         bankAccounts={bankAccounts}
-        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     );
   }
@@ -209,7 +207,6 @@ export function BankTransactionList(
         invoices={invoices}
         supplierInvoices={supplierInvoices}
         mode={route.mode}
-        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     );
   }
@@ -333,7 +330,6 @@ export function BankTransactionList(
       <div className="import-dialog-body">
         <BankStatementImport
           bankAccounts={bankAccounts}
-          onWorkspaceUpdate={onWorkspaceUpdate}
           workspaceId={workspace.id}
         />
       </div>

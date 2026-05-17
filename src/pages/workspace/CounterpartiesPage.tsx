@@ -3,7 +3,7 @@ import {
   CounterpartiesView,
   type CounterpartyRoute
 } from "../../widgets/counterparties/CounterpartiesView";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
 
 export function CounterpartiesPage() {
   return <CounterpartiesPageContent route={{ mode: "list" }} />;
@@ -32,7 +32,7 @@ export function CounterpartyEditPage() {
 }
 
 function CounterpartiesPageContent({ route }: { route: CounterpartyRoute }) {
-  const { data, onWorkspaceUpdate } = useWorkspaceData();
+  const data = workspaceRoute.useLoaderData();
 
   return (
     <div className="section-stack">
@@ -42,7 +42,6 @@ function CounterpartiesPageContent({ route }: { route: CounterpartyRoute }) {
         invoices={data.invoices}
         supplierInvoices={data.supplierInvoices}
         bankAccounts={data.bankAccounts}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         route={route}
       />
     </div>

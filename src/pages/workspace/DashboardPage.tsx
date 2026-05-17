@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { DashboardView } from "../../widgets/dashboard/DashboardView";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
 
 export function DashboardPage() {
-  const { data } = useWorkspaceData();
+  const data = workspaceRoute.useLoaderData();
   const accountNames = useMemo(
     () => new Map(data.accounts.map((account) => [account.code, account.name])),
     [data.accounts]

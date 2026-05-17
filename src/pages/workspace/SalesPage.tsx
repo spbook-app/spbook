@@ -3,7 +3,7 @@ import {
   SalesInvoicesView,
   type SalesInvoiceRoute
 } from "../../widgets/sales/SalesInvoicesView";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
 
 export function SalesPage() {
   return <SalesPageContent route={{ mode: "list" }} />;
@@ -26,7 +26,7 @@ export function SalesInvoiceEditPage() {
 }
 
 function SalesPageContent({ route }: { route: SalesInvoiceRoute }) {
-  const { data, onWorkspaceUpdate } = useWorkspaceData();
+  const data = workspaceRoute.useLoaderData();
 
   return (
     <div className="section-stack">
@@ -38,7 +38,6 @@ function SalesPageContent({ route }: { route: SalesInvoiceRoute }) {
         journalEntries={data.journalEntries}
         bankAccounts={data.bankAccounts}
         accounts={data.accounts}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         route={route}
       />
     </div>

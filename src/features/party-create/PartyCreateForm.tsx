@@ -1,22 +1,20 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import {
   emptyPartyForm,
   PartyEditableFields,
   type PartyFormState
 } from "../../entities/party/PartyFields";
 import { createParty } from "../../services/party-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 
 export function PartyCreateForm({
-  onWorkspaceUpdate,
   workspaceId
 }: {
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   workspaceId: string;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [formState, setFormState] = useState<PartyFormState>(emptyPartyForm);
   const [actionState, setActionState] = useState<"idle" | "saving">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -49,7 +47,7 @@ export function PartyCreateForm({
       });
       const createdParty = update.parties?.at(-1);
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
 
       if (createdParty) {
         void navigate({

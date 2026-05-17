@@ -15,7 +15,6 @@ import type {
   Workspace
 } from "../../domain";
 import type { AccountBalance } from "../../services/balances";
-import type { AppDataState, WorkspaceUpdateHandler } from "./workspace";
 
 // ===== Sales Widget =====
 export interface SalesInvoicesViewProps {
@@ -26,7 +25,6 @@ export interface SalesInvoicesViewProps {
   journalEntries: JournalEntry[];
   bankAccounts: BankAccount[];
   accounts: Account[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Purchases Widget =====
@@ -37,7 +35,6 @@ export interface PurchasesViewProps {
   bankTransactions: BankTransaction[];
   journalEntries: JournalEntry[];
   accounts: Account[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Counterparties Widget =====
@@ -47,7 +44,6 @@ export interface CounterpartiesViewProps {
   invoices: Invoice[];
   supplierInvoices: SupplierInvoice[];
   bankAccounts: BankAccount[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Accounting Widget =====
@@ -60,7 +56,6 @@ export interface AccountingViewProps {
   invoices: Invoice[];
   supplierInvoices: SupplierInvoice[];
   bankAccounts: BankAccount[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Accounting Journal Widget =====
@@ -77,7 +72,6 @@ export interface BankingAccountsViewProps {
   invoices: Invoice[];
   parties: Party[];
   supplierInvoices: SupplierInvoice[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Bank Transaction List Widget =====
@@ -89,7 +83,6 @@ export interface BankTransactionListProps {
   invoices: Invoice[];
   supplierInvoices: SupplierInvoice[];
   bankAccounts: BankAccount[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Dashboard Widget =====
@@ -109,7 +102,6 @@ export interface SettingsPanelProps {
   workspace: Workspace;
   accounts: Account[];
   initializedWorkspace: boolean;
-  onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }
 

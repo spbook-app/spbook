@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Party } from "../../domain";
 import {
   PartyEditableFields,
@@ -7,7 +7,6 @@ import {
 } from "../../entities/party/PartyFields";
 import { updateParty } from "../../services/party-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 function mapPartyToFormState(party: Party): PartyFormState {
   return {
@@ -30,13 +29,12 @@ function mapPartyToFormState(party: Party): PartyFormState {
 }
 
 export function CounterpartyEditForm({
-  party,
-  onWorkspaceUpdate
+  party
 }: {
   party: Party;
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [formState, setFormState] = useState<PartyFormState>(() => mapPartyToFormState(party));
   const [actionState, setActionState] = useState<"idle" | "updating">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -75,7 +73,7 @@ export function CounterpartyEditForm({
         active: formState.active
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
       void navigate({
         to: "/workspace/counterparties/$partyId/card",
         params: { partyId: party.id }

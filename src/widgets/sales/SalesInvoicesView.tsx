@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankTransaction, Invoice, Party } from "../../domain";
 import type { SalesInvoicesViewProps } from "../../shared/model/widget-props";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
@@ -23,7 +22,6 @@ export function SalesInvoicesView(props: SalesInvoicesViewProps & { route: Sales
     parties,
     bankTransactions,
     journalEntries,
-    onWorkspaceUpdate,
     route
   } = props;
   const customerParties = useMemo(
@@ -36,7 +34,6 @@ export function SalesInvoicesView(props: SalesInvoicesViewProps & { route: Sales
       <InvoiceCreateForm
         baseCurrency={workspace.baseCurrency}
         customerParties={customerParties}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         workspaceId={workspace.id}
       />
     );
@@ -56,7 +53,6 @@ export function SalesInvoicesView(props: SalesInvoicesViewProps & { route: Sales
         invoice={invoice}
         journalEntries={journalEntries}
         mode={route.mode}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         parties={parties}
       />
     );
@@ -108,7 +104,6 @@ function InvoiceDetailPage({
   invoice,
   journalEntries,
   mode,
-  onWorkspaceUpdate,
   parties
 }: {
   bankTransactions: BankTransaction[];
@@ -116,7 +111,6 @@ function InvoiceDetailPage({
   invoice: Invoice;
   journalEntries: SalesInvoicesViewProps["journalEntries"];
   mode: "detail" | "edit";
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   parties: Party[];
 }) {
   const invoiceParty = parties.find((party) => party.id === invoice.partyId) ?? null;
@@ -156,7 +150,6 @@ function InvoiceDetailPage({
         <InvoiceEditForm
           customerParties={customerParties}
           invoice={invoice}
-          onWorkspaceUpdate={onWorkspaceUpdate}
         />
       ) : (
         <>
@@ -200,9 +193,8 @@ function InvoiceDetailPage({
           <InvoicePaymentPanel
             bankTransactions={bankTransactions}
             invoice={invoice}
-            onWorkspaceUpdate={onWorkspaceUpdate}
           />
-          <InvoiceDeleteButton invoice={invoice} onWorkspaceUpdate={onWorkspaceUpdate} />
+          <InvoiceDeleteButton invoice={invoice} />
         </>
       )}
     </section>

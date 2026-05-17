@@ -5,7 +5,7 @@ import { BackupPanel } from "../../features/backup-restore/BackupPanel";
 import { WorkspaceStatusCard } from "../workspace-sidebar/WorkspaceSidebar";
 
 export function SettingsPanel(props: SettingsPanelProps) {
-  const { workspace, accounts, initializedWorkspace, onDataStateChange, showReset } = props;
+  const { workspace, accounts, initializedWorkspace, showReset } = props;
   return (
     <section className="panel" aria-labelledby="settings-title">
       <div className="panel-header">
@@ -33,13 +33,12 @@ export function SettingsPanel(props: SettingsPanelProps) {
           <dd>{formatAppBuildLabel(buildInfo)}</dd>
         </div>
       </dl>
-      <BackupPanel workspace={workspace} onDataStateChange={onDataStateChange} />
+      <BackupPanel workspace={workspace} />
       {showReset ? (
         <WorkspaceStatusCard
           workspace={workspace}
           accounts={accounts}
           initializedWorkspace={initializedWorkspace}
-          onDataStateChange={onDataStateChange}
           showReset={showReset}
         />
       ) : null}

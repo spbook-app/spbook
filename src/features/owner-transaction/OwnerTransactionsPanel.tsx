@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
+import { useRouter } from "@tanstack/react-router";
 import {
   recordOwnerContribution,
   recordOwnerWithdrawal
@@ -7,13 +7,12 @@ import {
 
 export function OwnerTransactionsPanel({
   baseCurrency,
-  onWorkspaceUpdate,
   workspaceId
 }: {
   baseCurrency: string;
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   workspaceId: string;
 }) {
+  const router = useRouter();
   const [entryDate, setEntryDate] = useState("2026-05-10");
   const [amount, setAmount] = useState("300.00");
   const [actionState, setActionState] = useState<
@@ -39,7 +38,7 @@ export function OwnerTransactionsPanel({
           ? await recordOwnerContribution(input)
           : await recordOwnerWithdrawal(input);
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Owner transaction was not recorded."

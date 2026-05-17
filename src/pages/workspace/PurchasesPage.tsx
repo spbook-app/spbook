@@ -3,7 +3,7 @@ import {
   PurchasesView,
   type PurchaseRoute
 } from "../../widgets/purchases/PurchasesView";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
 
 export function PurchasesPage() {
   return <PurchasesPageContent route={{ mode: "supplier-list" }} />;
@@ -34,7 +34,7 @@ export function OwnerTransactionCreatePage() {
 }
 
 function PurchasesPageContent({ route }: { route: PurchaseRoute }) {
-  const { data, onWorkspaceUpdate } = useWorkspaceData();
+  const data = workspaceRoute.useLoaderData();
 
   return (
     <div className="section-stack">
@@ -45,7 +45,6 @@ function PurchasesPageContent({ route }: { route: PurchaseRoute }) {
         bankTransactions={data.bankTransactions}
         journalEntries={data.journalEntries}
         accounts={data.accounts}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         route={route}
       />
     </div>

@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { Account, AccountRole } from "../../domain";
 import { createWorkspaceAccount } from "../../services/account-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 function AccountCreateFields({
   code,
@@ -80,15 +79,14 @@ function AccountCreateFields({
 export function AccountCreateForm({
   accounts,
   baseCurrency,
-  onWorkspaceUpdate,
   workspaceId
 }: {
   accounts: Account[];
   baseCurrency: string;
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   workspaceId: string;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const groupAccounts = accounts.filter((account) => account.role === "group");
   const [code, setCode] = useState("1101");
   const [name, setName] = useState("Second bank account");
@@ -114,7 +112,7 @@ export function AccountCreateForm({
       });
       const createdAccount = update.accounts?.find((account) => account.code === code.trim());
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
 
       if (createdAccount) {
         void navigate({

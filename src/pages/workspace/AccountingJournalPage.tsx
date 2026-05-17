@@ -4,7 +4,7 @@ import {
   JournalEntriesView,
   type AccountingRoute
 } from "../../widgets/accounting/AccountingView";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
 
 export function AccountingJournalPage() {
   return <AccountingJournalPageContent route={{ mode: "journal-list" }} />;
@@ -30,7 +30,7 @@ function AccountingJournalPageContent({
     { mode: "journal-list" | "journal-detail" | "journal-edit" }
   >;
 }) {
-  const { data, onWorkspaceUpdate } = useWorkspaceData();
+  const data = workspaceRoute.useLoaderData();
   const accountNames = useMemo(
     () => new Map(data.accounts.map((account) => [account.code, account.name])),
     [data.accounts]
@@ -48,7 +48,6 @@ function AccountingJournalPageContent({
         supplierInvoices={data.supplierInvoices}
         bankAccounts={data.bankAccounts}
         accountNames={accountNames}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         route={route}
       />
     </div>

@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import type { Invoice } from "../../domain";
 import { deleteSalesInvoice } from "../../services/invoice-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function InvoiceDeleteButton({
-  invoice,
-  onWorkspaceUpdate
+  invoice
 }: {
   invoice: Invoice;
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [actionState, setActionState] = useState<"idle" | "deleting">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -20,9 +18,9 @@ export function InvoiceDeleteButton({
     setErrorMessage(null);
 
     try {
-      const update = await deleteSalesInvoice(invoice.id);
+      await deleteSalesInvoice(invoice.id);
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
       void navigate({ to: "/workspace/sales/invoices" });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Invoice was not deleted.");

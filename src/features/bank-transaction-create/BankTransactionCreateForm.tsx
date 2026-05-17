@@ -1,20 +1,18 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { BankAccount } from "../../domain";
 import { BankTransactionEditableFields } from "../../entities/bank-transaction/BankTransactionFields";
 import { createBankTransaction } from "../../services/bank-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function BankTransactionCreateForm({
   workspace,
-  bankAccounts,
-  onWorkspaceUpdate
+  bankAccounts
 }: {
   workspace: { id: string; baseCurrency: string };
   bankAccounts: BankAccount[];
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const activeBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.active);
   const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id ?? "");
   const [bookingDate, setBookingDate] = useState("2026-05-15");
@@ -46,7 +44,7 @@ export function BankTransactionCreateForm({
       });
       const createdBankTransaction = update.bankTransactions?.at(-1);
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
 
       if (createdBankTransaction) {
         void navigate({

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import type { BankAccount, BankTransaction, Invoice, Party, SupplierInvoice } from "../../domain";
 import { BankTransactionEditableFields } from "../../entities/bank-transaction/BankTransactionFields";
 import {
@@ -11,7 +11,6 @@ import {
   updateBankTransaction
 } from "../../services/bank-workflow";
 import { createParty } from "../../services/party-workflow";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 function normalizeIbanForCompare(iban: string | undefined) {
   return iban?.replace(/\s+/g, "").toUpperCase() ?? "";
@@ -42,8 +41,7 @@ export function BankTransactionDetailSection({
   parties,
   invoices,
   supplierInvoices,
-  mode,
-  onWorkspaceUpdate
+  mode
 }: {
   bankTransaction: BankTransaction;
   bankAccounts: BankAccount[];
@@ -52,9 +50,9 @@ export function BankTransactionDetailSection({
   invoices: Invoice[];
   supplierInvoices: SupplierInvoice[];
   mode: "detail" | "edit";
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const activeBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.active);
   const bankAccountName =
     bankAccounts.find((bankAccount) => bankAccount.id === bankTransaction.bankAccountId)
@@ -165,7 +163,7 @@ export function BankTransactionDetailSection({
           })
         : null;
 
-      onWorkspaceUpdate(linkedUpdate ? { ...partiesUpdate, ...linkedUpdate } : partiesUpdate);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Counterparty was not created."
@@ -185,7 +183,7 @@ export function BankTransactionDetailSection({
         partyId: statementCounterpartyCandidate?.id
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Counterparty was not linked."
@@ -205,7 +203,7 @@ export function BankTransactionDetailSection({
         partyId: undefined
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Counterparty was not unlinked."
@@ -225,7 +223,7 @@ export function BankTransactionDetailSection({
         bankTransaction.id
       );
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Invoice payment was not matched."
@@ -245,7 +243,7 @@ export function BankTransactionDetailSection({
         bankTransaction.id
       );
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -264,7 +262,7 @@ export function BankTransactionDetailSection({
     try {
       const update = await postBankFeeFromBankTransaction(bankTransaction.id);
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Bank fee was not posted.");
     } finally {
@@ -279,7 +277,7 @@ export function BankTransactionDetailSection({
     try {
       const update = await undoBankTransactionPosting(bankTransaction.id);
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Posting was not undone.");
     } finally {
@@ -302,7 +300,7 @@ export function BankTransactionDetailSection({
         reference: editReference
       });
 
-      onWorkspaceUpdate(update);
+      await router.invalidate();
       void navigate({
         to: "/workspace/banking/transactions/$bankTransactionId",
         params: { bankTransactionId: bankTransaction.id }

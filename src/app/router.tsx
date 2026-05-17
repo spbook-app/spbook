@@ -1,5 +1,5 @@
 import {
-  createRootRoute,
+  createRootRouteWithContext,
   createRoute,
   createRouter,
   Navigate,
@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { App } from "./App";
 import { WorkspaceView } from "./WorkspaceView";
+import { WorkspaceLoadingView, WorkspaceErrorView } from "./WorkspaceStates";
 import { DashboardPage } from "../pages/workspace/DashboardPage";
 import {
   SalesInvoiceCreatePage,
@@ -53,6 +54,42 @@ import {
   AccountingChartPage
 } from "../pages/workspace/AccountingChartPage";
 import { SettingsPage } from "../pages/workspace/SettingsPage";
+import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { loadWorkspaceOverview } from "../services/workspace-overview";
+import {
+  getInvoiceById,
+  getSupplierInvoiceById,
+  getBankAccountById,
+  getBankTransactionById,
+  getPartyById,
+  getJournalEntryById,
+  getAccountById
+} from "../storage/repositories";
+import type { WorkspaceSection } from "../pages/workspace/model";
+
+// ---------------------------------------------------------------------------
+// Router context
+// ---------------------------------------------------------------------------
+
+interface RouterContext {
+  workspaceId: string;
+  initializedWorkspace: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Static data augmentation for breadcrumbs and section tracking
+// ---------------------------------------------------------------------------
+
+declare module "@tanstack/react-router" {
+  interface StaticDataRouteOption {
+    breadcrumb?: string;
+    section?: WorkspaceSection;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helper components
+// ---------------------------------------------------------------------------
 
 const passThrough = () => <Outlet />;
 const redirectToDashboard = () => <Navigate to="/workspace/dashboard" replace />;
@@ -65,7 +102,7 @@ const redirectToAccountingJournal = () => (
   <Navigate to="/workspace/accounting/journal-entries" replace />
 );
 
-const rootRoute = createRootRoute({
+const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: App
 });
 
@@ -75,10 +112,24 @@ const indexRoute = createRoute({
   component: redirectToDashboard
 });
 
-const workspaceRoute = createRoute({
+// ---------------------------------------------------------------------------
+// Workspace route — initializes workspace, loads all data
+// ---------------------------------------------------------------------------
+
+export const workspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "workspace",
-  component: WorkspaceView
+  component: WorkspaceView,
+  pendingComponent: WorkspaceLoadingView,
+  errorComponent: WorkspaceErrorView,
+  beforeLoad: async () => {
+    const init = await initializeDefaultWorkspace();
+    return { workspaceId: init.workspace.id, initializedWorkspace: init.created };
+  },
+  loader: async ({ context }) => {
+    const overview = await loadWorkspaceOverview(context.workspaceId);
+    return { ...overview, initializedWorkspace: context.initializedWorkspace };
+  }
 });
 
 const workspaceIndexRoute = createRoute({
@@ -87,16 +138,25 @@ const workspaceIndexRoute = createRoute({
   component: redirectToDashboard
 });
 
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
 const dashboardRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "dashboard",
-  component: DashboardPage
+  component: DashboardPage,
+  staticData: { section: "dashboard", breadcrumb: "Dashboard" }
 });
+// ---------------------------------------------------------------------------
+// Sales
+// ---------------------------------------------------------------------------
 
 const salesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "sales",
-  component: passThrough
+  component: passThrough,
+  staticData: { section: "sales", breadcrumb: "Sales" }
 });
 
 const salesIndexRoute = createRoute({
@@ -108,31 +168,55 @@ const salesIndexRoute = createRoute({
 const salesInvoicesRoute = createRoute({
   getParentRoute: () => salesRoute,
   path: "invoices",
+  component: passThrough,
+  staticData: { breadcrumb: "Invoices" }
+});
+
+const salesInvoicesIndexRoute = createRoute({
+  getParentRoute: () => salesInvoicesRoute,
+  path: "/",
   component: SalesPage
 });
 
 const salesInvoiceCreateRoute = createRoute({
-  getParentRoute: () => salesRoute,
-  path: "invoices/new",
-  component: SalesInvoiceCreatePage
+  getParentRoute: () => salesInvoicesRoute,
+  path: "new",
+  component: SalesInvoiceCreatePage,
+  staticData: { breadcrumb: "New" }
 });
 
 const salesInvoiceDetailRoute = createRoute({
-  getParentRoute: () => salesRoute,
-  path: "invoices/$invoiceId",
+  getParentRoute: () => salesInvoicesRoute,
+  path: "$invoiceId",
+  component: passThrough,
+  loader: async ({ params }) => {
+    const invoice = await getInvoiceById(params.invoiceId);
+    return { breadcrumb: invoice ? `Invoice ${invoice.number}` : "Invoice" };
+  }
+});
+
+const salesInvoiceDetailIndexRoute = createRoute({
+  getParentRoute: () => salesInvoiceDetailRoute,
+  path: "/",
   component: SalesInvoiceDetailPage
 });
 
 const salesInvoiceEditRoute = createRoute({
-  getParentRoute: () => salesRoute,
-  path: "invoices/$invoiceId/edit",
-  component: SalesInvoiceEditPage
+  getParentRoute: () => salesInvoiceDetailRoute,
+  path: "edit",
+  component: SalesInvoiceEditPage,
+  staticData: { breadcrumb: "Edit" }
 });
+
+// ---------------------------------------------------------------------------
+// Purchases
+// ---------------------------------------------------------------------------
 
 const purchasesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "purchases",
-  component: passThrough
+  component: passThrough,
+  staticData: { section: "purchases", breadcrumb: "Purchases" }
 });
 
 const purchasesIndexRoute = createRoute({
@@ -144,38 +228,69 @@ const purchasesIndexRoute = createRoute({
 const supplierInvoicesRoute = createRoute({
   getParentRoute: () => purchasesRoute,
   path: "supplier-invoices",
+  component: passThrough,
+  staticData: { breadcrumb: "Supplier invoices" }
+});
+
+const supplierInvoicesIndexRoute = createRoute({
+  getParentRoute: () => supplierInvoicesRoute,
+  path: "/",
   component: PurchasesPage
 });
 
 const supplierInvoiceCreateRoute = createRoute({
-  getParentRoute: () => purchasesRoute,
-  path: "supplier-invoices/new",
-  component: SupplierInvoiceCreatePage
+  getParentRoute: () => supplierInvoicesRoute,
+  path: "new",
+  component: SupplierInvoiceCreatePage,
+  staticData: { breadcrumb: "New" }
 });
 
 const supplierInvoiceDetailRoute = createRoute({
-  getParentRoute: () => purchasesRoute,
-  path: "supplier-invoices/$supplierInvoiceId",
+  getParentRoute: () => supplierInvoicesRoute,
+  path: "$supplierInvoiceId",
+  component: passThrough,
+  loader: async ({ params }) => {
+    const inv = await getSupplierInvoiceById(params.supplierInvoiceId);
+    return { breadcrumb: inv ? `Supplier invoice ${inv.number}` : "Supplier invoice" };
+  }
+});
+
+const supplierInvoiceDetailIndexRoute = createRoute({
+  getParentRoute: () => supplierInvoiceDetailRoute,
+  path: "/",
   component: SupplierInvoiceDetailPage
 });
 
 const supplierInvoiceEditRoute = createRoute({
-  getParentRoute: () => purchasesRoute,
-  path: "supplier-invoices/$supplierInvoiceId/edit",
-  component: SupplierInvoiceEditPage
+  getParentRoute: () => supplierInvoiceDetailRoute,
+  path: "edit",
+  component: SupplierInvoiceEditPage,
+  staticData: { breadcrumb: "Edit" }
 });
 
 const ownerTransactionsRoute = createRoute({
   getParentRoute: () => purchasesRoute,
   path: "owner-transactions",
+  component: passThrough,
+  staticData: { breadcrumb: "Owner transactions" }
+});
+
+const ownerTransactionsIndexRoute = createRoute({
+  getParentRoute: () => ownerTransactionsRoute,
+  path: "/",
   component: PurchasesPage
 });
 
 const ownerTransactionCreateRoute = createRoute({
-  getParentRoute: () => purchasesRoute,
-  path: "owner-transactions/new",
-  component: OwnerTransactionCreatePage
+  getParentRoute: () => ownerTransactionsRoute,
+  path: "new",
+  component: OwnerTransactionCreatePage,
+  staticData: { breadcrumb: "New" }
 });
+
+// ---------------------------------------------------------------------------
+// Banking — accounts
+// ---------------------------------------------------------------------------
 
 const bankingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
@@ -192,86 +307,160 @@ const bankingIndexRoute = createRoute({
 const bankingAccountsRoute = createRoute({
   getParentRoute: () => bankingRoute,
   path: "accounts",
+  component: passThrough,
+  staticData: { section: "bank-accounts", breadcrumb: "Bank accounts" }
+});
+
+const bankingAccountsIndexRoute = createRoute({
+  getParentRoute: () => bankingAccountsRoute,
+  path: "/",
   component: BankingAccountsPage
 });
 
 const bankingAccountCreateRoute = createRoute({
-  getParentRoute: () => bankingRoute,
-  path: "accounts/new",
-  component: BankingAccountCreatePage
+  getParentRoute: () => bankingAccountsRoute,
+  path: "new",
+  component: BankingAccountCreatePage,
+  staticData: { breadcrumb: "New" }
 });
 
 const bankingAccountDetailRoute = createRoute({
-  getParentRoute: () => bankingRoute,
-  path: "accounts/$bankAccountId",
+  getParentRoute: () => bankingAccountsRoute,
+  path: "$bankAccountId",
+  component: passThrough,
+  loader: async ({ params }) => {
+    const account = await getBankAccountById(params.bankAccountId);
+    return { breadcrumb: account?.name ?? "Bank account" };
+  }
+});
+
+const bankingAccountDetailIndexRoute = createRoute({
+  getParentRoute: () => bankingAccountDetailRoute,
+  path: "/",
   component: BankingAccountDetailPage
 });
 
 const bankingAccountEditRoute = createRoute({
-  getParentRoute: () => bankingRoute,
-  path: "accounts/$bankAccountId/edit",
-  component: BankingAccountEditPage
+  getParentRoute: () => bankingAccountDetailRoute,
+  path: "edit",
+  component: BankingAccountEditPage,
+  staticData: { breadcrumb: "Edit" }
 });
 
 const bankingAccountCardRoute = createRoute({
-  getParentRoute: () => bankingRoute,
-  path: "accounts/$bankAccountId/card",
-  component: BankingAccountCardPage
+  getParentRoute: () => bankingAccountDetailRoute,
+  path: "card",
+  component: BankingAccountCardPage,
+  staticData: { breadcrumb: "Card" }
 });
+
+// ---------------------------------------------------------------------------
+// Banking — transactions
+// ---------------------------------------------------------------------------
 
 const bankingTransactionsRoute = createRoute({
   getParentRoute: () => bankingRoute,
   path: "transactions",
+  component: passThrough,
+  staticData: { section: "bank-transactions", breadcrumb: "Transactions" }
+});
+
+const bankingTransactionsIndexRoute = createRoute({
+  getParentRoute: () => bankingTransactionsRoute,
+  path: "/",
   component: BankingTransactionsPage
 });
 
 const bankingTransactionCreateRoute = createRoute({
-  getParentRoute: () => bankingRoute,
-  path: "transactions/new",
-  component: BankingTransactionCreatePage
+  getParentRoute: () => bankingTransactionsRoute,
+  path: "new",
+  component: BankingTransactionCreatePage,
+  staticData: { breadcrumb: "New" }
 });
 
 const bankingTransactionDetailRoute = createRoute({
-  getParentRoute: () => bankingRoute,
-  path: "transactions/$bankTransactionId",
+  getParentRoute: () => bankingTransactionsRoute,
+  path: "$bankTransactionId",
+  component: passThrough,
+  loader: async ({ params }) => {
+    const tx = await getBankTransactionById(params.bankTransactionId);
+    const breadcrumb = tx
+      ? `${tx.bookingDate} · ${tx.amount} ${tx.currency}`
+      : "Transaction";
+    return { breadcrumb };
+  }
+});
+
+const bankingTransactionDetailIndexRoute = createRoute({
+  getParentRoute: () => bankingTransactionDetailRoute,
+  path: "/",
   component: BankingTransactionDetailPage
 });
 
 const bankingTransactionEditRoute = createRoute({
-  getParentRoute: () => bankingRoute,
-  path: "transactions/$bankTransactionId/edit",
-  component: BankingTransactionEditPage
+  getParentRoute: () => bankingTransactionDetailRoute,
+  path: "edit",
+  component: BankingTransactionEditPage,
+  staticData: { breadcrumb: "Edit" }
 });
+
+// ---------------------------------------------------------------------------
+// Counterparties
+// ---------------------------------------------------------------------------
 
 const counterpartiesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "counterparties",
+  component: passThrough,
+  staticData: { section: "counterparties", breadcrumb: "Counterparties" }
+});
+
+const counterpartiesIndexRoute = createRoute({
+  getParentRoute: () => counterpartiesRoute,
+  path: "/",
   component: CounterpartiesPage
 });
 
 const counterpartyCreateRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: "counterparties/new",
-  component: CounterpartyCreatePage
+  getParentRoute: () => counterpartiesRoute,
+  path: "new",
+  component: CounterpartyCreatePage,
+  staticData: { breadcrumb: "New" }
 });
 
 const counterpartyDetailRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: "counterparties/$partyId",
+  getParentRoute: () => counterpartiesRoute,
+  path: "$partyId",
+  component: passThrough,
+  loader: async ({ params }) => {
+    const party = await getPartyById(params.partyId);
+    return { breadcrumb: party?.name ?? "Counterparty" };
+  }
+});
+
+const counterpartyDetailIndexRoute = createRoute({
+  getParentRoute: () => counterpartyDetailRoute,
+  path: "/",
   component: CounterpartyDetailPage
 });
 
 const counterpartyEditRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: "counterparties/$partyId/edit",
-  component: CounterpartyEditPage
+  getParentRoute: () => counterpartyDetailRoute,
+  path: "edit",
+  component: CounterpartyEditPage,
+  staticData: { breadcrumb: "Edit" }
 });
 
 const counterpartyCardRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: "counterparties/$partyId/card",
-  component: CounterpartyCardPage
+  getParentRoute: () => counterpartyDetailRoute,
+  path: "card",
+  component: CounterpartyCardPage,
+  staticData: { breadcrumb: "Card" }
 });
+
+// ---------------------------------------------------------------------------
+// Accounting — journal entries
+// ---------------------------------------------------------------------------
 
 const accountingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
@@ -288,50 +477,104 @@ const accountingIndexRoute = createRoute({
 const journalEntriesRoute = createRoute({
   getParentRoute: () => accountingRoute,
   path: "journal-entries",
+  component: passThrough,
+  staticData: { section: "journal", breadcrumb: "Journal entries" }
+});
+
+const journalEntriesIndexRoute = createRoute({
+  getParentRoute: () => journalEntriesRoute,
+  path: "/",
   component: AccountingJournalPage
 });
 
 const journalEntryDetailRoute = createRoute({
-  getParentRoute: () => accountingRoute,
-  path: "journal-entries/$journalEntryId",
+  getParentRoute: () => journalEntriesRoute,
+  path: "$journalEntryId",
+  component: passThrough,
+  loader: async ({ params }) => {
+    const entry = await getJournalEntryById(params.journalEntryId);
+    const breadcrumb = entry
+      ? `${entry.entryDate} · ${entry.description}`
+      : "Journal entry";
+    return { breadcrumb };
+  }
+});
+
+const journalEntryDetailIndexRoute = createRoute({
+  getParentRoute: () => journalEntryDetailRoute,
+  path: "/",
   component: JournalEntryDetailPage
 });
 
 const journalEntryEditRoute = createRoute({
-  getParentRoute: () => accountingRoute,
-  path: "journal-entries/$journalEntryId/edit",
-  component: JournalEntryEditPage
+  getParentRoute: () => journalEntryDetailRoute,
+  path: "edit",
+  component: JournalEntryEditPage,
+  staticData: { breadcrumb: "Edit" }
 });
+
+// ---------------------------------------------------------------------------
+// Accounting — chart of accounts
+// ---------------------------------------------------------------------------
 
 const chartRoute = createRoute({
   getParentRoute: () => accountingRoute,
   path: "chart",
+  component: passThrough,
+  staticData: { section: "chart", breadcrumb: "Chart" }
+});
+
+const chartIndexRoute = createRoute({
+  getParentRoute: () => chartRoute,
+  path: "/",
   component: AccountingChartPage
 });
 
 const accountCreateRoute = createRoute({
-  getParentRoute: () => accountingRoute,
-  path: "chart/new",
-  component: AccountCreatePage
+  getParentRoute: () => chartRoute,
+  path: "new",
+  component: AccountCreatePage,
+  staticData: { breadcrumb: "New" }
 });
 
 const accountDetailRoute = createRoute({
-  getParentRoute: () => accountingRoute,
-  path: "chart/$accountId",
+  getParentRoute: () => chartRoute,
+  path: "$accountId",
+  component: passThrough,
+  loader: async ({ params }) => {
+    const account = await getAccountById(params.accountId);
+    const breadcrumb = account ? `${account.code} · ${account.name}` : "Account";
+    return { breadcrumb };
+  }
+});
+
+const accountDetailIndexRoute = createRoute({
+  getParentRoute: () => accountDetailRoute,
+  path: "/",
   component: AccountDetailPage
 });
 
 const accountEditRoute = createRoute({
-  getParentRoute: () => accountingRoute,
-  path: "chart/$accountId/edit",
-  component: AccountEditPage
+  getParentRoute: () => accountDetailRoute,
+  path: "edit",
+  component: AccountEditPage,
+  staticData: { breadcrumb: "Edit" }
 });
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
 
 const settingsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "settings",
-  component: SettingsPage
+  component: SettingsPage,
+  staticData: { section: "settings", breadcrumb: "Settings" }
 });
+
+// ---------------------------------------------------------------------------
+// Route tree
+// ---------------------------------------------------------------------------
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -340,53 +583,69 @@ const routeTree = rootRoute.addChildren([
     dashboardRoute,
     salesRoute.addChildren([
       salesIndexRoute,
-      salesInvoicesRoute,
-      salesInvoiceCreateRoute,
-      salesInvoiceDetailRoute,
-      salesInvoiceEditRoute
+      salesInvoicesRoute.addChildren([
+        salesInvoicesIndexRoute,
+        salesInvoiceCreateRoute,
+        salesInvoiceDetailRoute.addChildren([salesInvoiceDetailIndexRoute, salesInvoiceEditRoute])
+      ])
     ]),
     purchasesRoute.addChildren([
       purchasesIndexRoute,
-      supplierInvoicesRoute,
-      supplierInvoiceCreateRoute,
-      supplierInvoiceDetailRoute,
-      supplierInvoiceEditRoute,
-      ownerTransactionsRoute,
-      ownerTransactionCreateRoute
+      supplierInvoicesRoute.addChildren([
+        supplierInvoicesIndexRoute,
+        supplierInvoiceCreateRoute,
+        supplierInvoiceDetailRoute.addChildren([supplierInvoiceDetailIndexRoute, supplierInvoiceEditRoute])
+      ]),
+      ownerTransactionsRoute.addChildren([
+        ownerTransactionsIndexRoute,
+        ownerTransactionCreateRoute
+      ])
     ]),
     bankingRoute.addChildren([
       bankingIndexRoute,
-      bankingAccountsRoute,
-      bankingAccountCreateRoute,
-      bankingAccountDetailRoute,
-      bankingAccountEditRoute,
-      bankingAccountCardRoute,
-      bankingTransactionsRoute,
-      bankingTransactionCreateRoute,
-      bankingTransactionDetailRoute,
-      bankingTransactionEditRoute
+      bankingAccountsRoute.addChildren([
+        bankingAccountsIndexRoute,
+        bankingAccountCreateRoute,
+        bankingAccountDetailRoute.addChildren([
+          bankingAccountDetailIndexRoute,
+          bankingAccountEditRoute,
+          bankingAccountCardRoute
+        ])
+      ]),
+      bankingTransactionsRoute.addChildren([
+        bankingTransactionsIndexRoute,
+        bankingTransactionCreateRoute,
+        bankingTransactionDetailRoute.addChildren([bankingTransactionDetailIndexRoute, bankingTransactionEditRoute])
+      ])
     ]),
-    counterpartiesRoute,
-    counterpartyCreateRoute,
-    counterpartyDetailRoute,
-    counterpartyEditRoute,
-    counterpartyCardRoute,
+    counterpartiesRoute.addChildren([
+      counterpartiesIndexRoute,
+      counterpartyCreateRoute,
+      counterpartyDetailRoute.addChildren([counterpartyDetailIndexRoute, counterpartyEditRoute, counterpartyCardRoute])
+    ]),
     accountingRoute.addChildren([
       accountingIndexRoute,
-      journalEntriesRoute,
-      journalEntryDetailRoute,
-      journalEntryEditRoute,
-      chartRoute,
-      accountCreateRoute,
-      accountDetailRoute,
-      accountEditRoute
+      journalEntriesRoute.addChildren([
+        journalEntriesIndexRoute,
+        journalEntryDetailRoute.addChildren([journalEntryDetailIndexRoute, journalEntryEditRoute])
+      ]),
+      chartRoute.addChildren([
+        chartIndexRoute,
+        accountCreateRoute,
+          accountDetailRoute.addChildren([accountDetailIndexRoute, accountEditRoute])
+      ])
     ]),
     settingsRoute
   ])
 ]);
 
+// ---------------------------------------------------------------------------
+// Router
+// ---------------------------------------------------------------------------
+
 export const router = createRouter({
-  routeTree
+  routeTree,
+  context: { workspaceId: "", initializedWorkspace: false }
 });
 
 declare module "@tanstack/react-router" {

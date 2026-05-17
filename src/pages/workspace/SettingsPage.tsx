@@ -1,15 +1,16 @@
 import { SettingsPanel } from "../../widgets/settings/SettingsPanel";
-import { useWorkspaceData } from "../../app/WorkspaceDataContext";
+import { workspaceRoute } from "../../app/router";
+import { getAppEnvironment, shouldShowEnvironmentBadge } from "../../app/app-env";
 
 export function SettingsPage() {
-  const { data, onDataStateChange, showReset } = useWorkspaceData();
+  const { workspace, accounts, initializedWorkspace } = workspaceRoute.useLoaderData();
+  const showReset = shouldShowEnvironmentBadge(getAppEnvironment());
 
   return (
     <SettingsPanel
-      workspace={data.workspace}
-      accounts={data.accounts}
-      initializedWorkspace={data.initializedWorkspace}
-      onDataStateChange={onDataStateChange}
+      workspace={workspace}
+      accounts={accounts}
+      initializedWorkspace={initializedWorkspace}
       showReset={showReset}
     />
   );

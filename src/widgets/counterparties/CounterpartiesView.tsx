@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankAccount, Invoice, Party, SupplierInvoice } from "../../domain";
 import type { CounterpartiesViewProps } from "../../shared/model/widget-props";
 import { PartyCreateForm } from "../../features/party-create/PartyCreateForm";
@@ -15,12 +14,12 @@ export type CounterpartyRoute =
 export function CounterpartiesView(
   props: CounterpartiesViewProps & { route: CounterpartyRoute }
 ) {
-  const { workspace, parties, invoices, supplierInvoices, bankAccounts, onWorkspaceUpdate } =
+  const { workspace, parties, invoices, supplierInvoices, bankAccounts } =
     props;
   const { route } = props;
 
   if (route.mode === "create") {
-    return <PartyCreateForm onWorkspaceUpdate={onWorkspaceUpdate} workspaceId={workspace.id} />;
+    return <PartyCreateForm workspaceId={workspace.id} />;
   }
 
   if (route.mode === "workspace" || route.mode === "card" || route.mode === "edit") {
@@ -34,7 +33,6 @@ export function CounterpartiesView(
       <CounterpartyDetailPage
         bankAccounts={bankAccounts}
         mode={route.mode}
-        onWorkspaceUpdate={onWorkspaceUpdate}
         party={party}
       />
     );
@@ -97,12 +95,10 @@ function CounterpartyListPage({
 function CounterpartyDetailPage({
   bankAccounts,
   mode,
-  onWorkspaceUpdate,
   party
 }: {
   bankAccounts: BankAccount[];
   mode: "workspace" | "card" | "edit";
-  onWorkspaceUpdate: WorkspaceUpdateHandler;
   party: Party;
 }) {
   const relatedBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.partyId === party.id);
@@ -127,7 +123,7 @@ function CounterpartyDetailPage({
       </div>
 
       {mode === "edit" ? (
-        <CounterpartyEditForm party={party} onWorkspaceUpdate={onWorkspaceUpdate} />
+        <CounterpartyEditForm party={party} />
       ) : mode === "card" || mode === "workspace" ? (
         <>
           <CounterpartyDetails party={party} />
