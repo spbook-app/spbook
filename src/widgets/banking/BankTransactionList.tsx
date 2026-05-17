@@ -20,7 +20,7 @@ import {
 } from "../../services/bank-workflow";
 import { createParty } from "../../services/party-workflow";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
-import { BankStatementImport } from "./BankStatementImport";
+import { BankStatementImport } from "../../features/bank-statement-import/BankStatementImport";
 
 function isSameStatementCounterparty(
   partyName: string,

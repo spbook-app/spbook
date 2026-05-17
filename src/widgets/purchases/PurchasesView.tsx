@@ -5,17 +5,18 @@ import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
 import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
+import { SupplierInvoiceCreateForm } from "../../features/supplier-invoice-create/SupplierInvoiceCreateForm";
+import { OwnerTransactionsPanel } from "../../features/owner-transaction/OwnerTransactionsPanel";
 import {
   matchSupplierPaymentFromBankTransaction,
   undoBankTransactionPosting
 } from "../../services/bank-workflow";
 import {
-  createSupplierInvoice,
   deleteSupplierInvoice,
   updateSupplierInvoice
 } from "../../services/supplier-invoice-workflow";
+import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
-import { OwnerTransactionsPanel } from "./OwnerTransactionsPanel";
 
 type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
 type PurchaseRoute =
@@ -47,7 +48,7 @@ export function PurchasesView({
 
   if (route.mode === "supplier-create") {
     return (
-      <SupplierInvoiceCreatePage
+      <SupplierInvoiceCreateForm
         data={data}
         onDataStateChange={onDataStateChange}
         supplierParties={supplierParties}
@@ -117,94 +118,6 @@ function SupplierInvoiceListPage({ data }: { data: ReadyAppData }) {
           );
         })}
       </div>
-    </section>
-  );
-}
-
-function SupplierInvoiceCreatePage({
-  data,
-  onDataStateChange,
-  supplierParties
-}: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-  supplierParties: Party[];
-}) {
-  const navigate = useNavigate();
-  const [partyId, setPartyId] = useState(supplierParties[0]?.id ?? "");
-  const [number, setNumber] = useState("SUP-2026-0001");
-  const [issueDate, setIssueDate] = useState("2026-05-10");
-  const [total, setTotal] = useState("40.00");
-  const [expenseAccountCode, setExpenseAccountCode] = useState("4100");
-  const [actionState, setActionState] = useState<"idle" | "saving">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  async function handleCreateSupplierInvoice(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setActionState("saving");
-    setErrorMessage(null);
-
-    try {
-      if (!partyId) {
-        throw new Error("Select a supplier counterparty first.");
-      }
-
-      const overview = await createSupplierInvoice({
-        workspaceId: data.workspace.id,
-        partyId,
-        number,
-        issueDate,
-        total,
-        currency: data.workspace.baseCurrency,
-        expenseAccountCode
-      });
-      const createdSupplierInvoice = overview.latestSupplierInvoice;
-
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
-
-      if (createdSupplierInvoice) {
-        void navigate({
-          to: "/workspace/purchases/supplier-invoices/$supplierInvoiceId",
-          params: { supplierInvoiceId: createdSupplierInvoice.id }
-        });
-      }
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Supplier invoice was not created."
-      );
-    } finally {
-      setActionState("idle");
-    }
-  }
-
-  return (
-    <section className="panel" aria-labelledby="receive-supplier-invoice-title">
-      <div className="panel-header">
-        <h2 id="receive-supplier-invoice-title">Receive supplier invoice</h2>
-        <Link className="secondary-button" to="/workspace/purchases/supplier-invoices">
-          Back to list
-        </Link>
-      </div>
-      <form className="invoice-form" onSubmit={(event) => void handleCreateSupplierInvoice(event)}>
-        <SupplierInvoiceEditableFields
-          currency={data.workspace.baseCurrency}
-          expenseAccountCode={expenseAccountCode}
-          issueDate={issueDate}
-          number={number}
-          partyId={partyId}
-          supplierParties={supplierParties}
-          total={total}
-          onExpenseAccountCodeChange={setExpenseAccountCode}
-          onIssueDateChange={setIssueDate}
-          onNumberChange={setNumber}
-          onPartyIdChange={setPartyId}
-          onTotalChange={setTotal}
-        />
-        <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
-          {actionState === "saving" ? "Receiving" : "Receive invoice"}
-        </button>
-      </form>
-      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
   );
 }
@@ -496,102 +409,6 @@ function SupplierInvoiceDetailPage({
       )}
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
-  );
-}
-
-function SupplierInvoiceEditableFields({
-  currency,
-  disabled = false,
-  expenseAccountCode,
-  issueDate,
-  number,
-  partyId,
-  supplierParties,
-  total,
-  onExpenseAccountCodeChange,
-  onIssueDateChange,
-  onNumberChange,
-  onPartyIdChange,
-  onTotalChange
-}: {
-  currency: string;
-  disabled?: boolean;
-  expenseAccountCode: string;
-  issueDate: string;
-  number: string;
-  partyId: string;
-  supplierParties: Party[];
-  total: string;
-  onExpenseAccountCodeChange: (value: string) => void;
-  onIssueDateChange: (value: string) => void;
-  onNumberChange: (value: string) => void;
-  onPartyIdChange: (value: string) => void;
-  onTotalChange: (value: string) => void;
-}) {
-  return (
-    <>
-      <label>
-        <span>Supplier</span>
-        <select
-          required
-          value={partyId}
-          disabled={disabled}
-          onChange={(event) => onPartyIdChange(event.target.value)}
-        >
-          <option value="">Select supplier</option>
-          {supplierParties.map((party) => (
-            <option key={party.id} value={party.id}>
-              {party.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="form-row">
-        <label>
-          <span>Number</span>
-          <input
-            required
-            value={number}
-            disabled={disabled}
-            onChange={(event) => onNumberChange(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>Issue date</span>
-          <input
-            required
-            type="date"
-            value={issueDate}
-            disabled={disabled}
-            onChange={(event) => onIssueDateChange(event.target.value)}
-          />
-        </label>
-      </div>
-      <div className="form-row">
-        <label>
-          <span>Total</span>
-          <input
-            required
-            inputMode="decimal"
-            value={total}
-            disabled={disabled}
-            onChange={(event) => onTotalChange(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>Expense account</span>
-          <input
-            value={expenseAccountCode}
-            disabled={disabled}
-            onChange={(event) => onExpenseAccountCodeChange(event.target.value)}
-          />
-        </label>
-      </div>
-      <label>
-        <span>Currency</span>
-        <input readOnly value={currency} />
-      </label>
-    </>
   );
 }
 

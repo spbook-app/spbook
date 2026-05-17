@@ -5,15 +5,16 @@ import type { BankTransaction, Invoice, Party } from "../../domain";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
 import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
+import { InvoiceCreateForm } from "../../features/invoice-create/InvoiceCreateForm";
 import {
   matchInvoicePaymentFromBankTransaction,
   undoBankTransactionPosting
 } from "../../services/bank-workflow";
 import {
-  createSalesInvoice,
   deleteSalesInvoice,
   updateSalesInvoice
 } from "../../services/invoice-workflow";
+import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
 type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
@@ -41,7 +42,7 @@ export function SalesInvoicesView({
 
   if (route.mode === "create") {
     return (
-      <InvoiceCreatePage
+      <InvoiceCreateForm
         customerParties={customerParties}
         data={data}
         onDataStateChange={onDataStateChange}
@@ -103,93 +104,6 @@ function InvoiceListPage({ data }: { data: ReadyAppData }) {
           );
         })}
       </div>
-    </section>
-  );
-}
-
-function InvoiceCreatePage({
-  customerParties,
-  data,
-  onDataStateChange
-}: {
-  customerParties: Party[];
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
-  const navigate = useNavigate();
-  const [partyId, setPartyId] = useState(customerParties[0]?.id ?? "");
-  const [number, setNumber] = useState("2026-0001");
-  const [issueDate, setIssueDate] = useState("2026-05-10");
-  const [total, setTotal] = useState("1000.00");
-  const [actionState, setActionState] = useState<"idle" | "saving">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  async function handleCreateInvoice(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setActionState("saving");
-    setErrorMessage(null);
-
-    try {
-      if (!partyId) {
-        throw new Error("Select a customer counterparty first.");
-      }
-
-      const overview = await createSalesInvoice({
-        workspaceId: data.workspace.id,
-        partyId,
-        number,
-        issueDate,
-        total,
-        currency: data.workspace.baseCurrency
-      });
-      const createdInvoice = overview.latestInvoice;
-
-      onDataStateChange({
-        ...data,
-        ...mapOverviewToReadyState(overview)
-      });
-
-      if (createdInvoice) {
-        void navigate({
-          to: "/workspace/sales/invoices/$invoiceId",
-          params: { invoiceId: createdInvoice.id }
-        });
-      }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Invoice was not created.");
-    } finally {
-      setActionState("idle");
-    }
-  }
-
-  return (
-    <section className="panel" aria-labelledby="create-invoice-title">
-      <div className="panel-header">
-        <h2 id="create-invoice-title">Create invoice</h2>
-        <Link className="secondary-button" to="/workspace/sales/invoices">
-          Back to list
-        </Link>
-      </div>
-
-      <form className="invoice-form" onSubmit={(event) => void handleCreateInvoice(event)}>
-        <InvoiceEditableFields
-          currency={data.workspace.baseCurrency}
-          customerParties={customerParties}
-          issueDate={issueDate}
-          number={number}
-          partyId={partyId}
-          total={total}
-          onIssueDateChange={setIssueDate}
-          onNumberChange={setNumber}
-          onPartyIdChange={setPartyId}
-          onTotalChange={setTotal}
-        />
-        <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
-          {actionState === "saving" ? "Creating" : "Create invoice"}
-        </button>
-      </form>
-
-      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
   );
 }
@@ -484,90 +398,6 @@ function InvoiceDetailPage({
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
-  );
-}
-
-function InvoiceEditableFields({
-  currency,
-  customerParties,
-  disabled = false,
-  issueDate,
-  number,
-  partyId,
-  total,
-  onIssueDateChange,
-  onNumberChange,
-  onPartyIdChange,
-  onTotalChange
-}: {
-  currency: string;
-  customerParties: Party[];
-  disabled?: boolean;
-  issueDate: string;
-  number: string;
-  partyId: string;
-  total: string;
-  onIssueDateChange: (value: string) => void;
-  onNumberChange: (value: string) => void;
-  onPartyIdChange: (value: string) => void;
-  onTotalChange: (value: string) => void;
-}) {
-  return (
-    <>
-      <label>
-        <span>Customer</span>
-        <select
-          required
-          value={partyId}
-          disabled={disabled}
-          onChange={(event) => onPartyIdChange(event.target.value)}
-        >
-          <option value="">Select customer</option>
-          {customerParties.map((party) => (
-            <option key={party.id} value={party.id}>
-              {party.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="form-row">
-        <label>
-          <span>Number</span>
-          <input
-            required
-            value={number}
-            disabled={disabled}
-            onChange={(event) => onNumberChange(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>Issue date</span>
-          <input
-            required
-            type="date"
-            value={issueDate}
-            disabled={disabled}
-            onChange={(event) => onIssueDateChange(event.target.value)}
-          />
-        </label>
-      </div>
-      <div className="form-row">
-        <label>
-          <span>Total</span>
-          <input
-            required
-            inputMode="decimal"
-            value={total}
-            disabled={disabled}
-            onChange={(event) => onTotalChange(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>Currency</span>
-          <input readOnly value={currency} />
-        </label>
-      </div>
-    </>
   );
 }
 

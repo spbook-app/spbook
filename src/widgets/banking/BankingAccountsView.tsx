@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { AppDataState } from "../../app/App";
 import type { Account, BankAccount, Party } from "../../domain";
-import { createBankAccount, updateBankAccount } from "../../services/bank-workflow";
+import {
+  BankAccountEditableFields,
+  mapBankAccountToFormState,
+  type BankAccountFormState
+} from "../../entities/bank-account/BankAccountFields";
+import { BankAccountCreateForm } from "../../features/bank-account-create/BankAccountCreateForm";
+import { updateBankAccount } from "../../services/bank-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 import { getBankTransactionDisplayState } from "./bank-transaction-display";
@@ -15,14 +21,6 @@ type BankingAccountRoute =
   | { mode: "workspace"; bankAccountId: string }
   | { mode: "card"; bankAccountId: string }
   | { mode: "edit"; bankAccountId: string };
-
-type BankAccountFormState = {
-  name: string;
-  accountCode: string;
-  iban: string;
-  partyId: string;
-  active: boolean;
-};
 
 export function BankingAccountsView({
   data,
@@ -49,7 +47,7 @@ export function BankingAccountsView({
 
   if (route.mode === "create") {
     return (
-      <BankAccountCreatePage
+      <BankAccountCreateForm
         bankParties={bankParties}
         bankPostingAccounts={bankPostingAccounts}
         data={data}
@@ -115,120 +113,6 @@ function BankAccountListPage({ data }: { data: ReadyAppData }) {
           );
         })}
       </div>
-    </section>
-  );
-}
-
-function BankAccountCreatePage({
-  bankParties,
-  bankPostingAccounts,
-  data,
-  onDataStateChange
-}: {
-  bankParties: Party[];
-  bankPostingAccounts: Account[];
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
-}) {
-  const navigate = useNavigate();
-  const createBankAccountOptions = getCreateBankAccountOptions(
-    bankPostingAccounts,
-    data.bankAccounts
-  );
-  const [formState, setFormState] = useState<BankAccountFormState>({
-    name: "NLB EUR",
-    accountCode: createBankAccountOptions[0]?.code ?? "",
-    iban: "",
-    partyId: bankParties[0]?.id ?? "",
-    active: true
-  });
-  const [actionState, setActionState] = useState<"idle" | "creating">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const ibanValidationMessage = getIbanValidationMessage(formState.iban);
-  const canCreateBankAccount =
-    actionState === "idle" && createBankAccountOptions.length > 0 && !ibanValidationMessage;
-
-  useEffect(() => {
-    if (
-      createBankAccountOptions.length > 0 &&
-      !createBankAccountOptions.some((account) => account.code === formState.accountCode)
-    ) {
-      setFormState((currentState) => ({
-        ...currentState,
-        accountCode: createBankAccountOptions[0]!.code
-      }));
-    }
-  }, [createBankAccountOptions, formState.accountCode]);
-
-  async function handleCreateBankAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setErrorMessage(null);
-
-    try {
-      if (createBankAccountOptions.length === 0) {
-        throw new Error("No unused bank posting accounts are available.");
-      }
-
-      if (ibanValidationMessage) {
-        throw new Error(ibanValidationMessage);
-      }
-
-      setActionState("creating");
-      const overview = await createBankAccount({
-        workspaceId: data.workspace.id,
-        name: formState.name,
-        accountCode: formState.accountCode,
-        currency: data.workspace.baseCurrency,
-        iban: formState.iban,
-        partyId: formState.partyId
-      });
-      const createdBankAccount = overview.bankAccounts.at(-1);
-
-      onDataStateChange({ ...data, ...mapOverviewToReadyState(overview) });
-
-      if (createdBankAccount) {
-        void navigate({
-          to: "/workspace/banking/accounts/$bankAccountId",
-          params: { bankAccountId: createdBankAccount.id }
-        });
-      }
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Bank account was not created."
-      );
-    } finally {
-      setActionState("idle");
-    }
-  }
-
-  return (
-    <section className="panel panel-wide" aria-labelledby="create-bank-account-title">
-      <div className="panel-header">
-        <div>
-          <h2 id="create-bank-account-title">Create bank account</h2>
-        </div>
-        <Link className="secondary-button" to="/workspace/banking/accounts">
-          Back to list
-        </Link>
-      </div>
-
-      <form className="invoice-form" onSubmit={(event) => void handleCreateBankAccount(event)}>
-        <BankAccountEditableFields
-          bankParties={bankParties}
-          bankPostingAccounts={createBankAccountOptions}
-          formState={formState}
-          ibanValidationMessage={ibanValidationMessage}
-          onFormStateChange={setFormState}
-        />
-        {createBankAccountOptions.length === 0 ? (
-          <p className="field-note">No unused bank posting accounts are available.</p>
-        ) : null}
-        <button className="primary-button" type="submit" disabled={!canCreateBankAccount}>
-          {actionState === "creating" ? "Creating" : "Create bank account"}
-        </button>
-      </form>
-
-      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
   );
 }
@@ -509,88 +393,6 @@ function BankAccountDetailPage({
   );
 }
 
-function BankAccountEditableFields({
-  bankParties,
-  bankPostingAccounts,
-  formState,
-  ibanValidationMessage,
-  onFormStateChange,
-  showActive = false
-}: {
-  bankParties: Party[];
-  bankPostingAccounts: Account[];
-  formState: BankAccountFormState;
-  ibanValidationMessage: string | null;
-  onFormStateChange: (state: BankAccountFormState) => void;
-  showActive?: boolean;
-}) {
-  function updateFormState(update: Partial<BankAccountFormState>) {
-    onFormStateChange({ ...formState, ...update });
-  }
-
-  return (
-    <>
-      <div className="form-row">
-        <label>
-          <span>Account name</span>
-          <input
-            value={formState.name}
-            onChange={(event) => updateFormState({ name: event.target.value })}
-          />
-        </label>
-        <label>
-          <span>Posting account</span>
-          <select
-            value={formState.accountCode}
-            onChange={(event) => updateFormState({ accountCode: event.target.value })}
-          >
-            {bankPostingAccounts.map((account) => (
-              <option key={account.id} value={account.code}>
-                {account.code} · {account.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <label>
-        <span>Bank party</span>
-        <select
-          value={formState.partyId}
-          onChange={(event) => updateFormState({ partyId: event.target.value })}
-        >
-          <option value="">No bank party</option>
-          {bankParties.map((party) => (
-            <option key={party.id} value={party.id}>
-              {party.name}
-              {party.iban ? ` · ${party.iban}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>IBAN</span>
-        <input
-          aria-invalid={ibanValidationMessage ? "true" : "false"}
-          placeholder="SI56 1910 0000 0123 438"
-          value={formState.iban}
-          onChange={(event) => updateFormState({ iban: event.target.value })}
-        />
-      </label>
-      {ibanValidationMessage ? <p className="field-error">{ibanValidationMessage}</p> : null}
-      {showActive ? (
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={formState.active}
-            onChange={(event) => updateFormState({ active: event.target.checked })}
-          />
-          <span>Active bank account</span>
-        </label>
-      ) : null}
-    </>
-  );
-}
-
 function BankAccountNotFound({ bankAccountId }: { bankAccountId: string }) {
   return (
     <section className="panel" aria-labelledby="bank-account-not-found-title">
@@ -635,16 +437,6 @@ function getBankingAccountRoute(pathname: string): BankingAccountRoute {
   return { mode: "workspace", bankAccountId };
 }
 
-function getCreateBankAccountOptions(bankPostingAccounts: Account[], bankAccounts: BankAccount[]) {
-  const usedActiveAccountCodes = new Set(
-    bankAccounts
-      .filter((bankAccount) => bankAccount.active)
-      .map((bankAccount) => bankAccount.accountCode)
-  );
-
-  return bankPostingAccounts.filter((account) => !usedActiveAccountCodes.has(account.code));
-}
-
 function getEditBankAccountOptions(
   bankPostingAccounts: Account[],
   bankAccounts: BankAccount[],
@@ -661,14 +453,4 @@ function getEditBankAccountOptions(
       !usedActiveAccountCodes.has(account.code) ||
       account.code === selectedBankAccount.accountCode
   );
-}
-
-function mapBankAccountToFormState(bankAccount: BankAccount): BankAccountFormState {
-  return {
-    name: bankAccount.name,
-    accountCode: bankAccount.accountCode,
-    iban: bankAccount.iban ?? "",
-    partyId: bankAccount.partyId ?? "",
-    active: bankAccount.active
-  };
 }
