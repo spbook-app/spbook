@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { buildInfo } from "../generated/build-info";
 import { loadWorkspaceOverview } from "../services/workspace-overview";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import type { AppDataState, ReadyWorkspaceData } from "../shared/model/workspace";
 import { appMeta } from "./app-meta";
-import { WorkspaceView } from "./WorkspaceView";
+import { WorkspaceDataProvider } from "./WorkspaceDataContext";
 import {
   formatAppBuildLabel,
   getAppEnvironment,
@@ -103,11 +103,13 @@ export function App() {
       {dataState.state === "loading" ? <LoadingView /> : null}
       {dataState.state === "error" ? <ErrorView message={dataState.message} /> : null}
       {dataState.state === "ready" ? (
-        <WorkspaceView
+        <WorkspaceDataProvider
           data={dataState}
           onDataStateChange={setDataState}
           showReset={shouldShowEnvironmentBadge(appEnvironment)}
-        />
+        >
+          <Outlet />
+        </WorkspaceDataProvider>
       ) : null}
     </main>
   );

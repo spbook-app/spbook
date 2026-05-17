@@ -1,39 +1,20 @@
-import { useMemo } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   getWorkspaceSectionFromPath,
   type WorkspaceSection,
   type WorkspaceSectionPath,
   workspaceSections
 } from "../pages/workspace/model";
-import { ChartOfAccountsView, JournalEntriesView } from "../widgets/accounting/AccountingView";
-import { BankingAccountsView } from "../widgets/banking/BankingAccountsView";
-import { BankTransactionList } from "../widgets/banking/BankTransactionList";
-import { CounterpartiesView } from "../widgets/counterparties/CounterpartiesView";
-import { DashboardView } from "../widgets/dashboard/DashboardView";
-import { PurchasesView } from "../widgets/purchases/PurchasesView";
-import { SalesInvoicesView } from "../widgets/sales/SalesInvoicesView";
-import { SettingsPanel } from "../widgets/settings/SettingsPanel";
 import { WorkspaceSidebar } from "../widgets/workspace-sidebar/WorkspaceSidebar";
-import type { AppDataState, ReadyWorkspaceData } from "../shared/model/workspace";
+import type { ReadyWorkspaceData } from "../shared/model/workspace";
+import { useWorkspaceData } from "./WorkspaceDataContext";
 
-export function WorkspaceView({
-  data,
-  onDataStateChange,
-  showReset
-}: {
-  data: ReadyWorkspaceData;
-  onDataStateChange: (state: AppDataState) => void;
-  showReset: boolean;
-}) {
+export function WorkspaceView() {
+  const { data } = useWorkspaceData();
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
   const activeSection = getWorkspaceSectionFromPath(pathname);
-  const accountNames = useMemo(
-    () => new Map(data.accounts.map((account) => [account.code, account.name])),
-    [data.accounts]
-  );
   const activeSectionMeta =
     workspaceSections.find((section) => section.id === activeSection) ??
     workspaceSections[0]!;
@@ -53,49 +34,7 @@ export function WorkspaceView({
           </div>
         </header>
 
-        {activeSection === "dashboard" ? <DashboardView data={data} accountNames={accountNames} /> : null}
-        {activeSection === "sales" ? (
-          <div className="section-stack">
-            <SalesInvoicesView data={data} onDataStateChange={onDataStateChange} />
-          </div>
-        ) : null}
-        {activeSection === "purchases" ? (
-          <div className="section-stack">
-            <PurchasesView data={data} onDataStateChange={onDataStateChange} />
-          </div>
-        ) : null}
-        {activeSection === "bank-accounts" ? (
-          <div className="section-stack">
-            <BankingAccountsView data={data} onDataStateChange={onDataStateChange} />
-          </div>
-        ) : null}
-        {activeSection === "bank-transactions" ? (
-          <div className="section-stack">
-            <BankTransactionList data={data} onDataStateChange={onDataStateChange} />
-          </div>
-        ) : null}
-        {activeSection === "counterparties" ? (
-          <div className="section-stack">
-            <CounterpartiesView data={data} onDataStateChange={onDataStateChange} />
-          </div>
-        ) : null}
-        {activeSection === "chart" ? (
-          <div className="section-stack">
-            <ChartOfAccountsView data={data} onDataStateChange={onDataStateChange} />
-          </div>
-        ) : null}
-        {activeSection === "journal" ? (
-          <div className="section-stack">
-            <JournalEntriesView accountNames={accountNames} data={data} onDataStateChange={onDataStateChange} />
-          </div>
-        ) : null}
-        {activeSection === "settings" ? (
-          <SettingsPanel
-            data={data}
-            onDataStateChange={onDataStateChange}
-            showReset={showReset}
-          />
-        ) : null}
+        <Outlet />
       </section>
     </div>
   );

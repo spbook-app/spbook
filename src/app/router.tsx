@@ -1,11 +1,22 @@
 import {
   createRootRoute,
   createRoute,
-  createRouter
+  createRouter,
+  Outlet
 } from "@tanstack/react-router";
 import { App } from "./App";
+import { WorkspaceView } from "./WorkspaceView";
+import { DashboardPage } from "../pages/workspace/DashboardPage";
+import { SalesPage } from "../pages/workspace/SalesPage";
+import { PurchasesPage } from "../pages/workspace/PurchasesPage";
+import { BankingAccountsPage } from "../pages/workspace/BankingAccountsPage";
+import { BankingTransactionsPage } from "../pages/workspace/BankingTransactionsPage";
+import { CounterpartiesPage } from "../pages/workspace/CounterpartiesPage";
+import { AccountingJournalPage } from "../pages/workspace/AccountingJournalPage";
+import { AccountingChartPage } from "../pages/workspace/AccountingChartPage";
+import { SettingsPage } from "../pages/workspace/SettingsPage";
 
-const emptyRouteComponent = () => null;
+const passThrough = () => <Outlet />;
 
 const rootRoute = createRootRoute({
   component: App
@@ -14,241 +25,218 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: emptyRouteComponent
+  component: passThrough
 });
 
 const workspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "workspace",
-  component: emptyRouteComponent
+  component: WorkspaceView
 });
 
 const workspaceIndexRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/",
-  component: emptyRouteComponent
+  component: passThrough
 });
 
 const dashboardRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "dashboard",
-  component: emptyRouteComponent
+  component: DashboardPage
 });
 
 const salesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "sales",
-  component: emptyRouteComponent
+  component: passThrough
 });
 
 const salesInvoicesRoute = createRoute({
   getParentRoute: () => salesRoute,
   path: "invoices",
-  component: emptyRouteComponent
+  component: SalesPage
 });
 
 const salesInvoiceCreateRoute = createRoute({
   getParentRoute: () => salesInvoicesRoute,
-  path: "new",
-  component: emptyRouteComponent
+  path: "new"
 });
 
 const salesInvoiceDetailRoute = createRoute({
   getParentRoute: () => salesInvoicesRoute,
-  path: "$invoiceId",
-  component: emptyRouteComponent
+  path: "$invoiceId"
 });
 
 const salesInvoiceEditRoute = createRoute({
   getParentRoute: () => salesInvoiceDetailRoute,
-  path: "edit",
-  component: emptyRouteComponent
+  path: "edit"
 });
 
 const purchasesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "purchases",
-  component: emptyRouteComponent
+  component: passThrough
 });
 
 const supplierInvoicesRoute = createRoute({
   getParentRoute: () => purchasesRoute,
   path: "supplier-invoices",
-  component: emptyRouteComponent
+  component: PurchasesPage
 });
 
 const supplierInvoiceCreateRoute = createRoute({
   getParentRoute: () => supplierInvoicesRoute,
-  path: "new",
-  component: emptyRouteComponent
+  path: "new"
 });
 
 const supplierInvoiceDetailRoute = createRoute({
   getParentRoute: () => supplierInvoicesRoute,
-  path: "$supplierInvoiceId",
-  component: emptyRouteComponent
+  path: "$supplierInvoiceId"
 });
 
 const supplierInvoiceEditRoute = createRoute({
   getParentRoute: () => supplierInvoiceDetailRoute,
-  path: "edit",
-  component: emptyRouteComponent
+  path: "edit"
 });
 
 const ownerTransactionsRoute = createRoute({
   getParentRoute: () => purchasesRoute,
   path: "owner-transactions",
-  component: emptyRouteComponent
+  component: PurchasesPage
 });
 
 const ownerTransactionCreateRoute = createRoute({
   getParentRoute: () => ownerTransactionsRoute,
-  path: "new",
-  component: emptyRouteComponent
+  path: "new"
 });
 
 const bankingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "banking",
-  component: emptyRouteComponent
+  component: passThrough
 });
 
 const bankingAccountsRoute = createRoute({
   getParentRoute: () => bankingRoute,
   path: "accounts",
-  component: emptyRouteComponent
+  component: BankingAccountsPage
 });
 
 const bankingAccountCreateRoute = createRoute({
   getParentRoute: () => bankingAccountsRoute,
-  path: "new",
-  component: emptyRouteComponent
+  path: "new"
 });
 
 const bankingAccountDetailRoute = createRoute({
   getParentRoute: () => bankingAccountsRoute,
-  path: "$bankAccountId",
-  component: emptyRouteComponent
+  path: "$bankAccountId"
 });
 
 const bankingAccountEditRoute = createRoute({
   getParentRoute: () => bankingAccountDetailRoute,
-  path: "edit",
-  component: emptyRouteComponent
+  path: "edit"
 });
 
 const bankingAccountCardRoute = createRoute({
   getParentRoute: () => bankingAccountDetailRoute,
-  path: "card",
-  component: emptyRouteComponent
+  path: "card"
 });
 
 const bankingTransactionsRoute = createRoute({
   getParentRoute: () => bankingRoute,
   path: "transactions",
-  component: emptyRouteComponent
+  component: BankingTransactionsPage
 });
 
 const bankingTransactionCreateRoute = createRoute({
   getParentRoute: () => bankingTransactionsRoute,
-  path: "new",
-  component: emptyRouteComponent
+  path: "new"
 });
 
 const bankingTransactionDetailRoute = createRoute({
   getParentRoute: () => bankingTransactionsRoute,
-  path: "$bankTransactionId",
-  component: emptyRouteComponent
+  path: "$bankTransactionId"
 });
 
 const bankingTransactionEditRoute = createRoute({
   getParentRoute: () => bankingTransactionDetailRoute,
-  path: "edit",
-  component: emptyRouteComponent
+  path: "edit"
 });
 
 const counterpartiesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "counterparties",
-  component: emptyRouteComponent
+  component: CounterpartiesPage
 });
 
 const counterpartyCreateRoute = createRoute({
   getParentRoute: () => counterpartiesRoute,
-  path: "new",
-  component: emptyRouteComponent
+  path: "new"
 });
 
 const counterpartyDetailRoute = createRoute({
   getParentRoute: () => counterpartiesRoute,
-  path: "$partyId",
-  component: emptyRouteComponent
+  path: "$partyId"
 });
 
 const counterpartyEditRoute = createRoute({
   getParentRoute: () => counterpartyDetailRoute,
-  path: "edit",
-  component: emptyRouteComponent
+  path: "edit"
 });
 
 const counterpartyCardRoute = createRoute({
   getParentRoute: () => counterpartyDetailRoute,
-  path: "card",
-  component: emptyRouteComponent
+  path: "card"
 });
 
 const accountingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "accounting",
-  component: emptyRouteComponent
+  component: passThrough
 });
 
 const journalEntriesRoute = createRoute({
   getParentRoute: () => accountingRoute,
   path: "journal-entries",
-  component: emptyRouteComponent
+  component: AccountingJournalPage
 });
 
 const journalEntryDetailRoute = createRoute({
   getParentRoute: () => journalEntriesRoute,
-  path: "$journalEntryId",
-  component: emptyRouteComponent
+  path: "$journalEntryId"
 });
 
 const journalEntryEditRoute = createRoute({
   getParentRoute: () => journalEntryDetailRoute,
-  path: "edit",
-  component: emptyRouteComponent
+  path: "edit"
 });
 
 const chartRoute = createRoute({
   getParentRoute: () => accountingRoute,
   path: "chart",
-  component: emptyRouteComponent
+  component: AccountingChartPage
 });
 
 const accountCreateRoute = createRoute({
   getParentRoute: () => chartRoute,
-  path: "new",
-  component: emptyRouteComponent
+  path: "new"
 });
 
 const accountDetailRoute = createRoute({
   getParentRoute: () => chartRoute,
-  path: "$accountId",
-  component: emptyRouteComponent
+  path: "$accountId"
 });
 
 const accountEditRoute = createRoute({
   getParentRoute: () => accountDetailRoute,
-  path: "edit",
-  component: emptyRouteComponent
+  path: "edit"
 });
 
 const settingsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "settings",
-  component: emptyRouteComponent
+  component: SettingsPage
 });
 
 const routeTree = rootRoute.addChildren([
