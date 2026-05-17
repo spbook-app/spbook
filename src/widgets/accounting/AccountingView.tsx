@@ -1,12 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type {
   Account,
   BankAccount,
   Invoice,
   JournalEntry,
-  JournalLineSide,
   Party,
   SupplierInvoice
 } from "../../domain";
@@ -14,13 +12,10 @@ import type {
   AccountingViewProps,
   JournalEntriesViewProps
 } from "../../shared/model/widget-props";
-import { addMinorUnits, compareMinorUnits, parseMoneyAmount } from "../../domain/money";
 import { AccountCreateForm } from "../../features/account-create/AccountCreateForm";
-import {
-  updateWorkspaceAccount
-} from "../../services/account-workflow";
+import { AccountEditForm } from "../../features/account-edit/AccountEditForm";
+import { JournalEntryEditForm } from "../../features/journal-entry-edit/JournalEntryEditForm";
 import type { AccountBalance } from "../../services/balances";
-import { updateJournalEntry } from "../../services/journal-workflow";
 
 export type AccountingRoute =
   | { mode: "journal-list" }
@@ -187,83 +182,6 @@ function JournalEntryDetailPage({
   parties: Party[];
   supplierInvoices: SupplierInvoice[];
 }) {
-  const navigate = useNavigate();
-  const postingAccounts = accounts.filter((a) => a.role === "posting");
-  const [editDescription, setEditDescription] = useState(entry.description);
-  const [editDate, setEditDate] = useState(entry.entryDate);
-  const [editLines, setEditLines] = useState<JournalLineEdit[]>(() =>
-    entry.lines.map((line) => ({ ...line }))
-  );
-  const [actionState, setActionState] = useState<"idle" | "saving">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setEditDescription(entry.description);
-    setEditDate(entry.entryDate);
-    setEditLines(entry.lines.map((line) => ({ ...line })));
-  }, [entry]);
-
-  function handleAddLine() {
-    setEditLines((prev) => [
-      ...prev,
-      {
-        side: "debit",
-        accountCode: postingAccounts[0]?.code ?? "",
-        amount: "0.00",
-        currency: baseCurrency
-      }
-    ]);
-  }
-
-  function handleRemoveLine(index: number) {
-    setEditLines((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function handleLineChange(index: number, patch: Partial<JournalLineEdit>) {
-    setEditLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
-  }
-
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setErrorMessage(null);
-    setActionState("saving");
-
-    try {
-      const update = await updateJournalEntry({
-        journalEntryId: entry.id,
-        description: editDescription,
-        entryDate: editDate,
-        lines: editLines
-      });
-
-      onWorkspaceUpdate(update);
-      void navigate({
-        to: "/workspace/accounting/journal-entries/$journalEntryId",
-        params: { journalEntryId: entry.id }
-      });
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Journal entry was not saved.");
-    } finally {
-      setActionState("idle");
-    }
-  }
-
-  const debitTotal = addMinorUnits(
-    editLines
-      .filter((l) => l.side === "debit")
-      .map((l) => parseMoneyAmount(l.amount))
-      .filter((r): r is { ok: true; minorUnits: bigint } => r.ok)
-      .map((r) => r.minorUnits)
-  );
-  const creditTotal = addMinorUnits(
-    editLines
-      .filter((l) => l.side === "credit")
-      .map((l) => parseMoneyAmount(l.amount))
-      .filter((r): r is { ok: true; minorUnits: bigint } => r.ok)
-      .map((r) => r.minorUnits)
-  );
-  const isBalanced = compareMinorUnits(debitTotal, creditTotal) === 0;
-
   return (
     <section className="panel panel-wide">
       {mode === "detail" ? (
@@ -386,140 +304,15 @@ function JournalEntryDetailPage({
           </div>
         </>
       ) : (
-        <form className="invoice-form" onSubmit={(event) => void handleSave(event)}>
-          <div className="form-row">
-            <label>
-              <span>Description</span>
-              <input
-                value={editDescription}
-                onChange={(event) => setEditDescription(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Entry date</span>
-              <input
-                type="date"
-                value={editDate}
-                onChange={(event) => setEditDate(event.target.value)}
-              />
-            </label>
-          </div>
-          <div className="je-lines-editor">
-            {editLines.map((line, index) => (
-              <div className="je-line-row" key={index}>
-                <label className="je-line-side">
-                  <span>Side</span>
-                  <select
-                    value={line.side}
-                    onChange={(event) =>
-                      handleLineChange(index, { side: event.target.value as JournalLineSide })
-                    }
-                  >
-                    <option value="debit">Dr</option>
-                    <option value="credit">Cr</option>
-                  </select>
-                </label>
-                <label className="je-line-account">
-                  <span>Account</span>
-                  <select
-                    value={line.accountCode}
-                    onChange={(event) =>
-                      handleLineChange(index, { accountCode: event.target.value })
-                    }
-                  >
-                    {postingAccounts.map((account) => (
-                      <option key={account.id} value={account.code}>
-                        {account.code} · {account.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="je-line-amount">
-                  <span>Amount</span>
-                  <input
-                    value={line.amount}
-                    onChange={(event) =>
-                      handleLineChange(index, { amount: event.target.value })
-                    }
-                  />
-                </label>
-                <label className="je-line-currency">
-                  <span>Currency</span>
-                  <input
-                    value={line.currency}
-                    onChange={(event) =>
-                      handleLineChange(index, { currency: event.target.value })
-                    }
-                  />
-                </label>
-                <div className="je-line-remove">
-                  <span> </span>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => handleRemoveLine(index)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-            <button type="button" className="secondary-button" onClick={handleAddLine}>
-              Add line
-            </button>
-          </div>
-          <div className="je-balance-status">
-            <span>
-              Dr total: <strong>{formatMinorUnits(debitTotal)}</strong>
-            </span>
-            <span>
-              Cr total: <strong>{formatMinorUnits(creditTotal)}</strong>
-            </span>
-            {isBalanced ? (
-              <span className="je-balanced">Balanced</span>
-            ) : (
-              <span className="je-unbalanced">Not balanced</span>
-            )}
-          </div>
-          {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
-          <div className="transaction-detail-actions">
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={actionState !== "idle" || !isBalanced}
-            >
-              {actionState === "saving" ? "Saving" : "Save entry"}
-            </button>
-            <Link
-              className="secondary-button"
-              to="/workspace/accounting/journal-entries/$journalEntryId"
-              params={{ journalEntryId: entry.id }}
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+        <JournalEntryEditForm
+          entry={entry}
+          accounts={accounts}
+          baseCurrency={baseCurrency}
+          onWorkspaceUpdate={onWorkspaceUpdate}
+        />
       )}
     </section>
   );
-}
-
-type JournalLineEdit = {
-  side: JournalLineSide;
-  accountCode: string;
-  amount: string;
-  currency: string;
-  partyId?: string;
-  invoiceId?: string;
-  supplierInvoiceId?: string;
-  bankAccountId?: string;
-  taxPeriod?: string;
-};
-
-function formatMinorUnits(minorUnits: bigint): string {
-  const whole = minorUnits / 100n;
-  const fraction = (minorUnits % 100n).toString().padStart(2, "0");
-  return `${whole}.${fraction}`;
 }
 
 function JournalEntrySourceLink({ entry }: { entry: JournalEntry }) {
@@ -640,53 +433,10 @@ function AccountDetailPage({
   mode: "detail" | "edit";
   onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
-  const navigate = useNavigate();
-  const groupAccounts = accounts.filter(
-    (candidate) => candidate.role === "group" && candidate.id !== account.id
-  );
   const relatedBalances = balances.filter((balance) => balance.accountCode === account.code);
   const relatedEntries = journalEntries.filter((entry) =>
     entry.lines.some((line) => line.accountCode === account.code)
   );
-  const [editName, setEditName] = useState(account.name);
-  const [editParentCode, setEditParentCode] = useState(account.parentCode ?? "");
-  const [editCurrency, setEditCurrency] = useState(account.currency ?? "");
-  const [editActive, setEditActive] = useState(account.active);
-  const [actionState, setActionState] = useState<"idle" | "updating">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setEditName(account.name);
-    setEditParentCode(account.parentCode ?? "");
-    setEditCurrency(account.currency ?? "");
-    setEditActive(account.active);
-  }, [account]);
-
-  async function handleUpdateAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setErrorMessage(null);
-    setActionState("updating");
-
-    try {
-      const update = await updateWorkspaceAccount({
-        accountId: account.id,
-        name: editName,
-        parentCode: account.role === "posting" ? editParentCode : undefined,
-        currency: account.role === "posting" ? editCurrency : undefined,
-        active: editActive
-      });
-
-      onWorkspaceUpdate(update);
-      void navigate({
-        to: "/workspace/accounting/chart/$accountId",
-        params: { accountId: account.id }
-      });
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Account was not updated.");
-    } finally {
-      setActionState("idle");
-    }
-  }
 
   return (
     <section className="panel panel-wide" aria-labelledby="account-detail-title">
@@ -712,36 +462,7 @@ function AccountDetailPage({
       </div>
 
       {mode === "edit" ? (
-        <form className="invoice-form" onSubmit={(event) => void handleUpdateAccount(event)}>
-          <AccountEditFields
-            account={account}
-            active={editActive}
-            currency={editCurrency}
-            groupAccounts={groupAccounts}
-            name={editName}
-            parentCode={editParentCode}
-            onActiveChange={setEditActive}
-            onCurrencyChange={setEditCurrency}
-            onNameChange={setEditName}
-            onParentCodeChange={setEditParentCode}
-          />
-          <p className="field-note">
-            Account code and role are fixed after creation because journal entries refer to
-            account codes.
-          </p>
-          <div className="transaction-detail-actions">
-            <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
-              {actionState === "updating" ? "Saving" : "Save account"}
-            </button>
-            <Link
-              className="secondary-button"
-              to="/workspace/accounting/chart/$accountId"
-              params={{ accountId: account.id }}
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+        <AccountEditForm account={account} accounts={accounts} onWorkspaceUpdate={onWorkspaceUpdate} />
       ) : (
         <>
           <dl className="detail-list copyable-details">
@@ -770,89 +491,12 @@ function AccountDetailPage({
           <RelatedJournalEntries entries={relatedEntries} />
         </>
       )}
-      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
   );
 }
 
 function AccountingLinks() {
   return null;
-}
-
-function AccountEditFields({
-  account,
-  active,
-  currency,
-  groupAccounts,
-  name,
-  parentCode,
-  onActiveChange,
-  onCurrencyChange,
-  onNameChange,
-  onParentCodeChange
-}: {
-  account: Account;
-  active: boolean;
-  currency: string;
-  groupAccounts: Account[];
-  name: string;
-  parentCode: string;
-  onActiveChange: (value: boolean) => void;
-  onCurrencyChange: (value: string) => void;
-  onNameChange: (value: string) => void;
-  onParentCodeChange: (value: string) => void;
-}) {
-  return (
-    <>
-      <div className="form-row">
-        <label>
-          <span>Code</span>
-          <input disabled value={account.code} />
-        </label>
-        <label>
-          <span>Role</span>
-          <input disabled value={account.role} />
-        </label>
-      </div>
-      <label>
-        <span>Name</span>
-        <input value={name} onChange={(event) => onNameChange(event.target.value)} />
-      </label>
-      <div className="form-row">
-        <label>
-          <span>Parent group</span>
-          <select
-            value={parentCode}
-            disabled={account.role !== "posting"}
-            onChange={(event) => onParentCodeChange(event.target.value)}
-          >
-            <option value="">No parent</option>
-            {groupAccounts.map((groupAccount) => (
-              <option key={groupAccount.id} value={groupAccount.code}>
-                {groupAccount.code} · {groupAccount.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Currency</span>
-          <input
-            disabled={account.role !== "posting"}
-            value={currency}
-            onChange={(event) => onCurrencyChange(event.target.value)}
-          />
-        </label>
-      </div>
-      <label className="checkbox-row">
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={(event) => onActiveChange(event.target.checked)}
-        />
-        <span>Active account</span>
-      </label>
-    </>
-  );
 }
 
 function RelatedAccountBalances({ balances }: { balances: AccountBalance[] }) {

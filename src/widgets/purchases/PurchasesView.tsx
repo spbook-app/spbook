@@ -1,22 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { Link } from "@tanstack/react-router";
 import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
 import type { PurchasesViewProps } from "../../shared/model/widget-props";
-import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
 import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
 import { SupplierInvoiceCreateForm } from "../../features/supplier-invoice-create/SupplierInvoiceCreateForm";
 import { OwnerTransactionsPanel } from "../../features/owner-transaction/OwnerTransactionsPanel";
-import {
-  matchSupplierPaymentFromBankTransaction,
-  undoBankTransactionPosting
-} from "../../services/bank-workflow";
-import {
-  deleteSupplierInvoice,
-  updateSupplierInvoice
-} from "../../services/supplier-invoice-workflow";
-import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
+import { SupplierInvoiceDeleteButton } from "../../features/supplier-invoice-delete/SupplierInvoiceDeleteButton";
+import { SupplierInvoiceEditForm } from "../../features/supplier-invoice-edit/SupplierInvoiceEditForm";
+import { SupplierInvoicePaymentPanel } from "../../features/supplier-invoice-payment/SupplierInvoicePaymentPanel";
 
 export type PurchaseRoute =
   | { mode: "supplier-list" }
@@ -152,129 +145,11 @@ function SupplierInvoiceDetailPage({
   supplierInvoice: SupplierInvoice;
   supplierParties: Party[];
 }) {
-  const navigate = useNavigate();
-  const [selectedPaymentBankTransactionId, setSelectedPaymentBankTransactionId] = useState("");
-  const [actionState, setActionState] = useState<
-    "idle" | "updating" | "deleting" | "paying" | "undo"
-  >("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [editPartyId, setEditPartyId] = useState(supplierInvoice.partyId);
-  const [editNumber, setEditNumber] = useState(supplierInvoice.number);
-  const [editIssueDate, setEditIssueDate] = useState(supplierInvoice.issueDate);
-  const [editTotal, setEditTotal] = useState(supplierInvoice.total);
-  const [editExpenseAccountCode, setEditExpenseAccountCode] = useState(
-    supplierInvoice.expenseAccountCode
-  );
   const supplierParty =
     parties.find((party) => party.id === supplierInvoice.partyId) ?? null;
   const supplierInvoiceEntries = journalEntries.filter((entry) =>
     entry.lines.some((line) => line.supplierInvoiceId === supplierInvoice.id)
   );
-  const linkedBankTransaction =
-    bankTransactions.find(
-      (bankTransaction) =>
-        bankTransaction.matchedDocumentType === "supplier_invoice" &&
-        bankTransaction.matchedDocumentId === supplierInvoice.id
-    ) ?? null;
-  const paymentCandidates = getOutgoingPaymentCandidates(bankTransactions, supplierInvoice);
-  const selectedOutgoingBankTransactionId =
-    selectedPaymentBankTransactionId || paymentCandidates[0]?.id || "";
-
-  useEffect(() => {
-    setEditPartyId(supplierInvoice.partyId);
-    setEditNumber(supplierInvoice.number);
-    setEditIssueDate(supplierInvoice.issueDate);
-    setEditTotal(supplierInvoice.total);
-    setEditExpenseAccountCode(supplierInvoice.expenseAccountCode);
-  }, [supplierInvoice]);
-
-  async function handleRecordPayment() {
-    setActionState("paying");
-    setErrorMessage(null);
-
-    try {
-      if (!selectedOutgoingBankTransactionId) {
-        throw new Error("Select an outgoing bank transaction first.");
-      }
-
-      const update = await matchSupplierPaymentFromBankTransaction(
-        supplierInvoice.id,
-        selectedOutgoingBankTransactionId
-      );
-
-      onWorkspaceUpdate(update);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Supplier payment was not recorded."
-      );
-    } finally {
-      setActionState("idle");
-    }
-  }
-
-  async function handleUndoPayment() {
-    if (!linkedBankTransaction) return;
-
-    setActionState("undo");
-    setErrorMessage(null);
-
-    try {
-      const update = await undoBankTransactionPosting(linkedBankTransaction.id);
-      onWorkspaceUpdate(update);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Supplier payment was not undone."
-      );
-    } finally {
-      setActionState("idle");
-    }
-  }
-
-  async function handleUpdateSupplierInvoice(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setActionState("updating");
-    setErrorMessage(null);
-
-    try {
-      const update = await updateSupplierInvoice({
-        supplierInvoiceId: supplierInvoice.id,
-        partyId: editPartyId,
-        number: editNumber,
-        issueDate: editIssueDate,
-        total: editTotal,
-        expenseAccountCode: editExpenseAccountCode
-      });
-
-      onWorkspaceUpdate(update);
-      void navigate({
-        to: "/workspace/purchases/supplier-invoices/$supplierInvoiceId",
-        params: { supplierInvoiceId: supplierInvoice.id }
-      });
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Supplier invoice was not updated."
-      );
-    } finally {
-      setActionState("idle");
-    }
-  }
-
-  async function handleDeleteSupplierInvoice() {
-    setActionState("deleting");
-    setErrorMessage(null);
-
-    try {
-      const update = await deleteSupplierInvoice(supplierInvoice.id);
-      onWorkspaceUpdate(update);
-      void navigate({ to: "/workspace/purchases/supplier-invoices" });
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Supplier invoice was not deleted."
-      );
-    } finally {
-      setActionState("idle");
-    }
-  }
 
   return (
     <section className="panel" aria-labelledby="supplier-invoice-detail-title">
@@ -304,39 +179,11 @@ function SupplierInvoiceDetailPage({
       </div>
 
       {mode === "edit" ? (
-        <form className="invoice-form" onSubmit={(event) => void handleUpdateSupplierInvoice(event)}>
-          <SupplierInvoiceEditableFields
-            currency={supplierInvoice.currency}
-            disabled={supplierInvoice.status === "paid"}
-            expenseAccountCode={editExpenseAccountCode}
-            issueDate={editIssueDate}
-            number={editNumber}
-            partyId={editPartyId}
-            supplierParties={supplierParties}
-            total={editTotal}
-            onExpenseAccountCodeChange={setEditExpenseAccountCode}
-            onIssueDateChange={setEditIssueDate}
-            onNumberChange={setEditNumber}
-            onPartyIdChange={setEditPartyId}
-            onTotalChange={setEditTotal}
-          />
-          <div className="transaction-detail-actions">
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={actionState !== "idle" || supplierInvoice.status === "paid"}
-            >
-              {actionState === "updating" ? "Saving invoice" : "Save invoice"}
-            </button>
-            <Link
-              className="secondary-button"
-              to="/workspace/purchases/supplier-invoices/$supplierInvoiceId"
-              params={{ supplierInvoiceId: supplierInvoice.id }}
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+        <SupplierInvoiceEditForm
+          onWorkspaceUpdate={onWorkspaceUpdate}
+          supplierInvoice={supplierInvoice}
+          supplierParties={supplierParties}
+        />
       ) : (
         <>
           <div className="invoice-summary document-detail">
@@ -377,54 +224,17 @@ function SupplierInvoiceDetailPage({
             </div>
           ) : null}
           <LinkedJournalEntries entries={supplierInvoiceEntries} />
-          {linkedBankTransaction ? (
-            <LinkedBankTransactionSummary
-              label="Linked outgoing bank transaction"
-              bankTransaction={linkedBankTransaction}
-              onUndo={() => void handleUndoPayment()}
-              undoDisabled={actionState !== "idle"}
-              undoLabel={actionState === "undo" ? "Undoing payment" : "Undo payment"}
-            />
-          ) : (
-            <>
-              <label className="inline-select">
-                <span>Outgoing bank transaction</span>
-                <select
-                  value={selectedOutgoingBankTransactionId}
-                  onChange={(event) => setSelectedPaymentBankTransactionId(event.target.value)}
-                >
-                  <option value="">Select transaction</option>
-                  {paymentCandidates.map((bankTransaction) => (
-                    <option key={bankTransaction.id} value={bankTransaction.id}>
-                      {bankTransaction.bookingDate} · {bankTransaction.amount} ·{" "}
-                      {bankTransaction.description}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="secondary-button"
-                type="button"
-                disabled={actionState !== "idle" || supplierInvoice.status === "paid"}
-                onClick={() => void handleRecordPayment()}
-              >
-                {supplierInvoice.status === "paid" ? "Payment recorded" : "Record payment"}
-              </button>
-            </>
-          )}
-          {supplierInvoice.status !== "paid" ? (
-            <button
-              className="secondary-button danger-button"
-              type="button"
-              disabled={actionState !== "idle"}
-              onClick={() => void handleDeleteSupplierInvoice()}
-            >
-              {actionState === "deleting" ? "Deleting invoice" : "Delete invoice"}
-            </button>
-          ) : null}
+          <SupplierInvoicePaymentPanel
+            bankTransactions={bankTransactions}
+            onWorkspaceUpdate={onWorkspaceUpdate}
+            supplierInvoice={supplierInvoice}
+          />
+          <SupplierInvoiceDeleteButton
+            onWorkspaceUpdate={onWorkspaceUpdate}
+            supplierInvoice={supplierInvoice}
+          />
         </>
       )}
-      {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
     </section>
   );
 }
@@ -443,39 +253,4 @@ function SupplierInvoiceNotFound({ supplierInvoiceId }: { supplierInvoiceId: str
       </p>
     </section>
   );
-}
-
-
-function getOutgoingPaymentCandidates(
-  bankTransactions: BankTransaction[],
-  supplierInvoice: SupplierInvoice
-) {
-  return bankTransactions
-    .filter(
-      (bankTransaction) =>
-        bankTransaction.status === "unmatched" && bankTransaction.amount.startsWith("-")
-    )
-    .sort((left, right) => {
-      const leftScore = getPaymentCandidateScore(left, supplierInvoice);
-      const rightScore = getPaymentCandidateScore(right, supplierInvoice);
-
-      return rightScore - leftScore;
-    });
-}
-
-function getPaymentCandidateScore(
-  bankTransaction: BankTransaction,
-  supplierInvoice: SupplierInvoice
-) {
-  let score = 0;
-
-  if (bankTransaction.partyId === supplierInvoice.partyId) {
-    score += 2;
-  }
-
-  if (Number(bankTransaction.amount.replace("-", "")) === Number(supplierInvoice.total)) {
-    score += 1;
-  }
-
-  return score;
 }
