@@ -6,6 +6,7 @@ import {
   Outlet
 } from "@tanstack/react-router";
 import { App } from "./App";
+import { defaultCountryConfig } from "./country-config";
 import { WorkspaceView } from "./WorkspaceView";
 import { WorkspaceLoadingView, WorkspaceErrorView } from "./WorkspaceStates";
 import { DashboardPage } from "../pages/workspace/DashboardPage";
@@ -123,7 +124,7 @@ export const workspaceRoute = createRoute({
   pendingComponent: WorkspaceLoadingView,
   errorComponent: WorkspaceErrorView,
   beforeLoad: async () => {
-    const init = await initializeDefaultWorkspace();
+    const init = await initializeDefaultWorkspace(defaultCountryConfig);
     return { workspaceId: init.workspace.id, initializedWorkspace: init.created };
   },
   loader: async ({ context }) => {

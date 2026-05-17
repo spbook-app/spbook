@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { BankTransaction } from "../domain";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { defaultCountryConfig } from "../app/country-config";
 import { saveBankTransaction } from "../storage/repositories";
 import {
   createBankAccount,
@@ -27,7 +28,7 @@ describe("bank workflow", () => {
   });
 
   it("creates bank accounts and bank transactions", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -72,7 +73,7 @@ describe("bank workflow", () => {
   });
 
   it("rejects bank account parties without the bank role", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -98,7 +99,7 @@ describe("bank workflow", () => {
   });
 
   it("updates bank account parameters", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     await createWorkspaceAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -140,7 +141,7 @@ describe("bank workflow", () => {
   });
 
   it("rejects invalid IBAN values", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
 
     await expect(
       createBankAccount(
@@ -157,7 +158,7 @@ describe("bank workflow", () => {
   });
 
   it("rejects multiple active bank accounts for the same posting account", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -182,7 +183,7 @@ describe("bank workflow", () => {
   });
 
   it("updates unmatched bank transactions", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -247,7 +248,7 @@ describe("bank workflow", () => {
   });
 
   it("rejects editing imported bank transactions", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -286,7 +287,7 @@ describe("bank workflow", () => {
   });
 
   it("links an unmatched imported bank transaction to a counterparty", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -391,7 +392,7 @@ describe("bank workflow", () => {
   });
 
   it("posts an outgoing bank transaction as a bank fee", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -424,7 +425,7 @@ describe("bank workflow", () => {
   });
 
   it("undoes a bank fee posting", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -464,7 +465,7 @@ describe("bank workflow", () => {
   });
 
   async function createSalesContext(total: string) {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -513,7 +514,7 @@ describe("bank workflow", () => {
   }
 
   async function createSupplierContext(total: string) {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,

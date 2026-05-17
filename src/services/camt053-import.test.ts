@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { defaultCountryConfig } from "../app/country-config";
 import { createBankAccount } from "./bank-workflow";
 import {
   autoLinkImportedBankTransactions,
@@ -43,7 +44,7 @@ describe("CAMT.053 import", () => {
   });
 
   it("imports CAMT.053 entries and skips duplicate imported entries", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -87,7 +88,7 @@ describe("CAMT.053 import", () => {
   });
 
   it("links imported entries to existing counterparties by IBAN", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -127,7 +128,7 @@ describe("CAMT.053 import", () => {
   });
 
   it("auto-links previously imported entries to existing counterparties", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const accountOverview = await createBankAccount(
       {
         workspaceId: initialization.workspace.id,

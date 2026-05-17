@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { defaultCountryConfig } from "../app/country-config";
 import {
   createSalesInvoice,
   deleteSalesInvoice,
@@ -28,7 +29,7 @@ describe("invoice workflow", () => {
   });
 
   it("creates an issued invoice with a balanced journal entry", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -61,7 +62,7 @@ describe("invoice workflow", () => {
   });
 
   it("records payment and marks invoice as paid without duplicating payment", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -99,7 +100,7 @@ describe("invoice workflow", () => {
   });
 
   it("updates and deletes unpaid issued invoices", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -146,7 +147,7 @@ describe("invoice workflow", () => {
   });
 
   it("loads an empty overview before an invoice is created", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const overview = await loadWorkspaceOverview(initialization.workspace.id, database);
 
     expect(overview.latestInvoice).toBeNull();
@@ -161,7 +162,7 @@ describe("invoice workflow", () => {
   });
 
   it("creates and pays a supplier invoice", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -197,7 +198,7 @@ describe("invoice workflow", () => {
   });
 
   it("updates and deletes unpaid supplier invoices", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -246,7 +247,7 @@ describe("invoice workflow", () => {
   });
 
   it("records owner contribution and withdrawal", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const contributionOverview = await recordOwnerContribution(
       {
         workspaceId: initialization.workspace.id,
@@ -275,7 +276,7 @@ describe("invoice workflow", () => {
   });
 
   it("rejects invoice workflows with unsuitable party roles", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const supplierOverview = await createParty(
       {
         workspaceId: initialization.workspace.id,

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { defaultCountryConfig } from "../app/country-config";
 import { clearDatabase } from "../storage/repositories";
 import anonymizedBackupFixture from "../test/fixtures/spbook-backup-si-demo-anonymized.json";
 import { createWorkspaceAccount } from "./account-workflow";
@@ -19,7 +20,7 @@ describe("workspace backup", () => {
   });
 
   it("exports and imports local workspace data", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     await createWorkspaceAccount(
       {
         workspaceId: initialization.workspace.id,

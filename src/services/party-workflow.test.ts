@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { defaultCountryConfig } from "../app/country-config";
 import { createSalesInvoice } from "./invoice-workflow";
 import { createParty, updateParty } from "./party-workflow";
 
@@ -12,7 +13,7 @@ describe("party workflow", () => {
   });
 
   it("creates a counterparty with type, roles, country, and VAT ID", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const overview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -53,7 +54,7 @@ describe("party workflow", () => {
   });
 
   it("rejects a counterparty without roles", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
 
     await expect(
       createParty(
@@ -69,7 +70,7 @@ describe("party workflow", () => {
   });
 
   it("updates a counterparty", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const overview = await createParty(
       {
         workspaceId: initialization.workspace.id,
@@ -118,7 +119,7 @@ describe("party workflow", () => {
   });
 
   it("rejects invalid email values", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
 
     await expect(
       createParty(
@@ -135,7 +136,7 @@ describe("party workflow", () => {
   });
 
   it("rejects invalid IBAN values", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
 
     await expect(
       createParty(
@@ -152,7 +153,7 @@ describe("party workflow", () => {
   });
 
   it("keeps required roles for parties used by documents", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const overview = await createParty(
       {
         workspaceId: initialization.workspace.id,

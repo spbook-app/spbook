@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { validateUniqueAccountCodes } from "../domain";
+import { validateUniqueAccountCodes } from "../../domain";
 import {
   createDefaultSloveniaAccounts,
   createDefaultSloveniaWorkspace,
   DEFAULT_SLOVENIA_ACCOUNT_CODES
-} from "./slovenia";
+} from "./seed";
 
 describe("Slovenia seed", () => {
   it("creates the default Slovenian workspace", () => {

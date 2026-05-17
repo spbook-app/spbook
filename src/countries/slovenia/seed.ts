@@ -1,5 +1,6 @@
-import type { Account, Workspace } from "../domain";
-import { validateUniqueAccountCodes } from "../domain";
+import type { Account, Workspace } from "../../domain";
+import { validateUniqueAccountCodes } from "../../domain";
+import type { CountryConfig } from "../model";
 
 export const DEFAULT_SLOVENIA_WORKSPACE_ID = "ws_si_default";
 
@@ -67,6 +68,14 @@ export function createDefaultSloveniaAccounts(
 
   return accounts;
 }
+
+export const sloveniaCountryConfig: CountryConfig = {
+  code: "SI",
+  name: "Slovenia",
+  defaultCurrency: "EUR",
+  createDefaultWorkspace: createDefaultSloveniaWorkspace,
+  createDefaultAccounts: createDefaultSloveniaAccounts
+};
 
 function groupAccount(workspaceId: string, code: string, name: string): Account {
   return {

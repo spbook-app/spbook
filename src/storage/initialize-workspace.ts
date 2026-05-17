@@ -1,9 +1,6 @@
 import type { Account, Workspace } from "../domain";
 import { validateUniqueAccountCodes } from "../domain";
-import {
-  createDefaultSloveniaAccounts,
-  createDefaultSloveniaWorkspace
-} from "../seed/slovenia";
+import type { CountryConfig } from "../countries/model";
 import { db, type SpbookDatabase } from "./db";
 import {
   getAccountsByWorkspaceId,
@@ -18,6 +15,7 @@ export type WorkspaceInitializationResult = {
 };
 
 export async function initializeDefaultWorkspace(
+  countryConfig: CountryConfig,
   database: SpbookDatabase = db
 ): Promise<WorkspaceInitializationResult> {
   const existingWorkspace = await getFirstWorkspace(database);
@@ -30,8 +28,8 @@ export async function initializeDefaultWorkspace(
     };
   }
 
-  const workspace = createDefaultSloveniaWorkspace();
-  const accounts = createDefaultSloveniaAccounts(workspace.id);
+  const workspace = countryConfig.createDefaultWorkspace();
+  const accounts = countryConfig.createDefaultAccounts(workspace.id);
   const validation = validateUniqueAccountCodes(accounts);
 
   if (!validation.ok) {

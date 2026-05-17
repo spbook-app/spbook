@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { validateJournalEntry } from "../domain";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { defaultCountryConfig } from "../app/country-config";
 import {
   getAccountsByWorkspaceId,
   getInvoicesByWorkspaceId,
@@ -31,7 +32,7 @@ afterEach(async () => {
 describe("runDemoInvoicePaymentFlow", () => {
   it("creates party, paid invoice, journal entries, and balances", async () => {
     const db = testDatabase();
-    const { workspace } = await initializeDefaultWorkspace(db);
+    const { workspace } = await initializeDefaultWorkspace(defaultCountryConfig, db);
     const result = await runDemoInvoicePaymentFlow(workspace.id, db);
 
     expect(result.party.id).toBe(DEMO_CUSTOMER_PARTY_ID);
@@ -47,7 +48,7 @@ describe("runDemoInvoicePaymentFlow", () => {
 
   it("is idempotent", async () => {
     const db = testDatabase();
-    const { workspace } = await initializeDefaultWorkspace(db);
+    const { workspace } = await initializeDefaultWorkspace(defaultCountryConfig, db);
 
     await runDemoInvoicePaymentFlow(workspace.id, db);
     await runDemoInvoicePaymentFlow(workspace.id, db);
@@ -59,7 +60,7 @@ describe("runDemoInvoicePaymentFlow", () => {
 
   it("creates journal entries that pass domain validation", async () => {
     const db = testDatabase();
-    const { workspace } = await initializeDefaultWorkspace(db);
+    const { workspace } = await initializeDefaultWorkspace(defaultCountryConfig, db);
     await runDemoInvoicePaymentFlow(workspace.id, db);
 
     const accounts = await getAccountsByWorkspaceId(workspace.id, db);

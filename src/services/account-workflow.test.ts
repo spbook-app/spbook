@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import { defaultCountryConfig } from "../app/country-config";
 import { createWorkspaceAccount, updateWorkspaceAccount } from "./account-workflow";
 
 describe("account workflow", () => {
@@ -11,7 +12,7 @@ describe("account workflow", () => {
   });
 
   it("creates a posting account manually", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const overview = await createWorkspaceAccount(
       {
         workspaceId: initialization.workspace.id,
@@ -35,7 +36,7 @@ describe("account workflow", () => {
   });
 
   it("updates editable account fields", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const targetAccount = initialization.accounts.find((account) => account.code === "1100")!;
     const overview = await updateWorkspaceAccount(
       {
@@ -56,7 +57,7 @@ describe("account workflow", () => {
   });
 
   it("rejects duplicate account codes", async () => {
-    const initialization = await initializeDefaultWorkspace(database);
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
 
     await expect(
       createWorkspaceAccount(
