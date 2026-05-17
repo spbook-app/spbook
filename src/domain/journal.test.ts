@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Account, JournalEntry } from "./entities";
+import type { Account, JournalEntry } from "./types";
 import { validateJournalEntry } from "./journal";
 
 const accounts: Account[] = [

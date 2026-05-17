@@ -1,5 +1,5 @@
 import { getAccountByCode } from "./accounts";
-import type { Account, JournalEntry, JournalLineSide } from "./entities";
+import type { Account, JournalEntry, JournalLineSide } from "./types";
 import { addMinorUnits, compareMinorUnits, parseMoneyAmount } from "./money";
 import { invalid, valid, type ValidationIssue, type ValidationResult } from "./validation";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Account } from "./entities";
+import type { Account } from "./types";
 import { findDuplicateAccountCodes, validateUniqueAccountCodes } from "./accounts";
 
 const baseAccount: Account = {

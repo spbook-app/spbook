@@ -1,4 +1,4 @@
-import type { Party, SupplierInvoice } from "./entities";
+import type { Party, SupplierInvoice } from "./types";
 import { parseMoneyAmount } from "./money";
 import { getPartyById, partyHasRole } from "./parties";
 import { invalid, valid, type ValidationIssue, type ValidationResult } from "./validation";

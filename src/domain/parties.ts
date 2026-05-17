@@ -1,4 +1,4 @@
-import type { Party, PartyRole } from "./entities";
+import type { Party, PartyRole } from "./types";
 
 export function getPartyById(parties: Party[], id: string) {
   return parties.find((party) => party.id === id) ?? null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Invoice, Party } from "./entities";
+import type { Invoice, Party } from "./types";
 import { validateInvoice } from "./invoice";
 
 const parties: Party[] = [

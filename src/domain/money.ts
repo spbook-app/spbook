@@ -1,4 +1,4 @@
-import type { MoneyAmount } from "./entities";
+import type { MoneyAmount } from "./types";
 
 export type MoneyAmountParseResult =
   | {

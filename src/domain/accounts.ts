@@ -1,4 +1,4 @@
-import type { Account } from "./entities";
+import type { Account } from "./types";
 import { invalid, valid, type ValidationResult } from "./validation";
 
 export function getAccountByCode(accounts: Account[], code: string) {

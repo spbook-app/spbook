@@ -1,5 +1,5 @@
 export * from "./accounts";
-export * from "./entities";
+export * from "./types";
 export * from "./invoice";
 export * from "./journal";
 export * from "./money";
