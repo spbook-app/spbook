@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankAccount, Invoice, Party, SupplierInvoice } from "../../domain";
 import type { CounterpartiesViewProps } from "../../shared/model/widget-props";
@@ -11,20 +11,19 @@ import { PartyCreateForm } from "../../features/party-create/PartyCreateForm";
 import { updateParty } from "../../services/party-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 
-type CounterpartyRoute =
+export type CounterpartyRoute =
   | { mode: "list" }
   | { mode: "create" }
   | { mode: "workspace"; partyId: string }
   | { mode: "card"; partyId: string }
   | { mode: "edit"; partyId: string };
 
-export function CounterpartiesView(props: CounterpartiesViewProps) {
+export function CounterpartiesView(
+  props: CounterpartiesViewProps & { route: CounterpartyRoute }
+) {
   const { workspace, parties, invoices, supplierInvoices, bankAccounts, onWorkspaceUpdate } =
     props;
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
-  const route = getCounterpartyRoute(pathname);
+  const { route } = props;
 
   if (route.mode === "create") {
     return <PartyCreateForm onWorkspaceUpdate={onWorkspaceUpdate} workspaceId={workspace.id} />;
@@ -289,31 +288,6 @@ function CounterpartyNotFound({ partyId }: { partyId: string }) {
   );
 }
 
-function getCounterpartyRoute(pathname: string): CounterpartyRoute {
-  const [, workspace, counterparties, partyId, mode] = pathname.split("/");
-
-  if (workspace !== "workspace" || counterparties !== "counterparties") {
-    return { mode: "list" };
-  }
-
-  if (!partyId) {
-    return { mode: "list" };
-  }
-
-  if (partyId === "new") {
-    return { mode: "create" };
-  }
-
-  if (mode === "edit") {
-    return { mode: "edit", partyId };
-  }
-
-  if (mode === "card") {
-    return { mode: "card", partyId };
-  }
-
-  return { mode: "workspace", partyId };
-}
 
 function mapPartyToFormState(party: Party): PartyFormState {
   return {

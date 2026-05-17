@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankTransaction, Invoice, Party } from "../../domain";
 import type { SalesInvoicesViewProps } from "../../shared/model/widget-props";
@@ -17,25 +17,22 @@ import {
 } from "../../services/invoice-workflow";
 import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
 
-type SalesInvoiceRoute =
+export type SalesInvoiceRoute =
   | { mode: "list" }
   | { mode: "create" }
   | { mode: "detail"; invoiceId: string }
   | { mode: "edit"; invoiceId: string };
 
-export function SalesInvoicesView(props: SalesInvoicesViewProps) {
+export function SalesInvoicesView(props: SalesInvoicesViewProps & { route: SalesInvoiceRoute }) {
   const {
     workspace,
     invoices,
     parties,
     bankTransactions,
     journalEntries,
-    onWorkspaceUpdate
+    onWorkspaceUpdate,
+    route
   } = props;
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
-  const route = getSalesInvoiceRoute(pathname);
   const customerParties = useMemo(
     () => parties.filter((party) => party.active && party.roles.includes("customer")),
     [parties]
@@ -411,27 +408,6 @@ function InvoiceNotFound({ invoiceId }: { invoiceId: string }) {
   );
 }
 
-function getSalesInvoiceRoute(pathname: string): SalesInvoiceRoute {
-  const [, workspace, sales, invoices, invoiceId, mode] = pathname.split("/");
-
-  if (workspace !== "workspace" || sales !== "sales" || invoices !== "invoices") {
-    return { mode: "list" };
-  }
-
-  if (!invoiceId) {
-    return { mode: "list" };
-  }
-
-  if (invoiceId === "new") {
-    return { mode: "create" };
-  }
-
-  if (mode === "edit") {
-    return { mode: "edit", invoiceId };
-  }
-
-  return { mode: "detail", invoiceId };
-}
 
 function getIncomingPaymentCandidates(
   bankTransactions: BankTransaction[],

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type {
   Account,
@@ -22,7 +22,7 @@ import {
 import type { AccountBalance } from "../../services/balances";
 import { updateJournalEntry } from "../../services/journal-workflow";
 
-type AccountingRoute =
+export type AccountingRoute =
   | { mode: "journal-list" }
   | { mode: "journal-detail"; journalEntryId: string }
   | { mode: "journal-edit"; journalEntryId: string }
@@ -31,12 +31,15 @@ type AccountingRoute =
   | { mode: "account-detail"; accountId: string }
   | { mode: "account-edit"; accountId: string };
 
-export function ChartOfAccountsView(props: AccountingViewProps) {
-  const { workspace, accounts, journalEntries, balances, onWorkspaceUpdate } = props;
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
-  const route = getAccountingRoute(pathname);
+export function ChartOfAccountsView(
+  props: AccountingViewProps & {
+    route: Extract<
+      AccountingRoute,
+      { mode: "chart-list" | "account-create" | "account-detail" | "account-edit" }
+    >;
+  }
+) {
+  const { workspace, accounts, journalEntries, balances, onWorkspaceUpdate, route } = props;
 
   if (route.mode === "account-create") {
     return (
@@ -71,7 +74,14 @@ export function ChartOfAccountsView(props: AccountingViewProps) {
   return <AccountListPage accounts={accounts} balances={balances} />;
 }
 
-export function JournalEntriesView(props: JournalEntriesViewProps) {
+export function JournalEntriesView(
+  props: JournalEntriesViewProps & {
+    route: Extract<
+      AccountingRoute,
+      { mode: "journal-list" | "journal-detail" | "journal-edit" }
+    >;
+  }
+) {
   const {
     workspace,
     accounts,
@@ -81,12 +91,9 @@ export function JournalEntriesView(props: JournalEntriesViewProps) {
     invoices,
     onWorkspaceUpdate,
     parties,
-    supplierInvoices
+    supplierInvoices,
+    route
   } = props;
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
-  const route = getAccountingRoute(pathname);
 
   if (route.mode === "journal-detail" || route.mode === "journal-edit") {
     const journalEntry =
@@ -915,26 +922,4 @@ function JournalEntryNotFound({ journalEntryId }: { journalEntryId: string }) {
       </p>
     </section>
   );
-}
-
-function getAccountingRoute(pathname: string): AccountingRoute {
-  const [, workspace, accounting, area, entityId, mode] = pathname.split("/");
-
-  if (workspace !== "workspace" || accounting !== "accounting") {
-    return { mode: "journal-list" };
-  }
-
-  if (area === "chart") {
-    if (!entityId) return { mode: "chart-list" };
-    if (entityId === "new") return { mode: "account-create" };
-    if (mode === "edit") return { mode: "account-edit", accountId: entityId };
-    return { mode: "account-detail", accountId: entityId };
-  }
-
-  if (area === "journal-entries" && entityId) {
-    if (mode === "edit") return { mode: "journal-edit", journalEntryId: entityId };
-    return { mode: "journal-detail", journalEntryId: entityId };
-  }
-
-  return { mode: "journal-list" };
 }

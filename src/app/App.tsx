@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Outlet } from "@tanstack/react-router";
 import { buildInfo } from "../generated/build-info";
 import { loadWorkspaceOverview } from "../services/workspace-overview";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
@@ -17,33 +17,7 @@ export type { AppDataState, ReadyWorkspaceData };
 
 export function App() {
   const appEnvironment = getAppEnvironment();
-  const navigate = useNavigate();
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
   const [dataState, setDataState] = useState<AppDataState>({ state: "loading" });
-
-  useEffect(() => {
-    if (pathname === "/" || pathname === "/workspace" || pathname === "/workspace/") {
-      void navigate({ to: "/workspace/dashboard", replace: true });
-    }
-
-    if (pathname === "/workspace/sales" || pathname === "/workspace/sales/") {
-      void navigate({ to: "/workspace/sales/invoices", replace: true });
-    }
-
-    if (pathname === "/workspace/purchases" || pathname === "/workspace/purchases/") {
-      void navigate({ to: "/workspace/purchases/supplier-invoices", replace: true });
-    }
-
-    if (pathname === "/workspace/banking" || pathname === "/workspace/banking/") {
-      void navigate({ to: "/workspace/banking/accounts", replace: true });
-    }
-
-    if (pathname === "/workspace/accounting" || pathname === "/workspace/accounting/") {
-      void navigate({ to: "/workspace/accounting/journal-entries", replace: true });
-    }
-  }, [navigate, pathname]);
 
   useEffect(() => {
     let cancelled = false;

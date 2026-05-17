@@ -2,21 +2,68 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Navigate,
   Outlet
 } from "@tanstack/react-router";
 import { App } from "./App";
 import { WorkspaceView } from "./WorkspaceView";
 import { DashboardPage } from "../pages/workspace/DashboardPage";
-import { SalesPage } from "../pages/workspace/SalesPage";
-import { PurchasesPage } from "../pages/workspace/PurchasesPage";
-import { BankingAccountsPage } from "../pages/workspace/BankingAccountsPage";
-import { BankingTransactionsPage } from "../pages/workspace/BankingTransactionsPage";
-import { CounterpartiesPage } from "../pages/workspace/CounterpartiesPage";
-import { AccountingJournalPage } from "../pages/workspace/AccountingJournalPage";
-import { AccountingChartPage } from "../pages/workspace/AccountingChartPage";
+import {
+  SalesInvoiceCreatePage,
+  SalesInvoiceDetailPage,
+  SalesInvoiceEditPage,
+  SalesPage
+} from "../pages/workspace/SalesPage";
+import {
+  OwnerTransactionCreatePage,
+  PurchasesPage,
+  SupplierInvoiceCreatePage,
+  SupplierInvoiceDetailPage,
+  SupplierInvoiceEditPage
+} from "../pages/workspace/PurchasesPage";
+import {
+  BankingAccountCardPage,
+  BankingAccountCreatePage,
+  BankingAccountDetailPage,
+  BankingAccountEditPage,
+  BankingAccountsPage
+} from "../pages/workspace/BankingAccountsPage";
+import {
+  BankingTransactionCreatePage,
+  BankingTransactionDetailPage,
+  BankingTransactionEditPage,
+  BankingTransactionsPage
+} from "../pages/workspace/BankingTransactionsPage";
+import {
+  CounterpartiesPage,
+  CounterpartyCardPage,
+  CounterpartyCreatePage,
+  CounterpartyDetailPage,
+  CounterpartyEditPage
+} from "../pages/workspace/CounterpartiesPage";
+import {
+  AccountingJournalPage,
+  JournalEntryDetailPage,
+  JournalEntryEditPage
+} from "../pages/workspace/AccountingJournalPage";
+import {
+  AccountCreatePage,
+  AccountDetailPage,
+  AccountEditPage,
+  AccountingChartPage
+} from "../pages/workspace/AccountingChartPage";
 import { SettingsPage } from "../pages/workspace/SettingsPage";
 
 const passThrough = () => <Outlet />;
+const redirectToDashboard = () => <Navigate to="/workspace/dashboard" replace />;
+const redirectToSalesInvoices = () => <Navigate to="/workspace/sales/invoices" replace />;
+const redirectToPurchasesInvoices = () => (
+  <Navigate to="/workspace/purchases/supplier-invoices" replace />
+);
+const redirectToBankingAccounts = () => <Navigate to="/workspace/banking/accounts" replace />;
+const redirectToAccountingJournal = () => (
+  <Navigate to="/workspace/accounting/journal-entries" replace />
+);
 
 const rootRoute = createRootRoute({
   component: App
@@ -25,7 +72,7 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: passThrough
+  component: redirectToDashboard
 });
 
 const workspaceRoute = createRoute({
@@ -37,7 +84,7 @@ const workspaceRoute = createRoute({
 const workspaceIndexRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/",
-  component: passThrough
+  component: redirectToDashboard
 });
 
 const dashboardRoute = createRoute({
@@ -52,6 +99,12 @@ const salesRoute = createRoute({
   component: passThrough
 });
 
+const salesIndexRoute = createRoute({
+  getParentRoute: () => salesRoute,
+  path: "/",
+  component: redirectToSalesInvoices
+});
+
 const salesInvoicesRoute = createRoute({
   getParentRoute: () => salesRoute,
   path: "invoices",
@@ -59,24 +112,33 @@ const salesInvoicesRoute = createRoute({
 });
 
 const salesInvoiceCreateRoute = createRoute({
-  getParentRoute: () => salesInvoicesRoute,
-  path: "new"
+  getParentRoute: () => salesRoute,
+  path: "invoices/new",
+  component: SalesInvoiceCreatePage
 });
 
 const salesInvoiceDetailRoute = createRoute({
-  getParentRoute: () => salesInvoicesRoute,
-  path: "$invoiceId"
+  getParentRoute: () => salesRoute,
+  path: "invoices/$invoiceId",
+  component: SalesInvoiceDetailPage
 });
 
 const salesInvoiceEditRoute = createRoute({
-  getParentRoute: () => salesInvoiceDetailRoute,
-  path: "edit"
+  getParentRoute: () => salesRoute,
+  path: "invoices/$invoiceId/edit",
+  component: SalesInvoiceEditPage
 });
 
 const purchasesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "purchases",
   component: passThrough
+});
+
+const purchasesIndexRoute = createRoute({
+  getParentRoute: () => purchasesRoute,
+  path: "/",
+  component: redirectToPurchasesInvoices
 });
 
 const supplierInvoicesRoute = createRoute({
@@ -86,18 +148,21 @@ const supplierInvoicesRoute = createRoute({
 });
 
 const supplierInvoiceCreateRoute = createRoute({
-  getParentRoute: () => supplierInvoicesRoute,
-  path: "new"
+  getParentRoute: () => purchasesRoute,
+  path: "supplier-invoices/new",
+  component: SupplierInvoiceCreatePage
 });
 
 const supplierInvoiceDetailRoute = createRoute({
-  getParentRoute: () => supplierInvoicesRoute,
-  path: "$supplierInvoiceId"
+  getParentRoute: () => purchasesRoute,
+  path: "supplier-invoices/$supplierInvoiceId",
+  component: SupplierInvoiceDetailPage
 });
 
 const supplierInvoiceEditRoute = createRoute({
-  getParentRoute: () => supplierInvoiceDetailRoute,
-  path: "edit"
+  getParentRoute: () => purchasesRoute,
+  path: "supplier-invoices/$supplierInvoiceId/edit",
+  component: SupplierInvoiceEditPage
 });
 
 const ownerTransactionsRoute = createRoute({
@@ -107,14 +172,21 @@ const ownerTransactionsRoute = createRoute({
 });
 
 const ownerTransactionCreateRoute = createRoute({
-  getParentRoute: () => ownerTransactionsRoute,
-  path: "new"
+  getParentRoute: () => purchasesRoute,
+  path: "owner-transactions/new",
+  component: OwnerTransactionCreatePage
 });
 
 const bankingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "banking",
   component: passThrough
+});
+
+const bankingIndexRoute = createRoute({
+  getParentRoute: () => bankingRoute,
+  path: "/",
+  component: redirectToBankingAccounts
 });
 
 const bankingAccountsRoute = createRoute({
@@ -124,23 +196,27 @@ const bankingAccountsRoute = createRoute({
 });
 
 const bankingAccountCreateRoute = createRoute({
-  getParentRoute: () => bankingAccountsRoute,
-  path: "new"
+  getParentRoute: () => bankingRoute,
+  path: "accounts/new",
+  component: BankingAccountCreatePage
 });
 
 const bankingAccountDetailRoute = createRoute({
-  getParentRoute: () => bankingAccountsRoute,
-  path: "$bankAccountId"
+  getParentRoute: () => bankingRoute,
+  path: "accounts/$bankAccountId",
+  component: BankingAccountDetailPage
 });
 
 const bankingAccountEditRoute = createRoute({
-  getParentRoute: () => bankingAccountDetailRoute,
-  path: "edit"
+  getParentRoute: () => bankingRoute,
+  path: "accounts/$bankAccountId/edit",
+  component: BankingAccountEditPage
 });
 
 const bankingAccountCardRoute = createRoute({
-  getParentRoute: () => bankingAccountDetailRoute,
-  path: "card"
+  getParentRoute: () => bankingRoute,
+  path: "accounts/$bankAccountId/card",
+  component: BankingAccountCardPage
 });
 
 const bankingTransactionsRoute = createRoute({
@@ -150,18 +226,21 @@ const bankingTransactionsRoute = createRoute({
 });
 
 const bankingTransactionCreateRoute = createRoute({
-  getParentRoute: () => bankingTransactionsRoute,
-  path: "new"
+  getParentRoute: () => bankingRoute,
+  path: "transactions/new",
+  component: BankingTransactionCreatePage
 });
 
 const bankingTransactionDetailRoute = createRoute({
-  getParentRoute: () => bankingTransactionsRoute,
-  path: "$bankTransactionId"
+  getParentRoute: () => bankingRoute,
+  path: "transactions/$bankTransactionId",
+  component: BankingTransactionDetailPage
 });
 
 const bankingTransactionEditRoute = createRoute({
-  getParentRoute: () => bankingTransactionDetailRoute,
-  path: "edit"
+  getParentRoute: () => bankingRoute,
+  path: "transactions/$bankTransactionId/edit",
+  component: BankingTransactionEditPage
 });
 
 const counterpartiesRoute = createRoute({
@@ -171,29 +250,39 @@ const counterpartiesRoute = createRoute({
 });
 
 const counterpartyCreateRoute = createRoute({
-  getParentRoute: () => counterpartiesRoute,
-  path: "new"
+  getParentRoute: () => workspaceRoute,
+  path: "counterparties/new",
+  component: CounterpartyCreatePage
 });
 
 const counterpartyDetailRoute = createRoute({
-  getParentRoute: () => counterpartiesRoute,
-  path: "$partyId"
+  getParentRoute: () => workspaceRoute,
+  path: "counterparties/$partyId",
+  component: CounterpartyDetailPage
 });
 
 const counterpartyEditRoute = createRoute({
-  getParentRoute: () => counterpartyDetailRoute,
-  path: "edit"
+  getParentRoute: () => workspaceRoute,
+  path: "counterparties/$partyId/edit",
+  component: CounterpartyEditPage
 });
 
 const counterpartyCardRoute = createRoute({
-  getParentRoute: () => counterpartyDetailRoute,
-  path: "card"
+  getParentRoute: () => workspaceRoute,
+  path: "counterparties/$partyId/card",
+  component: CounterpartyCardPage
 });
 
 const accountingRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "accounting",
   component: passThrough
+});
+
+const accountingIndexRoute = createRoute({
+  getParentRoute: () => accountingRoute,
+  path: "/",
+  component: redirectToAccountingJournal
 });
 
 const journalEntriesRoute = createRoute({
@@ -203,13 +292,15 @@ const journalEntriesRoute = createRoute({
 });
 
 const journalEntryDetailRoute = createRoute({
-  getParentRoute: () => journalEntriesRoute,
-  path: "$journalEntryId"
+  getParentRoute: () => accountingRoute,
+  path: "journal-entries/$journalEntryId",
+  component: JournalEntryDetailPage
 });
 
 const journalEntryEditRoute = createRoute({
-  getParentRoute: () => journalEntryDetailRoute,
-  path: "edit"
+  getParentRoute: () => accountingRoute,
+  path: "journal-entries/$journalEntryId/edit",
+  component: JournalEntryEditPage
 });
 
 const chartRoute = createRoute({
@@ -219,18 +310,21 @@ const chartRoute = createRoute({
 });
 
 const accountCreateRoute = createRoute({
-  getParentRoute: () => chartRoute,
-  path: "new"
+  getParentRoute: () => accountingRoute,
+  path: "chart/new",
+  component: AccountCreatePage
 });
 
 const accountDetailRoute = createRoute({
-  getParentRoute: () => chartRoute,
-  path: "$accountId"
+  getParentRoute: () => accountingRoute,
+  path: "chart/$accountId",
+  component: AccountDetailPage
 });
 
 const accountEditRoute = createRoute({
-  getParentRoute: () => accountDetailRoute,
-  path: "edit"
+  getParentRoute: () => accountingRoute,
+  path: "chart/$accountId/edit",
+  component: AccountEditPage
 });
 
 const settingsRoute = createRoute({
@@ -245,35 +339,47 @@ const routeTree = rootRoute.addChildren([
     workspaceIndexRoute,
     dashboardRoute,
     salesRoute.addChildren([
-      salesInvoicesRoute.addChildren([
-        salesInvoiceCreateRoute,
-        salesInvoiceDetailRoute.addChildren([salesInvoiceEditRoute])
-      ])
+      salesIndexRoute,
+      salesInvoicesRoute,
+      salesInvoiceCreateRoute,
+      salesInvoiceDetailRoute,
+      salesInvoiceEditRoute
     ]),
     purchasesRoute.addChildren([
-      supplierInvoicesRoute.addChildren([
-        supplierInvoiceCreateRoute,
-        supplierInvoiceDetailRoute.addChildren([supplierInvoiceEditRoute])
-      ]),
-      ownerTransactionsRoute.addChildren([ownerTransactionCreateRoute])
+      purchasesIndexRoute,
+      supplierInvoicesRoute,
+      supplierInvoiceCreateRoute,
+      supplierInvoiceDetailRoute,
+      supplierInvoiceEditRoute,
+      ownerTransactionsRoute,
+      ownerTransactionCreateRoute
     ]),
     bankingRoute.addChildren([
-      bankingAccountsRoute.addChildren([
-        bankingAccountCreateRoute,
-        bankingAccountDetailRoute.addChildren([bankingAccountEditRoute, bankingAccountCardRoute])
-      ]),
-      bankingTransactionsRoute.addChildren([
-        bankingTransactionCreateRoute,
-        bankingTransactionDetailRoute.addChildren([bankingTransactionEditRoute])
-      ])
+      bankingIndexRoute,
+      bankingAccountsRoute,
+      bankingAccountCreateRoute,
+      bankingAccountDetailRoute,
+      bankingAccountEditRoute,
+      bankingAccountCardRoute,
+      bankingTransactionsRoute,
+      bankingTransactionCreateRoute,
+      bankingTransactionDetailRoute,
+      bankingTransactionEditRoute
     ]),
-    counterpartiesRoute.addChildren([
-      counterpartyCreateRoute,
-      counterpartyDetailRoute.addChildren([counterpartyEditRoute, counterpartyCardRoute])
-    ]),
+    counterpartiesRoute,
+    counterpartyCreateRoute,
+    counterpartyDetailRoute,
+    counterpartyEditRoute,
+    counterpartyCardRoute,
     accountingRoute.addChildren([
-      journalEntriesRoute.addChildren([journalEntryDetailRoute.addChildren([journalEntryEditRoute])]),
-      chartRoute.addChildren([accountCreateRoute, accountDetailRoute.addChildren([accountEditRoute])])
+      accountingIndexRoute,
+      journalEntriesRoute,
+      journalEntryDetailRoute,
+      journalEntryEditRoute,
+      chartRoute,
+      accountCreateRoute,
+      accountDetailRoute,
+      accountEditRoute
     ]),
     settingsRoute
   ])

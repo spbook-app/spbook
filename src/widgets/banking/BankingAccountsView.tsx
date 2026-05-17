@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { Account, BankAccount, Party } from "../../domain";
 import type { BankingAccountsViewProps } from "../../shared/model/widget-props";
@@ -14,14 +14,16 @@ import { getIbanValidationMessage } from "../../shared/lib/iban";
 import { getBankTransactionDisplayState } from "./bank-transaction-display";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 
-type BankingAccountRoute =
+export type BankingAccountRoute =
   | { mode: "list" }
   | { mode: "create" }
   | { mode: "workspace"; bankAccountId: string }
   | { mode: "card"; bankAccountId: string }
   | { mode: "edit"; bankAccountId: string };
 
-export function BankingAccountsView(props: BankingAccountsViewProps) {
+export function BankingAccountsView(
+  props: BankingAccountsViewProps & { route: BankingAccountRoute }
+) {
   const {
     workspace,
     bankAccounts,
@@ -30,12 +32,9 @@ export function BankingAccountsView(props: BankingAccountsViewProps) {
     invoices,
     parties,
     supplierInvoices,
-    onWorkspaceUpdate
+    onWorkspaceUpdate,
+    route
   } = props;
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
-  const route = getBankingAccountRoute(pathname);
   const bankPostingAccounts = useMemo(
     () =>
       accounts.filter(
@@ -437,31 +436,6 @@ function BankAccountNotFound({ bankAccountId }: { bankAccountId: string }) {
   );
 }
 
-function getBankingAccountRoute(pathname: string): BankingAccountRoute {
-  const [, workspace, banking, accounts, bankAccountId, mode] = pathname.split("/");
-
-  if (workspace !== "workspace" || banking !== "banking" || accounts !== "accounts") {
-    return { mode: "list" };
-  }
-
-  if (!bankAccountId) {
-    return { mode: "list" };
-  }
-
-  if (bankAccountId === "new") {
-    return { mode: "create" };
-  }
-
-  if (mode === "edit") {
-    return { mode: "edit", bankAccountId };
-  }
-
-  if (mode === "card") {
-    return { mode: "card", bankAccountId };
-  }
-
-  return { mode: "workspace", bankAccountId };
-}
 
 function getEditBankAccountOptions(
   bankPostingAccounts: Account[],

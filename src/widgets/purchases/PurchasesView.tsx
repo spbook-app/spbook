@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
 import type { PurchasesViewProps } from "../../shared/model/widget-props";
@@ -18,26 +18,23 @@ import {
 } from "../../services/supplier-invoice-workflow";
 import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
 
-type PurchaseRoute =
+export type PurchaseRoute =
   | { mode: "supplier-list" }
   | { mode: "supplier-create" }
   | { mode: "supplier-detail"; supplierInvoiceId: string }
   | { mode: "supplier-edit"; supplierInvoiceId: string }
   | { mode: "owner-create" };
 
-export function PurchasesView(props: PurchasesViewProps) {
+export function PurchasesView(props: PurchasesViewProps & { route: PurchaseRoute }) {
   const {
     workspace,
     supplierInvoices,
     parties,
     bankTransactions,
     journalEntries,
-    onWorkspaceUpdate
+    onWorkspaceUpdate,
+    route
   } = props;
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
-  const route = getPurchaseRoute(pathname);
   const supplierParties = useMemo(
     () => parties.filter((party) => party.active && party.roles.includes("supplier")),
     [parties]
@@ -448,31 +445,6 @@ function SupplierInvoiceNotFound({ supplierInvoiceId }: { supplierInvoiceId: str
   );
 }
 
-function getPurchaseRoute(pathname: string): PurchaseRoute {
-  const [, workspace, purchases, area, entityId, mode] = pathname.split("/");
-
-  if (workspace !== "workspace" || purchases !== "purchases") {
-    return { mode: "supplier-list" };
-  }
-
-  if (area === "owner-transactions" && entityId === "new") {
-    return { mode: "owner-create" };
-  }
-
-  if (area !== "supplier-invoices" || !entityId) {
-    return { mode: "supplier-list" };
-  }
-
-  if (entityId === "new") {
-    return { mode: "supplier-create" };
-  }
-
-  if (mode === "edit") {
-    return { mode: "supplier-edit", supplierInvoiceId: entityId };
-  }
-
-  return { mode: "supplier-detail", supplierInvoiceId: entityId };
-}
 
 function getOutgoingPaymentCandidates(
   bankTransactions: BankTransaction[],

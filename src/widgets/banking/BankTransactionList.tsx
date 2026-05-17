@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import type { BankAccount, BankTransaction, Invoice, Party, SupplierInvoice } from "../../domain";
 import type { BankTransactionListProps } from "../../shared/model/widget-props";
 import { BankTransactionListItem } from "./BankTransactionListItem";
@@ -53,7 +53,7 @@ function absoluteBankTransactionAmount(bankTransaction: BankTransaction) {
     : bankTransaction.amount;
 }
 
-type BankTransactionRoute =
+export type BankTransactionRoute =
   | { mode: "list" }
   | { mode: "create" }
   | { mode: "detail"; bankTransactionId: string }
@@ -82,7 +82,9 @@ const quickFilterOptions: Array<[BankTransactionQuickFilter, string]> = [
   ["manual_unmatched", "Manual"]
 ];
 
-export function BankTransactionList(props: BankTransactionListProps) {
+export function BankTransactionList(
+  props: BankTransactionListProps & { route: BankTransactionRoute }
+) {
   const {
     workspace,
     bankTransactions,
@@ -91,17 +93,15 @@ export function BankTransactionList(props: BankTransactionListProps) {
     invoices,
     supplierInvoices,
     bankAccounts,
-    onWorkspaceUpdate
+    onWorkspaceUpdate,
+    route
   } = props;
   const navigate = useNavigate();
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  });
-  const searchStr = useRouterState({
-    select: (state) => state.location.searchStr
-  });
-  const route = getBankTransactionRoute(pathname);
-  const listFilters = getBankTransactionListFilters(searchStr);
+  const routeSearch = useSearch({ strict: false }) as {
+    bankAccountId?: string;
+    processingState?: string;
+  };
+  const listFilters = getBankTransactionListFilters(routeSearch);
   const activeBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.active);
   const [transactionBankAccountId, setTransactionBankAccountId] = useState(
     bankAccounts[0]?.id ?? ""
@@ -566,12 +566,15 @@ export function BankTransactionList(props: BankTransactionListProps) {
   }
 
   function handleListFilterChange(filterName: "bankAccountId" | "processingState", value: string) {
-    const nextSearchParams = new URLSearchParams(searchStr);
+    const nextFilters = { ...listFilters, [filterName]: value };
+    const nextSearchParams = new URLSearchParams();
 
-    if (value) {
-      nextSearchParams.set(filterName, value);
-    } else {
-      nextSearchParams.delete(filterName);
+    if (nextFilters.bankAccountId) {
+      nextSearchParams.set("bankAccountId", nextFilters.bankAccountId);
+    }
+
+    if (nextFilters.processingState) {
+      nextSearchParams.set("processingState", nextFilters.processingState);
     }
 
     const nextSearch = nextSearchParams.toString();
@@ -1277,32 +1280,12 @@ function BankTransactionNotFound({ bankTransactionId }: { bankTransactionId: str
   );
 }
 
-function getBankTransactionRoute(pathname: string): BankTransactionRoute {
-  const [, workspace, banking, transactions, bankTransactionId, mode] = pathname.split("/");
 
-  if (workspace !== "workspace" || banking !== "banking" || transactions !== "transactions") {
-    return { mode: "list" };
-  }
-
-  if (!bankTransactionId) {
-    return { mode: "list" };
-  }
-
-  if (bankTransactionId === "new") {
-    return { mode: "create" };
-  }
-
-  if (mode === "edit") {
-    return { mode: "edit", bankTransactionId };
-  }
-
-  return { mode: "detail", bankTransactionId };
-}
-
-function getBankTransactionListFilters(searchStr: string) {
-  const searchParams = new URLSearchParams(searchStr);
-  const processingState = searchParams.get("processingState");
-
+function getBankTransactionListFilters(search: {
+  bankAccountId?: string;
+  processingState?: string;
+}) {
+  const processingState = search.processingState;
   const validProcessingStates: BankTransactionQuickFilter[] = [
     "needs_action",
     "needs_counterparty",
@@ -1317,7 +1300,7 @@ function getBankTransactionListFilters(searchStr: string) {
   ];
 
   return {
-    bankAccountId: searchParams.get("bankAccountId") ?? "",
+    bankAccountId: search.bankAccountId ?? "",
     processingState: (
       validProcessingStates.includes(processingState as BankTransactionQuickFilter)
         ? processingState
