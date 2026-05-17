@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent } from "react";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import {
   autoLinkImportedBankTransactions,
   importCamt053BankTransactions
@@ -10,7 +10,7 @@ export function BankStatementImport({
   data,
   onDataStateChange
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
 }) {
   const activeBankAccounts = data.bankAccounts.filter((bankAccount) => bankAccount.active);

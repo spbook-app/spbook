@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { Account, BankAccount, Party } from "../../domain";
 import {
   BankAccountEditableFields,
@@ -14,7 +14,7 @@ import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 import { getBankTransactionDisplayState } from "./bank-transaction-display";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 type BankingAccountRoute =
   | { mode: "list" }
   | { mode: "create" }

@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
 import type { Party } from "../../domain";
 import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
 import { createSupplierInvoice } from "../../services/supplier-invoice-workflow";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 
 export function SupplierInvoiceCreateForm({
   supplierParties,

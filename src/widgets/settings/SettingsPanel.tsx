@@ -1,4 +1,4 @@
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { formatAppBuildLabel } from "../../app/app-env";
 import { buildInfo } from "../../generated/build-info";
 import { BackupPanel } from "../../features/backup-restore/BackupPanel";
@@ -9,7 +9,7 @@ export function SettingsPanel({
   onDataStateChange,
   showReset
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {

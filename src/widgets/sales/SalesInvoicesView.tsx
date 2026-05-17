@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { BankTransaction, Invoice, Party } from "../../domain";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
@@ -17,7 +17,7 @@ import {
 import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 type SalesInvoiceRoute =
   | { mode: "list" }
   | { mode: "create" }

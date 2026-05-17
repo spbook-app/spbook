@@ -1,19 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import type {
-  Account,
-  BankAccount,
-  BankTransaction,
-  Invoice,
-  JournalEntry,
-  Party,
-  SupplierInvoice,
-  Workspace
-} from "../domain";
 import { buildInfo } from "../generated/build-info";
-import type { AccountBalance } from "../services/balances";
 import { loadWorkspaceOverview } from "../services/workspace-overview";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
+import type { AppDataState, ReadyWorkspaceData } from "../shared/model/workspace";
 import { appMeta } from "./app-meta";
 import { WorkspaceView } from "./WorkspaceView";
 import {
@@ -23,31 +13,7 @@ import {
   shouldShowEnvironmentBadge
 } from "./app-env";
 
-export type AppDataState =
-  | {
-      state: "loading";
-    }
-  | {
-      state: "ready";
-      workspace: Workspace;
-      accounts: Account[];
-      bankAccounts: BankAccount[];
-      bankTransactions: BankTransaction[];
-      parties: Party[];
-      invoices: Invoice[];
-      invoice: Invoice | null;
-      invoiceParty: Party | null;
-      supplierInvoices: SupplierInvoice[];
-      supplierInvoice: SupplierInvoice | null;
-      supplierInvoiceParty: Party | null;
-      journalEntries: JournalEntry[];
-      balances: AccountBalance[];
-      initializedWorkspace: boolean;
-    }
-  | {
-      state: "error";
-      message: string;
-    };
+export type { AppDataState, ReadyWorkspaceData };
 
 export function App() {
   const appEnvironment = getAppEnvironment();

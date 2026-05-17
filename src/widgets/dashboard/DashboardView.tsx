@@ -1,11 +1,11 @@
-import type { AppDataState } from "../../app/App";
+import type { ReadyWorkspaceData } from "../../shared/model/workspace";
 import { BalancesTable } from "../../entities/account/BalancesTable";
 
 export function DashboardView({
   data,
   accountNames
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   accountNames: Map<string, string>;
 }) {
   const unpaidInvoices = data.invoices.filter((invoice) => invoice.status !== "paid");
@@ -75,7 +75,7 @@ export function DashboardView({
   );
 }
 
-function MetricStrip({ data }: { data: Extract<AppDataState, { state: "ready" }> }) {
+function MetricStrip({ data }: { data: ReadyWorkspaceData }) {
   const postingAccounts = data.accounts.filter((account) => account.role === "posting");
 
   return (

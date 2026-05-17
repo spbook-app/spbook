@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent } from "react";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import {
   exportWorkspaceBackup,
   importWorkspaceBackup,
@@ -11,7 +11,7 @@ export function BackupPanel({
   data,
   onDataStateChange
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
 }) {
   const [backupState, setBackupState] = useState<"idle" | "exporting" | "importing">("idle");

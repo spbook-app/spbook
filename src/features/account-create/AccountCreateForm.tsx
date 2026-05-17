@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
 import type { Account, AccountRole } from "../../domain";
 import { createWorkspaceAccount } from "../../services/account-workflow";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 
 function AccountCreateFields({
   code,

@@ -15,14 +15,14 @@ import { PurchasesView } from "../widgets/purchases/PurchasesView";
 import { SalesInvoicesView } from "../widgets/sales/SalesInvoicesView";
 import { SettingsPanel } from "../widgets/settings/SettingsPanel";
 import { WorkspaceSidebar } from "../widgets/workspace-sidebar/WorkspaceSidebar";
-import type { AppDataState } from "./App";
+import type { AppDataState, ReadyWorkspaceData } from "../shared/model/workspace";
 
 export function WorkspaceView({
   data,
   onDataStateChange,
   showReset
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {
@@ -105,7 +105,7 @@ function WorkspaceBreadcrumbs({
   data,
   pathname
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   pathname: string;
 }) {
   const breadcrumbs = getWorkspaceBreadcrumbs(pathname, data);
@@ -142,7 +142,7 @@ type Breadcrumb = {
 
 function getWorkspaceBreadcrumbs(
   pathname: string,
-  data: Extract<AppDataState, { state: "ready" }>
+  data: ReadyWorkspaceData
 ) {
   const [workspace, section, areaOrEntity, entityIdOrMode, mode] = pathname
     .split("/")
@@ -223,7 +223,7 @@ function formatRouteSegment(segment: string) {
 function getWorkspacePageTitle(
   pathname: string,
   fallbackTitle: string,
-  data: Extract<AppDataState, { state: "ready" }>
+  data: ReadyWorkspaceData
 ) {
   const [workspace, section, areaOrEntity, entityIdOrMode, mode] = pathname
     .split("/")
@@ -339,7 +339,7 @@ function getEntityLabel(
   section: string | undefined,
   area: string | undefined,
   entityId: string | undefined,
-  data: Extract<AppDataState, { state: "ready" }>
+  data: ReadyWorkspaceData
 ) {
   if (!entityId) {
     return "Record";

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { BankTransaction, Party } from "../../domain";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 import {
   getBankTransactionDisplayState,
@@ -62,11 +62,11 @@ type BankTransactionRoute =
 
 type BankTransactionListRow = {
   bankTransaction: BankTransaction;
-  bankAccount: Extract<AppDataState, { state: "ready" }>["bankAccounts"][number] | undefined;
+  bankAccount: ReadyWorkspaceData["bankAccounts"][number] | undefined;
   linkedParty: Party | undefined;
-  matchedInvoice: Extract<AppDataState, { state: "ready" }>["invoices"][number] | undefined;
+  matchedInvoice: ReadyWorkspaceData["invoices"][number] | undefined;
   matchedSupplierInvoice:
-    | Extract<AppDataState, { state: "ready" }>["supplierInvoices"][number]
+    | ReadyWorkspaceData["supplierInvoices"][number]
     | undefined;
   displayState: BankTransactionDisplayState;
 };
@@ -89,7 +89,7 @@ export function BankTransactionList({
   data,
   onDataStateChange
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
 }) {
   const navigate = useNavigate();
@@ -996,11 +996,11 @@ function BankTransactionDetailPanel({
   canCreateCounterparty: boolean;
   isLinkingCounterparty: boolean;
   isCreatingCounterparty: boolean;
-  parties: Extract<AppDataState, { state: "ready" }>["parties"];
+  parties: ReadyWorkspaceData["parties"];
   suggestedPartyId?: string;
-  suggestedInvoice: Extract<AppDataState, { state: "ready" }>["invoices"][number] | null;
+  suggestedInvoice: ReadyWorkspaceData["invoices"][number] | null;
   suggestedSupplierInvoice:
-    | Extract<AppDataState, { state: "ready" }>["supplierInvoices"][number]
+    | ReadyWorkspaceData["supplierInvoices"][number]
     | null;
   isMatchingInvoice: boolean;
   isMatchingSupplierInvoice: boolean;
@@ -1187,7 +1187,7 @@ function BankTransactionEditableFields({
   onReferenceChange,
   onTransactionAmountChange
 }: {
-  activeBankAccounts: Extract<AppDataState, { state: "ready" }>["bankAccounts"];
+  activeBankAccounts: ReadyWorkspaceData["bankAccounts"];
   bankAccountId: string;
   bookingDate: string;
   description: string;

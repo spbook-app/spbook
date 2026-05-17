@@ -1,16 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
 import type { Account, BankAccount, Party } from "../../domain";
 import {
   BankAccountEditableFields,
   type BankAccountFormState
 } from "../../entities/bank-account/BankAccountFields";
 import { createBankAccount } from "../../services/bank-workflow";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 
 function getCreateBankAccountOptions(bankPostingAccounts: Account[], bankAccounts: BankAccount[]) {
   const usedActiveAccountCodes = new Set(

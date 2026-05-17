@@ -1,10 +1,10 @@
-import type { AppDataState } from "../../app/App";
+import type { Party } from "../../domain";
 
 export function PartyInvoiceDetails({
   party,
   fallbackLabel
 }: {
-  party: Extract<AppDataState, { state: "ready" }>["parties"][number] | null;
+  party: Party | null;
   fallbackLabel: string;
 }) {
   if (!party) {

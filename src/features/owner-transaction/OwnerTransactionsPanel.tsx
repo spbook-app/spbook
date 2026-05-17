@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import {
   recordOwnerContribution,
   recordOwnerWithdrawal
@@ -10,7 +10,7 @@ export function OwnerTransactionsPanel({
   data,
   onDataStateChange
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
 }) {
   const [entryDate, setEntryDate] = useState("2026-05-10");

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { Account, JournalEntry, JournalLineSide } from "../../domain";
 import { addMinorUnits, compareMinorUnits, parseMoneyAmount } from "../../domain/money";
 import { AccountCreateForm } from "../../features/account-create/AccountCreateForm";
@@ -11,7 +11,7 @@ import type { AccountBalance } from "../../services/balances";
 import { updateJournalEntry } from "../../services/journal-workflow";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 type AccountingRoute =
   | { mode: "journal-list" }
   | { mode: "journal-detail"; journalEntryId: string }

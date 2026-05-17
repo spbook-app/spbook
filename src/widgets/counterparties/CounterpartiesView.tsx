@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import type { Party } from "../../domain";
 import {
   PartyEditableFields,
@@ -11,7 +11,7 @@ import { updateParty } from "../../services/party-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 type CounterpartyRoute =
   | { mode: "list" }
   | { mode: "create" }

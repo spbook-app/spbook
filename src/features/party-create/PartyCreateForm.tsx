@@ -1,16 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
 import {
   emptyPartyForm,
   PartyEditableFields,
   type PartyFormState
 } from "../../entities/party/PartyFields";
 import { createParty } from "../../services/party-workflow";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
 import { mapOverviewToReadyState } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = Extract<AppDataState, { state: "ready" }>;
+type ReadyAppData = ReadyWorkspaceData;
 
 export function PartyCreateForm({
   data,

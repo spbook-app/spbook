@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import type { AppDataState } from "../../app/App";
+import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
 import {
   type WorkspaceSection,
   workspaceSections
@@ -14,7 +14,7 @@ export function WorkspaceSidebar({
   data
 }: {
   activeSection: WorkspaceSection;
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
 }) {
   const openItems =
     data.invoices.filter((invoice) => invoice.status !== "paid").length +
@@ -55,7 +55,7 @@ export function WorkspaceSidebar({
 
 function getSectionOpenCount(
   sectionId: WorkspaceSection,
-  data: Extract<AppDataState, { state: "ready" }>
+  data: ReadyWorkspaceData
 ) {
   switch (sectionId) {
     case "sales":
@@ -82,7 +82,7 @@ export function WorkspaceStatusCard({
   onDataStateChange,
   showReset
 }: {
-  data: Extract<AppDataState, { state: "ready" }>;
+  data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
   showReset: boolean;
 }) {
