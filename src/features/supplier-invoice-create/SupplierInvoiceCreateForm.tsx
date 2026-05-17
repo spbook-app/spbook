@@ -3,19 +3,18 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import type { Party } from "../../domain";
 import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
 import { createSupplierInvoice } from "../../services/supplier-invoice-workflow";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
-
-type ReadyAppData = ReadyWorkspaceData;
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function SupplierInvoiceCreateForm({
+  baseCurrency,
+  onWorkspaceUpdate,
   supplierParties,
-  data,
-  onDataStateChange
+  workspaceId
 }: {
+  baseCurrency: string;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
   supplierParties: Party[];
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
+  workspaceId: string;
 }) {
   const navigate = useNavigate();
   const [partyId, setPartyId] = useState(supplierParties[0]?.id ?? "");
@@ -37,17 +36,17 @@ export function SupplierInvoiceCreateForm({
       }
 
       const update = await createSupplierInvoice({
-        workspaceId: data.workspace.id,
+        workspaceId,
         partyId,
         number,
         issueDate,
         total,
         expenseAccountCode,
-        currency: data.workspace.baseCurrency
+        currency: baseCurrency
       });
       const createdInvoice = update.supplierInvoice;
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
 
       if (createdInvoice) {
         void navigate({
@@ -78,7 +77,7 @@ export function SupplierInvoiceCreateForm({
         onSubmit={(event) => void handleCreateSupplierInvoice(event)}
       >
         <SupplierInvoiceEditableFields
-          currency={data.workspace.baseCurrency}
+          currency={baseCurrency}
           expenseAccountCode={expenseAccountCode}
           issueDate={issueDate}
           number={number}

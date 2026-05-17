@@ -15,7 +15,7 @@ import type {
   Workspace
 } from "../../domain";
 import type { AccountBalance } from "../../services/balances";
-import type { AppDataState } from "./workspace";
+import type { AppDataState, WorkspaceUpdateHandler } from "./workspace";
 
 // ===== Sales Widget =====
 export interface SalesInvoicesViewProps {
@@ -26,7 +26,7 @@ export interface SalesInvoicesViewProps {
   journalEntries: JournalEntry[];
   bankAccounts: BankAccount[];
   accounts: Account[];
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Purchases Widget =====
@@ -37,7 +37,7 @@ export interface PurchasesViewProps {
   bankTransactions: BankTransaction[];
   journalEntries: JournalEntry[];
   accounts: Account[];
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Counterparties Widget =====
@@ -46,7 +46,8 @@ export interface CounterpartiesViewProps {
   parties: Party[];
   invoices: Invoice[];
   supplierInvoices: SupplierInvoice[];
-  onDataStateChange: (state: AppDataState) => void;
+  bankAccounts: BankAccount[];
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Accounting Widget =====
@@ -55,7 +56,11 @@ export interface AccountingViewProps {
   accounts: Account[];
   journalEntries: JournalEntry[];
   balances: AccountBalance[];
-  onDataStateChange: (state: AppDataState) => void;
+  parties: Party[];
+  invoices: Invoice[];
+  supplierInvoices: SupplierInvoice[];
+  bankAccounts: BankAccount[];
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Accounting Journal Widget =====
@@ -69,8 +74,10 @@ export interface BankingAccountsViewProps {
   bankAccounts: BankAccount[];
   accounts: Account[];
   bankTransactions: BankTransaction[];
+  invoices: Invoice[];
   parties: Party[];
-  onDataStateChange: (state: AppDataState) => void;
+  supplierInvoices: SupplierInvoice[];
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Bank Transaction List Widget =====
@@ -82,7 +89,7 @@ export interface BankTransactionListProps {
   invoices: Invoice[];
   supplierInvoices: SupplierInvoice[];
   bankAccounts: BankAccount[];
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }
 
 // ===== Dashboard Widget =====

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { BankTransaction, Party } from "../../domain";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { BankAccount, BankTransaction, Invoice, Party, SupplierInvoice } from "../../domain";
 import type { BankTransactionListProps } from "../../shared/model/widget-props";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 import {
@@ -20,7 +19,6 @@ import {
   updateBankTransaction
 } from "../../services/bank-workflow";
 import { createParty } from "../../services/party-workflow";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 import { BankStatementImport } from "../../features/bank-statement-import/BankStatementImport";
 
 function isSameStatementCounterparty(
@@ -63,12 +61,10 @@ type BankTransactionRoute =
 
 type BankTransactionListRow = {
   bankTransaction: BankTransaction;
-  bankAccount: ReadyWorkspaceData["bankAccounts"][number] | undefined;
+  bankAccount: BankAccount | undefined;
   linkedParty: Party | undefined;
-  matchedInvoice: ReadyWorkspaceData["invoices"][number] | undefined;
-  matchedSupplierInvoice:
-    | ReadyWorkspaceData["supplierInvoices"][number]
-    | undefined;
+  matchedInvoice: Invoice | undefined;
+  matchedSupplierInvoice: SupplierInvoice | undefined;
   displayState: BankTransactionDisplayState;
 };
 
@@ -95,24 +91,8 @@ export function BankTransactionList(props: BankTransactionListProps) {
     invoices,
     supplierInvoices,
     bankAccounts,
-    onDataStateChange
+    onWorkspaceUpdate
   } = props;
-  const data: ReadyWorkspaceData = {
-    workspace,
-    bankTransactions,
-    parties,
-    accounts,
-    invoices,
-    supplierInvoices,
-    bankAccounts,
-    invoice: null,
-    invoiceParty: null,
-    supplierInvoice: null,
-    supplierInvoiceParty: null,
-    journalEntries: [],
-    balances: [],
-    initializedWorkspace: false
-  };
   const navigate = useNavigate();
   const pathname = useRouterState({
     select: (state) => state.location.pathname
@@ -122,9 +102,9 @@ export function BankTransactionList(props: BankTransactionListProps) {
   });
   const route = getBankTransactionRoute(pathname);
   const listFilters = getBankTransactionListFilters(searchStr);
-  const activeBankAccounts = data.bankAccounts.filter((bankAccount) => bankAccount.active);
+  const activeBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.active);
   const [transactionBankAccountId, setTransactionBankAccountId] = useState(
-    data.bankAccounts[0]?.id ?? ""
+    bankAccounts[0]?.id ?? ""
   );
   const [bookingDate, setBookingDate] = useState("2026-05-15");
   const [transactionAmount, setTransactionAmount] = useState("1000.00");
@@ -134,7 +114,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
   const routedBankTransactionId =
     route.mode === "detail" || route.mode === "edit" ? route.bankTransactionId : "";
   const selectedEditBankTransaction =
-    data.bankTransactions.find(
+    bankTransactions.find(
       (bankTransaction) =>
         bankTransaction.id === (routedBankTransactionId || selectedEditBankTransactionId)
     ) ??
@@ -143,7 +123,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
     selectedEditBankTransaction?.status === "unmatched" &&
     !selectedEditBankTransaction.importSource;
   const selectedStatementCounterpartyExists = selectedEditBankTransaction
-    ? data.parties.some((party) =>
+    ? parties.some((party) =>
         isSameStatementCounterparty(
           party.name,
           party.iban,
@@ -153,7 +133,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
       )
     : false;
   const selectedStatementCounterpartyCandidate = selectedEditBankTransaction
-    ? data.parties.find((party) =>
+    ? parties.find((party) =>
         isSameStatementCounterparty(
           party.name,
           party.iban,
@@ -171,7 +151,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
     selectedEditBankTransaction?.status === "unmatched" &&
     selectedEditBankTransaction.partyId &&
     isIncomingBankTransaction(selectedEditBankTransaction)
-      ? data.invoices.find(
+      ? invoices.find(
           (invoice) =>
             invoice.partyId === selectedEditBankTransaction.partyId &&
             invoice.status !== "paid" &&
@@ -184,7 +164,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
     selectedEditBankTransaction?.status === "unmatched" &&
     selectedEditBankTransaction.partyId &&
     !isIncomingBankTransaction(selectedEditBankTransaction)
-      ? data.supplierInvoices.find(
+      ? supplierInvoices.find(
           (supplierInvoice) =>
             supplierInvoice.partyId === selectedEditBankTransaction.partyId &&
             supplierInvoice.status !== "paid" &&
@@ -195,7 +175,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
         ) ?? null
       : null;
   const [editTransactionBankAccountId, setEditTransactionBankAccountId] = useState(
-    selectedEditBankTransaction?.bankAccountId ?? data.bankAccounts[0]?.id ?? ""
+    selectedEditBankTransaction?.bankAccountId ?? bankAccounts[0]?.id ?? ""
   );
   const [editBookingDate, setEditBookingDate] = useState(
     selectedEditBankTransaction?.bookingDate ?? "2026-05-15"
@@ -221,19 +201,19 @@ export function BankTransactionList(props: BankTransactionListProps) {
     | "undo"
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const selectedBankAccountId = transactionBankAccountId || data.bankAccounts[0]?.id || "";
+  const selectedBankAccountId = transactionBankAccountId || bankAccounts[0]?.id || "";
   const importDialogRef = useRef<HTMLDialogElement>(null);
-  const bankTransactionRows = data.bankTransactions
+  const bankTransactionRows = bankTransactions
     .map((bankTransaction): BankTransactionListRow => {
-      const bankAccount = data.bankAccounts.find(
+      const bankAccount = bankAccounts.find(
         (candidate) => candidate.id === bankTransaction.bankAccountId
       );
-      const linkedParty = data.parties.find((party) => party.id === bankTransaction.partyId);
+      const linkedParty = parties.find((party) => party.id === bankTransaction.partyId);
       const isIncoming = !bankTransaction.amount.startsWith("-");
       const invoiceCandidateExists =
         isIncoming &&
         Boolean(bankTransaction.partyId) &&
-        data.invoices.some(
+        invoices.some(
           (invoice) =>
             invoice.partyId === bankTransaction.partyId &&
             invoice.status !== "paid" &&
@@ -244,7 +224,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
       const supplierCandidateExists =
         !isIncoming &&
         Boolean(bankTransaction.partyId) &&
-        data.supplierInvoices.some(
+        supplierInvoices.some(
           (supplierInvoice) =>
             supplierInvoice.partyId === bankTransaction.partyId &&
             supplierInvoice.status !== "paid" &&
@@ -260,12 +240,12 @@ export function BankTransactionList(props: BankTransactionListProps) {
       );
       const matchedInvoice =
         bankTransaction.matchedDocumentType === "invoice" && bankTransaction.matchedDocumentId
-          ? data.invoices.find((invoice) => invoice.id === bankTransaction.matchedDocumentId)
+          ? invoices.find((invoice) => invoice.id === bankTransaction.matchedDocumentId)
           : undefined;
       const matchedSupplierInvoice =
         bankTransaction.matchedDocumentType === "supplier_invoice" &&
         bankTransaction.matchedDocumentId
-          ? data.supplierInvoices.find(
+          ? supplierInvoices.find(
               (supplierInvoice) => supplierInvoice.id === bankTransaction.matchedDocumentId
             )
           : undefined;
@@ -314,7 +294,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
         : bankAccountFilteredRows.length
     ])
   );
-  const activeBankAccountFilter = data.bankAccounts.find(
+  const activeBankAccountFilter = bankAccounts.find(
     (bankAccount) => bankAccount.id === listFilters.bankAccountId
   );
   const hasActiveListFilters = Boolean(
@@ -343,17 +323,17 @@ export function BankTransactionList(props: BankTransactionListProps) {
       }
 
       const update = await createBankTransaction({
-        workspaceId: data.workspace.id,
+        workspaceId: workspace.id,
         bankAccountId: selectedBankAccountId,
         bookingDate,
         amount: transactionAmount,
-        currency: data.workspace.baseCurrency,
+        currency: workspace.baseCurrency,
         description,
         reference
       });
       const createdBankTransaction = update.bankTransactions?.at(-1);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
 
       if (createdBankTransaction) {
         void navigate({
@@ -389,7 +369,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
         reference: editReference
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({
         to: "/workspace/banking/transactions/$bankTransactionId",
         params: { bankTransactionId: selectedEditBankTransaction.id }
@@ -417,13 +397,13 @@ export function BankTransactionList(props: BankTransactionListProps) {
 
       setActionState("party-create");
       const partiesUpdate = await createParty({
-        workspaceId: data.workspace.id,
+        workspaceId: workspace.id,
         name: selectedEditBankTransaction.counterpartyName,
         type: "business",
         roles: [selectedEditBankTransaction.amount.startsWith("-") ? "supplier" : "customer"],
         countryCode:
           selectedEditBankTransaction.counterpartyIban?.slice(0, 2) ??
-          data.workspace.countryCode,
+          workspace.countryCode,
         iban: selectedEditBankTransaction.counterpartyIban
       });
       const createdParty = partiesUpdate.parties?.find((party) =>
@@ -441,7 +421,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
           })
         : null;
 
-      onDataStateChange(applyWorkspaceUpdate(data, linkedUpdate ? { ...partiesUpdate, ...linkedUpdate } : partiesUpdate));
+      onWorkspaceUpdate(linkedUpdate ? { ...partiesUpdate, ...linkedUpdate } : partiesUpdate);
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -466,7 +446,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
         partyId: selectedStatementCounterpartyCandidate?.id
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -491,7 +471,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
         partyId: undefined
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -516,7 +496,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
         selectedEditBankTransaction.id
       );
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -541,7 +521,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
         selectedEditBankTransaction.id
       );
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       setSelectedEditBankTransactionId(selectedEditBankTransaction.id);
     } catch (error) {
       setErrorMessage(
@@ -561,7 +541,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
     try {
       const update = await postBankFeeFromBankTransaction(bankTransactionId);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Bank fee was not posted.");
     } finally {
@@ -576,7 +556,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
     try {
       const update = await undoBankTransactionPosting(bankTransactionId);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       setSelectedEditBankTransactionId(bankTransactionId);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Posting was not undone.");
@@ -603,7 +583,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
   }
 
   const selectedBankAccountName = selectedEditBankTransaction
-    ? data.bankAccounts.find(
+    ? bankAccounts.find(
         (bankAccount) => bankAccount.id === selectedEditBankTransaction.bankAccountId
       )?.name ?? "Unknown account"
     : "Unknown account";
@@ -690,7 +670,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
           canCreateCounterparty={canCreateCounterpartyFromSelectedTransaction}
           isLinkingCounterparty={actionState === "party-link"}
           isCreatingCounterparty={actionState === "party-create"}
-          parties={data.parties}
+          parties={parties}
           suggestedPartyId={selectedStatementCounterpartyCandidate?.id}
           suggestedInvoice={suggestedInvoiceMatch}
           suggestedSupplierInvoice={suggestedSupplierInvoiceMatch}
@@ -797,7 +777,7 @@ export function BankTransactionList(props: BankTransactionListProps) {
           >
             All
           </button>
-          {data.bankAccounts.map((bankAccount) => (
+          {bankAccounts.map((bankAccount) => (
             <button
               key={bankAccount.id}
               type="button"
@@ -884,7 +864,11 @@ export function BankTransactionList(props: BankTransactionListProps) {
         </button>
       </div>
       <div className="import-dialog-body">
-        <BankStatementImport data={data} onDataStateChange={onDataStateChange} />
+        <BankStatementImport
+          bankAccounts={bankAccounts}
+          onWorkspaceUpdate={onWorkspaceUpdate}
+          workspaceId={workspace.id}
+        />
       </div>
     </dialog>
   </>
@@ -1017,12 +1001,10 @@ function BankTransactionDetailPanel({
   canCreateCounterparty: boolean;
   isLinkingCounterparty: boolean;
   isCreatingCounterparty: boolean;
-  parties: ReadyWorkspaceData["parties"];
+  parties: Party[];
   suggestedPartyId?: string;
-  suggestedInvoice: ReadyWorkspaceData["invoices"][number] | null;
-  suggestedSupplierInvoice:
-    | ReadyWorkspaceData["supplierInvoices"][number]
-    | null;
+  suggestedInvoice: Invoice | null;
+  suggestedSupplierInvoice: SupplierInvoice | null;
   isMatchingInvoice: boolean;
   isMatchingSupplierInvoice: boolean;
   isPostingBankFee: boolean;
@@ -1208,7 +1190,7 @@ function BankTransactionEditableFields({
   onReferenceChange,
   onTransactionAmountChange
 }: {
-  activeBankAccounts: ReadyWorkspaceData["bankAccounts"];
+  activeBankAccounts: BankAccount[];
   bankAccountId: string;
   bookingDate: string;
   description: string;

@@ -3,7 +3,7 @@ import { JournalEntriesView } from "../../widgets/accounting/AccountingView";
 import { useWorkspaceData } from "../../app/WorkspaceDataContext";
 
 export function AccountingJournalPage() {
-  const { data, onDataStateChange } = useWorkspaceData();
+  const { data, onWorkspaceUpdate } = useWorkspaceData();
   const accountNames = useMemo(
     () => new Map(data.accounts.map((account) => [account.code, account.name])),
     [data.accounts]
@@ -16,8 +16,12 @@ export function AccountingJournalPage() {
         accounts={data.accounts}
         journalEntries={data.journalEntries}
         balances={data.balances}
+        parties={data.parties}
+        invoices={data.invoices}
+        supplierInvoices={data.supplierInvoices}
+        bankAccounts={data.bankAccounts}
         accountNames={accountNames}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     </div>
   );

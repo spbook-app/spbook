@@ -2,7 +2,7 @@ import { PurchasesView } from "../../widgets/purchases/PurchasesView";
 import { useWorkspaceData } from "../../app/WorkspaceDataContext";
 
 export function PurchasesPage() {
-  const { data, onDataStateChange } = useWorkspaceData();
+  const { data, onWorkspaceUpdate } = useWorkspaceData();
 
   return (
     <div className="section-stack">
@@ -13,7 +13,7 @@ export function PurchasesPage() {
         bankTransactions={data.bankTransactions}
         journalEntries={data.journalEntries}
         accounts={data.accounts}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     </div>
   );

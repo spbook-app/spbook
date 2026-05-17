@@ -2,7 +2,7 @@ import { SalesInvoicesView } from "../../widgets/sales/SalesInvoicesView";
 import { useWorkspaceData } from "../../app/WorkspaceDataContext";
 
 export function SalesPage() {
-  const { data, onDataStateChange } = useWorkspaceData();
+  const { data, onWorkspaceUpdate } = useWorkspaceData();
 
   return (
     <div className="section-stack">
@@ -14,7 +14,7 @@ export function SalesPage() {
         journalEntries={data.journalEntries}
         bankAccounts={data.bankAccounts}
         accounts={data.accounts}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     </div>
   );

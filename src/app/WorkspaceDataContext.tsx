@@ -1,10 +1,23 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type { AppDataState, ReadyWorkspaceData } from "../shared/model/workspace";
+import type {
+  AppDataState,
+  ReadyWorkspaceData,
+  WorkspaceUpdateHandler
+} from "../shared/model/workspace";
+import { applyWorkspaceUpdate } from "../shared/lib/workspace-overview";
 
 interface WorkspaceDataContextValue {
   data: ReadyWorkspaceData;
   onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
   showReset: boolean;
+}
+
+interface WorkspaceDataProviderProps {
+  data: ReadyWorkspaceData;
+  onDataStateChange: (state: AppDataState) => void;
+  showReset: boolean;
+  children: ReactNode;
 }
 
 const WorkspaceDataContext = createContext<WorkspaceDataContextValue | null>(null);
@@ -14,9 +27,15 @@ export function WorkspaceDataProvider({
   onDataStateChange,
   showReset,
   children
-}: WorkspaceDataContextValue & { children: ReactNode }) {
+}: WorkspaceDataProviderProps) {
+  const onWorkspaceUpdate: WorkspaceUpdateHandler = (update) => {
+    onDataStateChange(applyWorkspaceUpdate(data, update));
+  };
+
   return (
-    <WorkspaceDataContext.Provider value={{ data, onDataStateChange, showReset }}>
+    <WorkspaceDataContext.Provider
+      value={{ data, onDataStateChange, onWorkspaceUpdate, showReset }}
+    >
       {children}
     </WorkspaceDataContext.Provider>
   );

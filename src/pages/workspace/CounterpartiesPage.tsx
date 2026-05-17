@@ -2,7 +2,7 @@ import { CounterpartiesView } from "../../widgets/counterparties/CounterpartiesV
 import { useWorkspaceData } from "../../app/WorkspaceDataContext";
 
 export function CounterpartiesPage() {
-  const { data, onDataStateChange } = useWorkspaceData();
+  const { data, onWorkspaceUpdate } = useWorkspaceData();
 
   return (
     <div className="section-stack">
@@ -11,7 +11,8 @@ export function CounterpartiesPage() {
         parties={data.parties}
         invoices={data.invoices}
         supplierInvoices={data.supplierInvoices}
-        onDataStateChange={onDataStateChange}
+        bankAccounts={data.bankAccounts}
+        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     </div>
   );

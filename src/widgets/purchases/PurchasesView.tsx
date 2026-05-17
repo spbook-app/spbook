@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
 import type { PurchasesViewProps } from "../../shared/model/widget-props";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
@@ -17,9 +17,7 @@ import {
   updateSupplierInvoice
 } from "../../services/supplier-invoice-workflow";
 import { SupplierInvoiceEditableFields } from "../../entities/supplier-invoice/SupplierInvoiceFields";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = ReadyWorkspaceData;
 type PurchaseRoute =
   | { mode: "supplier-list" }
   | { mode: "supplier-create" }
@@ -34,53 +32,41 @@ export function PurchasesView(props: PurchasesViewProps) {
     parties,
     bankTransactions,
     journalEntries,
-    accounts,
-    onDataStateChange
+    onWorkspaceUpdate
   } = props;
-  
-  // Reconstruct data object for use in child components
-  const data: ReadyAppData = {
-    workspace,
-    supplierInvoices,
-    parties,
-    bankTransactions,
-    journalEntries,
-    accounts,
-    invoices: [],
-    invoice: null,
-    invoiceParty: null,
-    supplierInvoice: null,
-    supplierInvoiceParty: null,
-    bankAccounts: [],
-    balances: [],
-    initializedWorkspace: false
-  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
   const route = getPurchaseRoute(pathname);
   const supplierParties = useMemo(
-    () => data.parties.filter((party) => party.active && party.roles.includes("supplier")),
-    [data.parties]
+    () => parties.filter((party) => party.active && party.roles.includes("supplier")),
+    [parties]
   );
 
   if (route.mode === "owner-create") {
-    return <OwnerTransactionsPanel data={data} onDataStateChange={onDataStateChange} />;
+    return (
+      <OwnerTransactionsPanel
+        baseCurrency={workspace.baseCurrency}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        workspaceId={workspace.id}
+      />
+    );
   }
 
   if (route.mode === "supplier-create") {
     return (
       <SupplierInvoiceCreateForm
-        data={data}
-        onDataStateChange={onDataStateChange}
+        baseCurrency={workspace.baseCurrency}
+        onWorkspaceUpdate={onWorkspaceUpdate}
         supplierParties={supplierParties}
+        workspaceId={workspace.id}
       />
     );
   }
 
   if (route.mode === "supplier-detail" || route.mode === "supplier-edit") {
     const supplierInvoice =
-      data.supplierInvoices.find(
+      supplierInvoices.find(
         (candidate) => candidate.id === route.supplierInvoiceId
       ) ?? null;
 
@@ -90,19 +76,27 @@ export function PurchasesView(props: PurchasesViewProps) {
 
     return (
       <SupplierInvoiceDetailPage
-        data={data}
+        bankTransactions={bankTransactions}
+        journalEntries={journalEntries}
         mode={route.mode === "supplier-edit" ? "edit" : "detail"}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        parties={parties}
         supplierInvoice={supplierInvoice}
         supplierParties={supplierParties}
       />
     );
   }
 
-  return <SupplierInvoiceListPage data={data} />;
+  return <SupplierInvoiceListPage parties={parties} supplierInvoices={supplierInvoices} />;
 }
 
-function SupplierInvoiceListPage({ data }: { data: ReadyAppData }) {
+function SupplierInvoiceListPage({
+  parties,
+  supplierInvoices
+}: {
+  parties: Party[];
+  supplierInvoices: SupplierInvoice[];
+}) {
   return (
     <section className="panel" aria-labelledby="supplier-invoices-title">
       <div className="panel-header">
@@ -118,11 +112,11 @@ function SupplierInvoiceListPage({ data }: { data: ReadyAppData }) {
       </div>
 
       <div className="document-list" aria-label="Supplier invoices">
-        {data.supplierInvoices.length === 0 ? (
+        {supplierInvoices.length === 0 ? (
           <p className="empty-state">No supplier invoices yet.</p>
         ) : null}
-        {data.supplierInvoices.map((supplierInvoice) => {
-          const party = data.parties.find((candidate) => candidate.id === supplierInvoice.partyId);
+        {supplierInvoices.map((supplierInvoice) => {
+          const party = parties.find((candidate) => candidate.id === supplierInvoice.partyId);
 
           return (
             <Link
@@ -145,15 +139,19 @@ function SupplierInvoiceListPage({ data }: { data: ReadyAppData }) {
 }
 
 function SupplierInvoiceDetailPage({
-  data,
+  bankTransactions,
+  journalEntries,
   mode,
-  onDataStateChange,
+  onWorkspaceUpdate,
+  parties,
   supplierInvoice,
   supplierParties
 }: {
-  data: ReadyAppData;
+  bankTransactions: BankTransaction[];
+  journalEntries: PurchasesViewProps["journalEntries"];
   mode: "detail" | "edit";
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  parties: Party[];
   supplierInvoice: SupplierInvoice;
   supplierParties: Party[];
 }) {
@@ -171,17 +169,17 @@ function SupplierInvoiceDetailPage({
     supplierInvoice.expenseAccountCode
   );
   const supplierParty =
-    data.parties.find((party) => party.id === supplierInvoice.partyId) ?? null;
-  const supplierInvoiceEntries = data.journalEntries.filter((entry) =>
+    parties.find((party) => party.id === supplierInvoice.partyId) ?? null;
+  const supplierInvoiceEntries = journalEntries.filter((entry) =>
     entry.lines.some((line) => line.supplierInvoiceId === supplierInvoice.id)
   );
   const linkedBankTransaction =
-    data.bankTransactions.find(
+    bankTransactions.find(
       (bankTransaction) =>
         bankTransaction.matchedDocumentType === "supplier_invoice" &&
         bankTransaction.matchedDocumentId === supplierInvoice.id
     ) ?? null;
-  const paymentCandidates = getOutgoingPaymentCandidates(data.bankTransactions, supplierInvoice);
+  const paymentCandidates = getOutgoingPaymentCandidates(bankTransactions, supplierInvoice);
   const selectedOutgoingBankTransactionId =
     selectedPaymentBankTransactionId || paymentCandidates[0]?.id || "";
 
@@ -207,7 +205,7 @@ function SupplierInvoiceDetailPage({
         selectedOutgoingBankTransactionId
       );
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not recorded."
@@ -225,7 +223,7 @@ function SupplierInvoiceDetailPage({
 
     try {
       const update = await undoBankTransactionPosting(linkedBankTransaction.id);
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Supplier payment was not undone."
@@ -250,7 +248,7 @@ function SupplierInvoiceDetailPage({
         expenseAccountCode: editExpenseAccountCode
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({
         to: "/workspace/purchases/supplier-invoices/$supplierInvoiceId",
         params: { supplierInvoiceId: supplierInvoice.id }
@@ -270,7 +268,7 @@ function SupplierInvoiceDetailPage({
 
     try {
       const update = await deleteSupplierInvoice(supplierInvoice.id);
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({ to: "/workspace/purchases/supplier-invoices" });
     } catch (error) {
       setErrorMessage(

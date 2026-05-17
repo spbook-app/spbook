@@ -3,19 +3,18 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import type { Party } from "../../domain";
 import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
 import { createSalesInvoice } from "../../services/invoice-workflow";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
-
-type ReadyAppData = ReadyWorkspaceData;
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 export function InvoiceCreateForm({
+  baseCurrency,
   customerParties,
-  data,
-  onDataStateChange
+  onWorkspaceUpdate,
+  workspaceId
 }: {
+  baseCurrency: string;
   customerParties: Party[];
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  workspaceId: string;
 }) {
   const navigate = useNavigate();
   const [partyId, setPartyId] = useState(customerParties[0]?.id ?? "");
@@ -36,16 +35,16 @@ export function InvoiceCreateForm({
       }
 
       const update = await createSalesInvoice({
-        workspaceId: data.workspace.id,
+        workspaceId,
         partyId,
         number,
         issueDate,
         total,
-        currency: data.workspace.baseCurrency
+        currency: baseCurrency
       });
       const createdInvoice = update.invoice;
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
 
       if (createdInvoice) {
         void navigate({
@@ -71,7 +70,7 @@ export function InvoiceCreateForm({
 
       <form className="invoice-form" onSubmit={(event) => void handleCreateInvoice(event)}>
         <InvoiceEditableFields
-          currency={data.workspace.baseCurrency}
+          currency={baseCurrency}
           customerParties={customerParties}
           issueDate={issueDate}
           number={number}

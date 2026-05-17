@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
-import type { Party } from "../../domain";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
+import type { BankAccount, Invoice, Party, SupplierInvoice } from "../../domain";
 import type { CounterpartiesViewProps } from "../../shared/model/widget-props";
 import {
   PartyEditableFields,
@@ -10,9 +10,7 @@ import {
 import { PartyCreateForm } from "../../features/party-create/PartyCreateForm";
 import { updateParty } from "../../services/party-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = ReadyWorkspaceData;
 type CounterpartyRoute =
   | { mode: "list" }
   | { mode: "create" }
@@ -21,36 +19,19 @@ type CounterpartyRoute =
   | { mode: "edit"; partyId: string };
 
 export function CounterpartiesView(props: CounterpartiesViewProps) {
-  const { workspace, parties, invoices, supplierInvoices, onDataStateChange } = props;
-  
-  // Reconstruct data object for use in child components
-  const data: ReadyAppData = {
-    workspace,
-    parties,
-    invoices,
-    supplierInvoices,
-    accounts: [],
-    bankAccounts: [],
-    bankTransactions: [],
-    invoice: null,
-    invoiceParty: null,
-    supplierInvoice: null,
-    supplierInvoiceParty: null,
-    journalEntries: [],
-    balances: [],
-    initializedWorkspace: false
-  };
+  const { workspace, parties, invoices, supplierInvoices, bankAccounts, onWorkspaceUpdate } =
+    props;
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
   const route = getCounterpartyRoute(pathname);
 
   if (route.mode === "create") {
-    return <PartyCreateForm data={data} onDataStateChange={onDataStateChange} />;
+    return <PartyCreateForm onWorkspaceUpdate={onWorkspaceUpdate} workspaceId={workspace.id} />;
   }
 
   if (route.mode === "workspace" || route.mode === "card" || route.mode === "edit") {
-    const party = data.parties.find((candidate) => candidate.id === route.partyId) ?? null;
+    const party = parties.find((candidate) => candidate.id === route.partyId) ?? null;
 
     if (!party) {
       return <CounterpartyNotFound partyId={route.partyId} />;
@@ -58,18 +39,32 @@ export function CounterpartiesView(props: CounterpartiesViewProps) {
 
     return (
       <CounterpartyDetailPage
-        data={data}
+        bankAccounts={bankAccounts}
         mode={route.mode}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
         party={party}
       />
     );
   }
 
-  return <CounterpartyListPage data={data} />;
+  return (
+    <CounterpartyListPage
+      invoices={invoices}
+      parties={parties}
+      supplierInvoices={supplierInvoices}
+    />
+  );
 }
 
-function CounterpartyListPage({ data }: { data: ReadyAppData }) {
+function CounterpartyListPage({
+  invoices: _invoices,
+  parties,
+  supplierInvoices: _supplierInvoices
+}: {
+  invoices: Invoice[];
+  parties: Party[];
+  supplierInvoices: SupplierInvoice[];
+}) {
   return (
     <section className="panel panel-wide" aria-labelledby="counterparties-title">
       <div className="panel-header">
@@ -80,8 +75,8 @@ function CounterpartyListPage({ data }: { data: ReadyAppData }) {
       </div>
 
       <div className="party-list">
-        {data.parties.length === 0 ? <p className="empty-state">No counterparties yet.</p> : null}
-        {data.parties.map((party) => (
+        {parties.length === 0 ? <p className="empty-state">No counterparties yet.</p> : null}
+        {parties.map((party) => (
           <Link
             className="party-row"
             key={party.id}
@@ -107,14 +102,14 @@ function CounterpartyListPage({ data }: { data: ReadyAppData }) {
 }
 
 function CounterpartyDetailPage({
-  data,
+  bankAccounts,
   mode,
-  onDataStateChange,
+  onWorkspaceUpdate,
   party
 }: {
-  data: ReadyAppData;
+  bankAccounts: BankAccount[];
   mode: "workspace" | "card" | "edit";
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
   party: Party;
 }) {
   const navigate = useNavigate();
@@ -122,7 +117,7 @@ function CounterpartyDetailPage({
   const [actionState, setActionState] = useState<"idle" | "updating">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const ibanValidationMessage = getIbanValidationMessage(formState.iban);
-  const bankAccounts = data.bankAccounts.filter((bankAccount) => bankAccount.partyId === party.id);
+  const relatedBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.partyId === party.id);
 
   useEffect(() => {
     setFormState(mapPartyToFormState(party));
@@ -157,7 +152,7 @@ function CounterpartyDetailPage({
         active: formState.active
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({
         to: "/workspace/counterparties/$partyId/card",
         params: { partyId: party.id }
@@ -212,9 +207,9 @@ function CounterpartyDetailPage({
       ) : mode === "card" || mode === "workspace" ? (
         <>
           <CounterpartyDetails party={party} />
-          {bankAccounts.length > 0 ? (
+          {relatedBankAccounts.length > 0 ? (
             <div className="document-list" aria-label="Bank accounts" style={{ marginTop: "16px" }}>
-              {bankAccounts.map((bankAccount) => (
+              {relatedBankAccounts.map((bankAccount) => (
                 <Link
                   className="document-list-item"
                   key={bankAccount.id}

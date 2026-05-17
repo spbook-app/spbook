@@ -1,17 +1,18 @@
 import { useState } from "react";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import {
   recordOwnerContribution,
   recordOwnerWithdrawal
 } from "../../services/owner-transactions-workflow";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 export function OwnerTransactionsPanel({
-  data,
-  onDataStateChange
+  baseCurrency,
+  onWorkspaceUpdate,
+  workspaceId
 }: {
-  data: ReadyWorkspaceData;
-  onDataStateChange: (state: AppDataState) => void;
+  baseCurrency: string;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  workspaceId: string;
 }) {
   const [entryDate, setEntryDate] = useState("2026-05-10");
   const [amount, setAmount] = useState("300.00");
@@ -28,17 +29,17 @@ export function OwnerTransactionsPanel({
 
     try {
       const input = {
-        workspaceId: data.workspace.id,
+        workspaceId,
         entryDate,
         amount,
-        currency: data.workspace.baseCurrency
+        currency: baseCurrency
       };
       const update =
         transactionType === "contribution"
           ? await recordOwnerContribution(input)
           : await recordOwnerWithdrawal(input);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Owner transaction was not recorded."

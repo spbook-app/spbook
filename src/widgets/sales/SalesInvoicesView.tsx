@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { BankTransaction, Invoice, Party } from "../../domain";
 import type { SalesInvoicesViewProps } from "../../shared/model/widget-props";
 import { LinkedBankTransactionSummary } from "../../entities/bank-transaction/LinkedBankTransactionSummary";
@@ -16,9 +16,7 @@ import {
   updateSalesInvoice
 } from "../../services/invoice-workflow";
 import { InvoiceEditableFields } from "../../entities/invoice/InvoiceFields";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = ReadyWorkspaceData;
 type SalesInvoiceRoute =
   | { mode: "list" }
   | { mode: "create" }
@@ -32,49 +30,30 @@ export function SalesInvoicesView(props: SalesInvoicesViewProps) {
     parties,
     bankTransactions,
     journalEntries,
-    bankAccounts,
-    accounts,
-    onDataStateChange
+    onWorkspaceUpdate
   } = props;
-  
-  // Reconstruct data object for use in child components
-  const data: ReadyAppData = {
-    workspace,
-    invoices,
-    parties,
-    bankTransactions,
-    journalEntries,
-    bankAccounts,
-    accounts,
-    invoice: null,
-    invoiceParty: null,
-    supplierInvoices: [],
-    supplierInvoice: null,
-    supplierInvoiceParty: null,
-    balances: [],
-    initializedWorkspace: false
-  };
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
   const route = getSalesInvoiceRoute(pathname);
   const customerParties = useMemo(
-    () => data.parties.filter((party) => party.active && party.roles.includes("customer")),
-    [data.parties]
+    () => parties.filter((party) => party.active && party.roles.includes("customer")),
+    [parties]
   );
 
   if (route.mode === "create") {
     return (
       <InvoiceCreateForm
+        baseCurrency={workspace.baseCurrency}
         customerParties={customerParties}
-        data={data}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        workspaceId={workspace.id}
       />
     );
   }
 
   if (route.mode === "detail" || route.mode === "edit") {
-    const invoice = data.invoices.find((candidate) => candidate.id === route.invoiceId) ?? null;
+    const invoice = invoices.find((candidate) => candidate.id === route.invoiceId) ?? null;
 
     if (!invoice) {
       return <InvoiceNotFound invoiceId={route.invoiceId} />;
@@ -82,19 +61,21 @@ export function SalesInvoicesView(props: SalesInvoicesViewProps) {
 
     return (
       <InvoiceDetailPage
+        bankTransactions={bankTransactions}
         customerParties={customerParties}
-        data={data}
         invoice={invoice}
+        journalEntries={journalEntries}
         mode={route.mode}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        parties={parties}
       />
     );
   }
 
-  return <InvoiceListPage data={data} />;
+  return <InvoiceListPage invoices={invoices} parties={parties} />;
 }
 
-function InvoiceListPage({ data }: { data: ReadyAppData }) {
+function InvoiceListPage({ invoices, parties }: { invoices: Invoice[]; parties: Party[] }) {
   return (
     <section className="panel" aria-labelledby="sales-invoices-title">
       <div className="panel-header">
@@ -105,11 +86,11 @@ function InvoiceListPage({ data }: { data: ReadyAppData }) {
       </div>
 
       <div className="document-list" aria-label="Issued invoices">
-        {data.invoices.length === 0 ? (
+        {invoices.length === 0 ? (
           <p className="empty-state">No issued invoices yet.</p>
         ) : null}
-        {data.invoices.map((invoice) => {
-          const party = data.parties.find((candidate) => candidate.id === invoice.partyId);
+        {invoices.map((invoice) => {
+          const party = parties.find((candidate) => candidate.id === invoice.partyId);
 
           return (
             <Link
@@ -132,17 +113,21 @@ function InvoiceListPage({ data }: { data: ReadyAppData }) {
 }
 
 function InvoiceDetailPage({
+  bankTransactions,
   customerParties,
-  data,
   invoice,
+  journalEntries,
   mode,
-  onDataStateChange
+  onWorkspaceUpdate,
+  parties
 }: {
+  bankTransactions: BankTransaction[];
   customerParties: Party[];
-  data: ReadyAppData;
   invoice: Invoice;
+  journalEntries: SalesInvoicesViewProps["journalEntries"];
   mode: "detail" | "edit";
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  parties: Party[];
 }) {
   const navigate = useNavigate();
   const [actionState, setActionState] = useState<
@@ -155,17 +140,17 @@ function InvoiceDetailPage({
   const [editNumber, setEditNumber] = useState(invoice.number);
   const [editIssueDate, setEditIssueDate] = useState(invoice.issueDate);
   const [editTotal, setEditTotal] = useState(invoice.total);
-  const invoiceParty = data.parties.find((party) => party.id === invoice.partyId) ?? null;
-  const invoiceEntries = data.journalEntries.filter((entry) =>
+  const invoiceParty = parties.find((party) => party.id === invoice.partyId) ?? null;
+  const invoiceEntries = journalEntries.filter((entry) =>
     entry.lines.some((line) => line.invoiceId === invoice.id)
   );
   const linkedInvoiceBankTransaction =
-    data.bankTransactions.find(
+    bankTransactions.find(
       (bankTransaction) =>
         bankTransaction.matchedDocumentType === "invoice" &&
         bankTransaction.matchedDocumentId === invoice.id
     ) ?? null;
-  const paymentCandidates = getIncomingPaymentCandidates(data.bankTransactions, invoice);
+  const paymentCandidates = getIncomingPaymentCandidates(bankTransactions, invoice);
   const selectedIncomingBankTransactionId =
     selectedPaymentBankTransactionId || paymentCandidates[0]?.id || "";
 
@@ -190,7 +175,7 @@ function InvoiceDetailPage({
         selectedIncomingBankTransactionId
       );
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not recorded.");
     } finally {
@@ -207,7 +192,7 @@ function InvoiceDetailPage({
     try {
       const update = await undoBankTransactionPosting(linkedInvoiceBankTransaction.id);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Payment was not undone.");
     } finally {
@@ -229,7 +214,7 @@ function InvoiceDetailPage({
         total: editTotal
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({
         to: "/workspace/sales/invoices/$invoiceId",
         params: { invoiceId: invoice.id }
@@ -248,7 +233,7 @@ function InvoiceDetailPage({
     try {
       const update = await deleteSalesInvoice(invoice.id);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({ to: "/workspace/sales/invoices" });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Invoice was not deleted.");

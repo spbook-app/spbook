@@ -1,24 +1,26 @@
 import { useState, type ChangeEvent } from "react";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { BankAccount } from "../../domain";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import {
   autoLinkImportedBankTransactions,
   importCamt053BankTransactions
 } from "../../services/camt053-import";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
 export function BankStatementImport({
-  data,
-  onDataStateChange
+  bankAccounts,
+  onWorkspaceUpdate,
+  workspaceId
 }: {
-  data: ReadyWorkspaceData;
-  onDataStateChange: (state: AppDataState) => void;
+  bankAccounts: BankAccount[];
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  workspaceId: string;
 }) {
-  const activeBankAccounts = data.bankAccounts.filter((bankAccount) => bankAccount.active);
-  const [bankAccountId, setBankAccountId] = useState(data.bankAccounts[0]?.id ?? "");
+  const activeBankAccounts = bankAccounts.filter((bankAccount) => bankAccount.active);
+  const [bankAccountId, setBankAccountId] = useState(bankAccounts[0]?.id ?? "");
   const [actionState, setActionState] = useState<"idle" | "importing" | "auto-link">("idle");
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const selectedBankAccountId = bankAccountId || data.bankAccounts[0]?.id || "";
+  const selectedBankAccountId = bankAccountId || bankAccounts[0]?.id || "";
 
   async function handleImportStatement(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.currentTarget.files ?? []);
@@ -42,7 +44,7 @@ export function BankStatementImport({
       for (const file of files) {
         try {
           const result = await importCamt053BankTransactions({
-            workspaceId: data.workspace.id,
+            workspaceId,
             bankAccountId: selectedBankAccountId,
             xml: await file.text()
           });
@@ -59,7 +61,7 @@ export function BankStatementImport({
         throw new Error("No selected bank statements could be imported.");
       }
 
-      onDataStateChange(applyWorkspaceUpdate(data, nextUpdate));
+      onWorkspaceUpdate(nextUpdate);
       setImportMessage(
         `Imported ${importedCount} transactions, skipped ${skippedCount} duplicates from ${files.length - failedFiles.length} files.`
       );
@@ -83,9 +85,9 @@ export function BankStatementImport({
     setImportMessage(null);
 
     try {
-      const result = await autoLinkImportedBankTransactions(data.workspace.id);
+      const result = await autoLinkImportedBankTransactions(workspaceId);
 
-      onDataStateChange(applyWorkspaceUpdate(data, result.bankingSlice));
+      onWorkspaceUpdate(result.bankingSlice);
       setImportMessage(`Linked ${result.linkedCount} imported transactions.`);
     } catch (error) {
       setErrorMessage(

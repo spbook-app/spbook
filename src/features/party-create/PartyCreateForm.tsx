@@ -6,18 +6,15 @@ import {
   type PartyFormState
 } from "../../entities/party/PartyFields";
 import { createParty } from "../../services/party-workflow";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
-
-type ReadyAppData = ReadyWorkspaceData;
 
 export function PartyCreateForm({
-  data,
-  onDataStateChange
+  onWorkspaceUpdate,
+  workspaceId
 }: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  workspaceId: string;
 }) {
   const navigate = useNavigate();
   const [formState, setFormState] = useState<PartyFormState>(emptyPartyForm);
@@ -33,7 +30,7 @@ export function PartyCreateForm({
 
     try {
       const update = await createParty({
-        workspaceId: data.workspace.id,
+        workspaceId,
         name: formState.name,
         type: formState.type,
         roles: formState.roles,
@@ -52,7 +49,7 @@ export function PartyCreateForm({
       });
       const createdParty = update.parties?.at(-1);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
 
       if (createdParty) {
         void navigate({

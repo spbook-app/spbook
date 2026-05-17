@@ -1,7 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
-import type { Account, JournalEntry, JournalLineSide } from "../../domain";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
+import type {
+  Account,
+  BankAccount,
+  Invoice,
+  JournalEntry,
+  JournalLineSide,
+  Party,
+  SupplierInvoice
+} from "../../domain";
 import type {
   AccountingViewProps,
   JournalEntriesViewProps
@@ -13,9 +21,7 @@ import {
 } from "../../services/account-workflow";
 import type { AccountBalance } from "../../services/balances";
 import { updateJournalEntry } from "../../services/journal-workflow";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 
-type ReadyAppData = ReadyWorkspaceData;
 type AccountingRoute =
   | { mode: "journal-list" }
   | { mode: "journal-detail"; journalEntryId: string }
@@ -26,36 +32,25 @@ type AccountingRoute =
   | { mode: "account-edit"; accountId: string };
 
 export function ChartOfAccountsView(props: AccountingViewProps) {
-  const { workspace, accounts, journalEntries, balances, onDataStateChange } = props;
-  
-  // Reconstruct data object for use in child components
-  const data: ReadyAppData = {
-    workspace,
-    accounts,
-    journalEntries,
-    balances,
-    invoices: [],
-    invoice: null,
-    invoiceParty: null,
-    supplierInvoices: [],
-    supplierInvoice: null,
-    supplierInvoiceParty: null,
-    bankAccounts: [],
-    bankTransactions: [],
-    parties: [],
-    initializedWorkspace: false
-  };
+  const { workspace, accounts, journalEntries, balances, onWorkspaceUpdate } = props;
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
   const route = getAccountingRoute(pathname);
 
   if (route.mode === "account-create") {
-    return <AccountCreateForm data={data} onDataStateChange={onDataStateChange} />;
+    return (
+      <AccountCreateForm
+        accounts={accounts}
+        baseCurrency={workspace.baseCurrency}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        workspaceId={workspace.id}
+      />
+    );
   }
 
   if (route.mode === "account-detail" || route.mode === "account-edit") {
-    const account = data.accounts.find((candidate) => candidate.id === route.accountId) ?? null;
+    const account = accounts.find((candidate) => candidate.id === route.accountId) ?? null;
 
     if (!account) {
       return <AccountNotFound accountId={route.accountId} />;
@@ -64,35 +59,30 @@ export function ChartOfAccountsView(props: AccountingViewProps) {
     return (
       <AccountDetailPage
         account={account}
-        data={data}
+        accounts={accounts}
+        balances={balances}
+        journalEntries={journalEntries}
         mode={route.mode === "account-edit" ? "edit" : "detail"}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     );
   }
 
-  return <AccountListPage data={data} />;
+  return <AccountListPage accounts={accounts} balances={balances} />;
 }
 
 export function JournalEntriesView(props: JournalEntriesViewProps) {
-  const { workspace, accounts, journalEntries, balances, accountNames, onDataStateChange } =
-    props;
-  const data: ReadyAppData = {
+  const {
     workspace,
     accounts,
     journalEntries,
-    balances,
-    invoices: [],
-    invoice: null,
-    invoiceParty: null,
-    supplierInvoices: [],
-    supplierInvoice: null,
-    supplierInvoiceParty: null,
-    bankAccounts: [],
-    bankTransactions: [],
-    parties: [],
-    initializedWorkspace: false
-  };
+    accountNames,
+    bankAccounts,
+    invoices,
+    onWorkspaceUpdate,
+    parties,
+    supplierInvoices
+  } = props;
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
@@ -100,7 +90,7 @@ export function JournalEntriesView(props: JournalEntriesViewProps) {
 
   if (route.mode === "journal-detail" || route.mode === "journal-edit") {
     const journalEntry =
-      data.journalEntries.find((candidate) => candidate.id === route.journalEntryId) ?? null;
+      journalEntries.find((candidate) => candidate.id === route.journalEntryId) ?? null;
 
     if (!journalEntry) {
       return <JournalEntryNotFound journalEntryId={route.journalEntryId} />;
@@ -109,15 +99,20 @@ export function JournalEntriesView(props: JournalEntriesViewProps) {
     return (
       <JournalEntryDetailPage
         accountNames={accountNames}
-        data={data}
+        accounts={accounts}
+        bankAccounts={bankAccounts}
+        baseCurrency={workspace.baseCurrency}
         entry={journalEntry}
+        invoices={invoices}
         mode={route.mode === "journal-edit" ? "edit" : "detail"}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        parties={parties}
+        supplierInvoices={supplierInvoices}
       />
     );
   }
 
-  return <JournalEntryListPage entries={data.journalEntries} />;
+  return <JournalEntryListPage entries={journalEntries} />;
 }
 
 function JournalEntryListPage({ entries }: { entries: JournalEntry[] }) {
@@ -164,19 +159,29 @@ function JournalEntryListPage({ entries }: { entries: JournalEntry[] }) {
 
 function JournalEntryDetailPage({
   accountNames,
-  data,
+  accounts,
+  bankAccounts,
+  baseCurrency,
   entry,
+  invoices,
   mode,
-  onDataStateChange
+  onWorkspaceUpdate,
+  parties,
+  supplierInvoices
 }: {
   accountNames: Map<string, string>;
-  data: ReadyAppData;
+  accounts: Account[];
+  bankAccounts: BankAccount[];
+  baseCurrency: string;
   entry: JournalEntry;
+  invoices: Invoice[];
   mode: "detail" | "edit";
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  parties: Party[];
+  supplierInvoices: SupplierInvoice[];
 }) {
   const navigate = useNavigate();
-  const postingAccounts = data.accounts.filter((a) => a.role === "posting");
+  const postingAccounts = accounts.filter((a) => a.role === "posting");
   const [editDescription, setEditDescription] = useState(entry.description);
   const [editDate, setEditDate] = useState(entry.entryDate);
   const [editLines, setEditLines] = useState<JournalLineEdit[]>(() =>
@@ -198,7 +203,7 @@ function JournalEntryDetailPage({
         side: "debit",
         accountCode: postingAccounts[0]?.code ?? "",
         amount: "0.00",
-        currency: data.workspace.baseCurrency
+        currency: baseCurrency
       }
     ]);
   }
@@ -224,7 +229,7 @@ function JournalEntryDetailPage({
         lines: editLines
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({
         to: "/workspace/accounting/journal-entries/$journalEntryId",
         params: { journalEntryId: entry.id }
@@ -286,24 +291,24 @@ function JournalEntryDetailPage({
               <ul>
                 {entry.lines.map((line, index) => {
                   const account =
-                    data.accounts.find((a) => a.code === line.accountCode) ?? null;
+                    accounts.find((a) => a.code === line.accountCode) ?? null;
                   const party =
                     line.partyId != null
-                      ? (data.parties.find((p) => p.id === line.partyId) ?? null)
+                      ? (parties.find((p) => p.id === line.partyId) ?? null)
                       : null;
                   const invoice =
                     line.invoiceId != null
-                      ? (data.invoices.find((inv) => inv.id === line.invoiceId) ?? null)
+                      ? (invoices.find((inv) => inv.id === line.invoiceId) ?? null)
                       : null;
                   const supplierInvoice =
                     line.supplierInvoiceId != null
-                      ? (data.supplierInvoices.find(
+                      ? (supplierInvoices.find(
                           (si) => si.id === line.supplierInvoiceId
                         ) ?? null)
                       : null;
                   const bankAccount =
                     line.bankAccountId != null
-                      ? (data.bankAccounts.find((ba) => ba.id === line.bankAccountId) ?? null)
+                      ? (bankAccounts.find((ba) => ba.id === line.bankAccountId) ?? null)
                       : null;
                   const hasAnalytics = party || invoice || supplierInvoice || bankAccount;
 
@@ -551,7 +556,13 @@ function JournalEntrySourceLink({ entry }: { entry: JournalEntry }) {
   );
 }
 
-function AccountListPage({ data }: { data: ReadyAppData }) {
+function AccountListPage({
+  accounts,
+  balances
+}: {
+  accounts: Account[];
+  balances: AccountBalance[];
+}) {
   return (
     <section className="panel panel-wide" aria-labelledby="accounts-title">
       <div className="panel-header">
@@ -572,8 +583,8 @@ function AccountListPage({ data }: { data: ReadyAppData }) {
             </tr>
           </thead>
           <tbody>
-            {data.accounts.map((account) => {
-              const accountBalances = data.balances.filter(
+            {accounts.map((account) => {
+              const accountBalances = balances.filter(
                 (b) => b.accountCode === account.code
               );
               const balanceLabel =
@@ -609,21 +620,25 @@ function AccountListPage({ data }: { data: ReadyAppData }) {
 
 function AccountDetailPage({
   account,
-  data,
+  accounts,
+  balances,
+  journalEntries,
   mode,
-  onDataStateChange
+  onWorkspaceUpdate
 }: {
   account: Account;
-  data: ReadyAppData;
+  accounts: Account[];
+  balances: AccountBalance[];
+  journalEntries: JournalEntry[];
   mode: "detail" | "edit";
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
 }) {
   const navigate = useNavigate();
-  const groupAccounts = data.accounts.filter(
+  const groupAccounts = accounts.filter(
     (candidate) => candidate.role === "group" && candidate.id !== account.id
   );
-  const relatedBalances = data.balances.filter((balance) => balance.accountCode === account.code);
-  const relatedEntries = data.journalEntries.filter((entry) =>
+  const relatedBalances = balances.filter((balance) => balance.accountCode === account.code);
+  const relatedEntries = journalEntries.filter((entry) =>
     entry.lines.some((line) => line.accountCode === account.code)
   );
   const [editName, setEditName] = useState(account.name);
@@ -654,7 +669,7 @@ function AccountDetailPage({
         active: editActive
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({
         to: "/workspace/accounting/chart/$accountId",
         params: { accountId: account.id }

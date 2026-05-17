@@ -6,11 +6,8 @@ import {
   type BankAccountFormState
 } from "../../entities/bank-account/BankAccountFields";
 import { createBankAccount } from "../../services/bank-workflow";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
-
-type ReadyAppData = ReadyWorkspaceData;
 
 function getCreateBankAccountOptions(bankPostingAccounts: Account[], bankAccounts: BankAccount[]) {
   const usedActiveAccountCodes = new Set(
@@ -24,19 +21,23 @@ function getCreateBankAccountOptions(bankPostingAccounts: Account[], bankAccount
 
 export function BankAccountCreateForm({
   bankParties,
+  bankAccounts,
   bankPostingAccounts,
-  data,
-  onDataStateChange
+  baseCurrency,
+  onWorkspaceUpdate,
+  workspaceId
 }: {
   bankParties: Party[];
+  bankAccounts: BankAccount[];
   bankPostingAccounts: Account[];
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
+  baseCurrency: string;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  workspaceId: string;
 }) {
   const navigate = useNavigate();
   const createBankAccountOptions = getCreateBankAccountOptions(
     bankPostingAccounts,
-    data.bankAccounts
+    bankAccounts
   );
   const [formState, setFormState] = useState<BankAccountFormState>({
     name: "NLB EUR",
@@ -78,16 +79,16 @@ export function BankAccountCreateForm({
 
       setActionState("creating");
       const update = await createBankAccount({
-        workspaceId: data.workspace.id,
+        workspaceId,
         name: formState.name,
         accountCode: formState.accountCode,
-        currency: data.workspace.baseCurrency,
+        currency: baseCurrency,
         iban: formState.iban,
         partyId: formState.partyId
       });
       const createdBankAccount = update.bankAccounts?.at(-1);
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
 
       if (createdBankAccount) {
         void navigate({

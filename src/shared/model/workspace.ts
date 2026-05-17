@@ -41,3 +41,5 @@ export type AppDataState =
 export type WorkspaceDataUpdate = Partial<
   Omit<ReadyWorkspaceData, "workspace" | "initializedWorkspace">
 >;
+
+export type WorkspaceUpdateHandler = (update: WorkspaceDataUpdate) => void;

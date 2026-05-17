@@ -2,10 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { Account, AccountRole } from "../../domain";
 import { createWorkspaceAccount } from "../../services/account-workflow";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
-
-type ReadyAppData = ReadyWorkspaceData;
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 
 function AccountCreateFields({
   code,
@@ -81,19 +78,23 @@ function AccountCreateFields({
 }
 
 export function AccountCreateForm({
-  data,
-  onDataStateChange
+  accounts,
+  baseCurrency,
+  onWorkspaceUpdate,
+  workspaceId
 }: {
-  data: ReadyAppData;
-  onDataStateChange: (state: AppDataState) => void;
+  accounts: Account[];
+  baseCurrency: string;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  workspaceId: string;
 }) {
   const navigate = useNavigate();
-  const groupAccounts = data.accounts.filter((account) => account.role === "group");
+  const groupAccounts = accounts.filter((account) => account.role === "group");
   const [code, setCode] = useState("1101");
   const [name, setName] = useState("Second bank account");
   const [role, setRole] = useState<AccountRole>("posting");
   const [parentCode, setParentCode] = useState("11");
-  const [currency, setCurrency] = useState(data.workspace.baseCurrency);
+  const [currency, setCurrency] = useState(baseCurrency);
   const [actionState, setActionState] = useState<"idle" | "creating">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -104,7 +105,7 @@ export function AccountCreateForm({
 
     try {
       const update = await createWorkspaceAccount({
-        workspaceId: data.workspace.id,
+        workspaceId,
         code,
         name,
         role,
@@ -113,7 +114,7 @@ export function AccountCreateForm({
       });
       const createdAccount = update.accounts?.find((account) => account.code === code.trim());
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
 
       if (createdAccount) {
         void navigate({

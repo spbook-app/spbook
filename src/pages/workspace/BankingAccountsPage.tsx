@@ -2,7 +2,7 @@ import { BankingAccountsView } from "../../widgets/banking/BankingAccountsView";
 import { useWorkspaceData } from "../../app/WorkspaceDataContext";
 
 export function BankingAccountsPage() {
-  const { data, onDataStateChange } = useWorkspaceData();
+  const { data, onWorkspaceUpdate } = useWorkspaceData();
 
   return (
     <div className="section-stack">
@@ -11,8 +11,10 @@ export function BankingAccountsPage() {
         bankAccounts={data.bankAccounts}
         accounts={data.accounts}
         bankTransactions={data.bankTransactions}
+        invoices={data.invoices}
         parties={data.parties}
-        onDataStateChange={onDataStateChange}
+        supplierInvoices={data.supplierInvoices}
+        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     </div>
   );

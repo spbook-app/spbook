@@ -2,7 +2,7 @@ import { ChartOfAccountsView } from "../../widgets/accounting/AccountingView";
 import { useWorkspaceData } from "../../app/WorkspaceDataContext";
 
 export function AccountingChartPage() {
-  const { data, onDataStateChange } = useWorkspaceData();
+  const { data, onWorkspaceUpdate } = useWorkspaceData();
 
   return (
     <div className="section-stack">
@@ -11,7 +11,11 @@ export function AccountingChartPage() {
         accounts={data.accounts}
         journalEntries={data.journalEntries}
         balances={data.balances}
-        onDataStateChange={onDataStateChange}
+        parties={data.parties}
+        invoices={data.invoices}
+        supplierInvoices={data.supplierInvoices}
+        bankAccounts={data.bankAccounts}
+        onWorkspaceUpdate={onWorkspaceUpdate}
       />
     </div>
   );

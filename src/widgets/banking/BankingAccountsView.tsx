@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { AppDataState, ReadyWorkspaceData } from "../../shared/model/workspace";
+import type { WorkspaceUpdateHandler } from "../../shared/model/workspace";
 import type { Account, BankAccount, Party } from "../../domain";
 import type { BankingAccountsViewProps } from "../../shared/model/widget-props";
 import {
@@ -11,11 +11,9 @@ import {
 import { BankAccountCreateForm } from "../../features/bank-account-create/BankAccountCreateForm";
 import { updateBankAccount } from "../../services/bank-workflow";
 import { getIbanValidationMessage } from "../../shared/lib/iban";
-import { applyWorkspaceUpdate } from "../../shared/lib/workspace-overview";
 import { getBankTransactionDisplayState } from "./bank-transaction-display";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 
-type ReadyAppData = ReadyWorkspaceData;
 type BankingAccountRoute =
   | { mode: "list" }
   | { mode: "create" }
@@ -24,55 +22,48 @@ type BankingAccountRoute =
   | { mode: "edit"; bankAccountId: string };
 
 export function BankingAccountsView(props: BankingAccountsViewProps) {
-  const { workspace, bankAccounts, accounts, bankTransactions, parties, onDataStateChange } = props;
-  
-  // Reconstruct data object for use in child components
-  const data: ReadyAppData = {
+  const {
     workspace,
     bankAccounts,
     accounts,
     bankTransactions,
+    invoices,
     parties,
-    invoices: [],
-    invoice: null,
-    invoiceParty: null,
-    supplierInvoices: [],
-    supplierInvoice: null,
-    supplierInvoiceParty: null,
-    journalEntries: [],
-    balances: [],
-    initializedWorkspace: false
-  };
+    supplierInvoices,
+    onWorkspaceUpdate
+  } = props;
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   });
   const route = getBankingAccountRoute(pathname);
   const bankPostingAccounts = useMemo(
     () =>
-      data.accounts.filter(
+      accounts.filter(
         (account) => account.role === "posting" && account.code.startsWith("11")
       ),
-    [data.accounts]
+    [accounts]
   );
   const bankParties = useMemo(
-    () => data.parties.filter((party) => party.active && party.roles.includes("bank")),
-    [data.parties]
+    () => parties.filter((party) => party.active && party.roles.includes("bank")),
+    [parties]
   );
 
   if (route.mode === "create") {
     return (
       <BankAccountCreateForm
+        bankAccounts={bankAccounts}
         bankParties={bankParties}
         bankPostingAccounts={bankPostingAccounts}
-        data={data}
-        onDataStateChange={onDataStateChange}
+        baseCurrency={workspace.baseCurrency}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        workspaceId={workspace.id}
       />
     );
   }
 
   if (route.mode === "workspace" || route.mode === "card" || route.mode === "edit") {
     const bankAccount =
-      data.bankAccounts.find((candidate) => candidate.id === route.bankAccountId) ?? null;
+      bankAccounts.find((candidate) => candidate.id === route.bankAccountId) ?? null;
 
     if (!bankAccount) {
       return <BankAccountNotFound bankAccountId={route.bankAccountId} />;
@@ -81,19 +72,30 @@ export function BankingAccountsView(props: BankingAccountsViewProps) {
     return (
       <BankAccountDetailPage
         bankAccount={bankAccount}
+        bankAccounts={bankAccounts}
+        bankTransactions={bankTransactions}
         bankParties={bankParties}
         bankPostingAccounts={bankPostingAccounts}
-        data={data}
+        accounts={accounts}
+        invoices={invoices}
         mode={route.mode}
-        onDataStateChange={onDataStateChange}
+        onWorkspaceUpdate={onWorkspaceUpdate}
+        parties={parties}
+        supplierInvoices={supplierInvoices}
       />
     );
   }
 
-  return <BankAccountListPage data={data} />;
+  return <BankAccountListPage bankAccounts={bankAccounts} parties={parties} />;
 }
 
-function BankAccountListPage({ data }: { data: ReadyAppData }) {
+function BankAccountListPage({
+  bankAccounts,
+  parties
+}: {
+  bankAccounts: BankAccount[];
+  parties: Party[];
+}) {
   return (
     <section className="panel panel-wide" aria-label="Bank accounts">
       <div className="panel-actions">
@@ -103,11 +105,11 @@ function BankAccountListPage({ data }: { data: ReadyAppData }) {
       </div>
 
       <div className="bank-account-list">
-        {data.bankAccounts.length === 0 ? (
+        {bankAccounts.length === 0 ? (
           <p className="empty-state">No bank accounts yet.</p>
         ) : null}
-        {data.bankAccounts.map((bankAccount) => {
-          const bankParty = data.parties.find((party) => party.id === bankAccount.partyId);
+        {bankAccounts.map((bankAccount) => {
+          const bankParty = parties.find((party) => party.id === bankAccount.partyId);
 
           return (
             <Link
@@ -133,24 +135,34 @@ function BankAccountListPage({ data }: { data: ReadyAppData }) {
 
 function BankAccountDetailPage({
   bankAccount,
+  bankAccounts,
+  bankTransactions,
   bankParties,
   bankPostingAccounts,
-  data,
+  accounts,
+  invoices,
   mode,
-  onDataStateChange
+  onWorkspaceUpdate,
+  parties,
+  supplierInvoices
 }: {
   bankAccount: BankAccount;
+  bankAccounts: BankAccount[];
+  bankTransactions: BankingAccountsViewProps["bankTransactions"];
   bankParties: Party[];
   bankPostingAccounts: Account[];
-  data: ReadyAppData;
+  accounts: Account[];
+  invoices: BankingAccountsViewProps["invoices"];
   mode: "workspace" | "card" | "edit";
-  onDataStateChange: (state: AppDataState) => void;
+  onWorkspaceUpdate: WorkspaceUpdateHandler;
+  parties: Party[];
+  supplierInvoices: BankingAccountsViewProps["supplierInvoices"];
 }) {
   const navigate = useNavigate();
-  const bankParty = data.parties.find((party) => party.id === bankAccount.partyId) ?? null;
+  const bankParty = parties.find((party) => party.id === bankAccount.partyId) ?? null;
   const postingAccount =
-    data.accounts.find((account) => account.code === bankAccount.accountCode) ?? null;
-  const relatedTransactions = data.bankTransactions.filter(
+    accounts.find((account) => account.code === bankAccount.accountCode) ?? null;
+  const relatedTransactions = bankTransactions.filter(
     (bankTransaction) => bankTransaction.bankAccountId === bankAccount.id
   );
   const sortedRelatedTransactions = [...relatedTransactions].sort((left, right) =>
@@ -161,7 +173,7 @@ function BankAccountDetailPage({
   ).length;
   const editBankAccountOptions = getEditBankAccountOptions(
     bankPostingAccounts,
-    data.bankAccounts,
+    bankAccounts,
     bankAccount
   );
   const [formState, setFormState] = useState<BankAccountFormState>(() =>
@@ -194,7 +206,7 @@ function BankAccountDetailPage({
         active: formState.active
       });
 
-      onDataStateChange(applyWorkspaceUpdate(data, update));
+      onWorkspaceUpdate(update);
       void navigate({
         to: "/workspace/banking/accounts/$bankAccountId/card",
         params: { bankAccountId: bankAccount.id }
@@ -335,10 +347,10 @@ function BankAccountDetailPage({
             {sortedRelatedTransactions.length > 0 ? (
               <div className="bank-account-transaction-list">
                 {sortedRelatedTransactions.map((bankTransaction) => {
-                  const linkedParty = data.parties.find(
+                  const linkedParty = parties.find(
                     (party) => party.id === bankTransaction.partyId
                   );
-                  const invoiceCandidateExists = data.invoices.some(
+                  const invoiceCandidateExists = invoices.some(
                     (invoice) =>
                       invoice.partyId === bankTransaction.partyId &&
                       invoice.status !== "paid" &&
@@ -346,7 +358,7 @@ function BankAccountDetailPage({
                       invoice.total === bankTransaction.amount &&
                       invoice.currency === bankTransaction.currency
                   );
-                  const supplierCandidateExists = data.supplierInvoices.some(
+                  const supplierCandidateExists = supplierInvoices.some(
                     (supplierInvoice) =>
                       supplierInvoice.partyId === bankTransaction.partyId &&
                       (supplierInvoice.status === "received" ||
@@ -363,14 +375,14 @@ function BankAccountDetailPage({
                   const matchedInvoice =
                     bankTransaction.matchedDocumentType === "invoice" &&
                     bankTransaction.matchedDocumentId
-                      ? data.invoices.find(
+                      ? invoices.find(
                           (invoice) => invoice.id === bankTransaction.matchedDocumentId
                         )
                       : undefined;
                   const matchedSupplierInvoice =
                     bankTransaction.matchedDocumentType === "supplier_invoice" &&
                     bankTransaction.matchedDocumentId
-                      ? data.supplierInvoices.find(
+                      ? supplierInvoices.find(
                           (supplierInvoice) =>
                             supplierInvoice.id === bankTransaction.matchedDocumentId
                         )
