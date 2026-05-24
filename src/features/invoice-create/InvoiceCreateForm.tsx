@@ -80,7 +80,7 @@ export function InvoiceCreateForm({
           onTotalChange={setTotal}
         />
         <button className="primary-button" type="submit" disabled={actionState !== "idle"}>
-          {actionState === "saving" ? "Creating" : "Create invoice"}
+          {actionState === "saving" ? "Saving" : "Save draft"}
         </button>
       </form>
 

@@ -29,7 +29,7 @@ export function InvoiceDeleteButton({
     }
   }
 
-  if (invoice.status === "paid") {
+  if (invoice.status !== "draft") {
     return null;
   }
 

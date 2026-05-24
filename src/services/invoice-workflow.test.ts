@@ -7,7 +7,9 @@ import { defaultCountryConfig } from "../app/country-config";
 import {
   createSalesInvoice,
   deleteSalesInvoice,
+  issueSalesInvoice,
   recordInvoicePayment,
+  unissueSalesInvoice,
   updateSalesInvoice
 } from "./invoice-workflow";
 import {
@@ -31,7 +33,7 @@ describe("invoice workflow", () => {
     database = createDatabase(`spbook_invoice_workflow_test_${crypto.randomUUID()}`);
   });
 
-  it("creates an issued invoice with a balanced journal entry", async () => {
+  it("creates a draft invoice without a journal entry", async () => {
     const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
@@ -44,7 +46,7 @@ describe("invoice workflow", () => {
       },
       createWorkflowStorage(database)
     );
-    const overview = await createSalesInvoice(
+    const draftOverview = await createSalesInvoice(
       {
         workspaceId: initialization.workspace.id,
         partyId: partyOverview.parties[0]!.id,
@@ -56,12 +58,107 @@ describe("invoice workflow", () => {
       createWorkflowStorage(database)
     );
 
-    expect(overview.invoiceParty?.id).toBe(partyOverview.parties[0]!.id);
-    expect(overview.invoice?.status).toBe("issued");
-    expect(overview.invoice?.total).toBe("250.00");
-    expect(overview.journalEntries).toHaveLength(1);
-    expect(balanceFor(overview.balances, "1200")).toBe("250.00");
-    expect(balanceFor(overview.balances, "7600")).toBe("-250.00");
+    expect(draftOverview.invoiceParty?.id).toBe(partyOverview.parties[0]!.id);
+    expect(draftOverview.invoice?.status).toBe("draft");
+    expect(draftOverview.invoice?.total).toBe("250.00");
+    expect(draftOverview.journalEntries).toHaveLength(0);
+    expect(draftOverview.balances).toHaveLength(0);
+  });
+
+  it("issues a draft invoice and creates a balanced journal entry", async () => {
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      createWorkflowStorage(database)
+    );
+    const draftOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0002",
+        issueDate: "2026-05-10",
+        total: "250.00",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+    const issuedOverview = await issueSalesInvoice(
+      draftOverview.invoice!.id,
+      createWorkflowStorage(database)
+    );
+
+    expect(issuedOverview.invoice?.status).toBe("issued");
+    expect(issuedOverview.journalEntries).toHaveLength(1);
+    expect(balanceFor(issuedOverview.balances, "1200")).toBe("250.00");
+    expect(balanceFor(issuedOverview.balances, "7600")).toBe("-250.00");
+  });
+
+  it("unissues an issued invoice and removes the journal entry", async () => {
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      createWorkflowStorage(database)
+    );
+    const draftOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0002",
+        issueDate: "2026-05-10",
+        total: "250.00",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+    await issueSalesInvoice(draftOverview.invoice!.id, createWorkflowStorage(database));
+    const unissuedOverview = await unissueSalesInvoice(
+      draftOverview.invoice!.id,
+      createWorkflowStorage(database)
+    );
+
+    expect(unissuedOverview.invoice?.status).toBe("draft");
+    expect(unissuedOverview.journalEntries).toHaveLength(0);
+    expect(unissuedOverview.balances).toHaveLength(0);
+  });
+
+  it("rejects unissueSalesInvoice from a paid invoice", async () => {
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      createWorkflowStorage(database)
+    );
+    const draftOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0002",
+        issueDate: "2026-05-10",
+        total: "250.00",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+    await issueSalesInvoice(draftOverview.invoice!.id, createWorkflowStorage(database));
+    await recordInvoicePayment(draftOverview.invoice!.id, createWorkflowStorage(database));
+
+    await expect(
+      unissueSalesInvoice(draftOverview.invoice!.id, createWorkflowStorage(database))
+    ).rejects.toThrow("must be in issued status");
   });
 
   it("records payment and marks invoice as paid without duplicating payment", async () => {
@@ -75,7 +172,7 @@ describe("invoice workflow", () => {
       },
       createWorkflowStorage(database)
     );
-    const issuedOverview = await createSalesInvoice(
+    const draftOverview = await createSalesInvoice(
       {
         workspaceId: initialization.workspace.id,
         partyId: partyOverview.parties[0]!.id,
@@ -84,6 +181,10 @@ describe("invoice workflow", () => {
         total: "1000.00",
         currency: "EUR"
       },
+      createWorkflowStorage(database)
+    );
+    const issuedOverview = await issueSalesInvoice(
+      draftOverview.invoice?.id ?? "",
       createWorkflowStorage(database)
     );
     const paidOverview = await recordInvoicePayment(
@@ -102,7 +203,7 @@ describe("invoice workflow", () => {
     expect(balanceFor(secondPaymentOverview.balances, "7600")).toBe("-1000.00");
   });
 
-  it("updates and deletes unpaid issued invoices", async () => {
+  it("updates and deletes draft invoices", async () => {
     const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
     const partyOverview = await createParty(
       {
@@ -113,7 +214,7 @@ describe("invoice workflow", () => {
       },
       createWorkflowStorage(database)
     );
-    const issuedOverview = await createSalesInvoice(
+    const draftOverview = await createSalesInvoice(
       {
         workspaceId: initialization.workspace.id,
         partyId: partyOverview.parties[0]!.id,
@@ -126,7 +227,7 @@ describe("invoice workflow", () => {
     );
     const updatedOverview = await updateSalesInvoice(
       {
-        invoiceId: issuedOverview.invoice!.id,
+        invoiceId: draftOverview.invoice!.id,
         partyId: partyOverview.parties[0]!.id,
         number: "2026-0005-UPDATED",
         issueDate: "2026-05-11",
@@ -135,7 +236,7 @@ describe("invoice workflow", () => {
       createWorkflowStorage(database)
     );
     const deletedOverview = await deleteSalesInvoice(
-      issuedOverview.invoice!.id,
+      draftOverview.invoice!.id,
       createWorkflowStorage(database)
     );
 
@@ -144,9 +245,75 @@ describe("invoice workflow", () => {
       issueDate: "2026-05-11",
       total: "150.00"
     });
-    expect(balanceFor(updatedOverview.balances, "1200")).toBe("150.00");
     expect(deletedOverview.invoices).toHaveLength(0);
     expect(deletedOverview.journalEntries).toHaveLength(0);
+  });
+
+  it("rejects updateSalesInvoice from an issued invoice", async () => {
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      createWorkflowStorage(database)
+    );
+    const draftOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0005",
+        issueDate: "2026-05-10",
+        total: "100.00",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+    await issueSalesInvoice(draftOverview.invoice!.id, createWorkflowStorage(database));
+
+    await expect(
+      updateSalesInvoice(
+        {
+          invoiceId: draftOverview.invoice!.id,
+          partyId: partyOverview.parties[0]!.id,
+          number: "2026-0005-UPDATED",
+          issueDate: "2026-05-11",
+          total: "150.00"
+        },
+        createWorkflowStorage(database)
+      )
+    ).rejects.toThrow("must be in draft status");
+  });
+
+  it("rejects deleteSalesInvoice from an issued invoice", async () => {
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      createWorkflowStorage(database)
+    );
+    const draftOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0005",
+        issueDate: "2026-05-10",
+        total: "100.00",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+    await issueSalesInvoice(draftOverview.invoice!.id, createWorkflowStorage(database));
+
+    await expect(
+      deleteSalesInvoice(draftOverview.invoice!.id, createWorkflowStorage(database))
+    ).rejects.toThrow("must be in draft status");
   });
 
   it("loads an empty overview before an invoice is created", async () => {
@@ -162,6 +329,40 @@ describe("invoice workflow", () => {
     await expect(recordInvoicePayment("missing", createWorkflowStorage(database))).rejects.toThrow(
       'Invoice "missing" was not found.'
     );
+  });
+
+  it("rejects recordInvoicePayment from a draft invoice", async () => {
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      createWorkflowStorage(database)
+    );
+    const draftOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0010",
+        issueDate: "2026-05-10",
+        total: "100.00",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+
+    await expect(
+      recordInvoicePayment(draftOverview.invoice!.id, createWorkflowStorage(database))
+    ).rejects.toThrow("must be in issued status");
+
+    const repos = createRepositories(database);
+    const journalEntries = await repos.journalEntries.getByWorkspaceId(initialization.workspace.id);
+    const invoice = await repos.invoices.getById(draftOverview.invoice!.id);
+    expect(journalEntries).toHaveLength(0);
+    expect(invoice?.status).toBe("draft");
   });
 
   it("creates and pays a supplier invoice", async () => {
@@ -352,6 +553,7 @@ function makeMockStorage(overrides: Partial<WorkflowStorage["repos"]> = {}): Wor
       saveInvoiceWorkflowData: noop,
       saveInvoiceJournalEntryData: noop,
       deleteInvoiceWorkflowData: noop,
+      revertInvoiceToDraft: noop,
       saveInvoicePaymentData: noop,
       saveSupplierInvoiceWorkflowData: noop,
       saveSupplierInvoiceJournalEntryData: noop,

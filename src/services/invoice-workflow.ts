@@ -1,5 +1,11 @@
 import type { Invoice, JournalEntry } from "../domain";
-import { validateInvoice, validateJournalEntry } from "../domain";
+import {
+  assertInvoiceIsDraft,
+  assertInvoiceIsIssued,
+  assertInvoiceIsNotPaid,
+  validateInvoice,
+  validateJournalEntry
+} from "../domain";
 import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { loadInvoicesSlice, loadLedgerSlice } from "./workspace-overview";
 import type { WorkspaceDataUpdate } from "../shared/model/workspace";
@@ -26,29 +32,83 @@ export async function createSalesInvoice(
   storage: WorkflowStorage = defaultWorkflowStorage
 ) {
   const repos = storage.repos;
-  const [accounts, parties] = await Promise.all([
-    repos.accounts.getByWorkspaceId(input.workspaceId),
-    repos.parties.getByWorkspaceId(input.workspaceId)
-  ]);
-  const invoice = createIssuedInvoice(input);
-  const journalEntry = createInvoiceJournalEntry(input, invoice.id);
+  const parties = await repos.parties.getByWorkspaceId(input.workspaceId);
+  const invoice = createDraftInvoice(input);
   const invoiceValidation = validateInvoice(invoice, parties);
 
   if (!invoiceValidation.ok) {
     throw new Error("Invoice data is invalid.");
   }
 
+  await repos.invoices.save(invoice);
+
+  const [invoicesSlice, ledgerSlice] = await Promise.all([
+    loadInvoicesSlice(input.workspaceId, invoice, repos),
+    loadLedgerSlice(input.workspaceId, repos)
+  ]);
+  return { ...invoicesSlice, ...ledgerSlice };
+}
+
+export async function issueSalesInvoice(
+  invoiceId: string,
+  storage: WorkflowStorage = defaultWorkflowStorage
+) {
+  const repos = storage.repos;
+  const invoice = await repos.invoices.getById(invoiceId);
+
+  if (!invoice) {
+    throw new Error(`Invoice "${invoiceId}" was not found.`);
+  }
+
+  assertInvoiceIsDraft(invoice);
+
+  const accounts = await repos.accounts.getByWorkspaceId(invoice.workspaceId);
+  const issuedInvoice: Invoice = { ...invoice, status: "issued" };
+  const journalEntry = createInvoiceJournalEntry(invoice, invoice.id);
   const journalValidation = validateJournalEntry(journalEntry, accounts);
 
   if (!journalValidation.ok) {
     throw new Error("Invoice journal entry is invalid.");
   }
 
-  await storage.persistence.saveInvoiceJournalEntryData({ invoice, journalEntry });
+  await storage.persistence.saveInvoiceJournalEntryData({ invoice: issuedInvoice, journalEntry });
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
-    loadInvoicesSlice(input.workspaceId, invoice, repos),
-    loadLedgerSlice(input.workspaceId, repos)
+    loadInvoicesSlice(invoice.workspaceId, issuedInvoice, repos),
+    loadLedgerSlice(invoice.workspaceId, repos)
+  ]);
+  return { ...invoicesSlice, ...ledgerSlice };
+}
+
+export async function unissueSalesInvoice(
+  invoiceId: string,
+  storage: WorkflowStorage = defaultWorkflowStorage
+) {
+  const repos = storage.repos;
+  const invoice = await repos.invoices.getById(invoiceId);
+
+  if (!invoice) {
+    throw new Error(`Invoice "${invoiceId}" was not found.`);
+  }
+
+  assertInvoiceIsIssued(invoice);
+  assertInvoiceIsNotPaid(invoice);
+
+  const journalEntries = await repos.journalEntries.getByWorkspaceId(invoice.workspaceId);
+  const invoiceJournalEntry = journalEntries.find(
+    (entry) => entry.sourceType === "invoice" && entry.sourceId === invoice.id
+  );
+
+  if (!invoiceJournalEntry) {
+    throw new Error(`Journal entry for invoice "${invoiceId}" was not found.`);
+  }
+
+  const draftInvoice: Invoice = { ...invoice, status: "draft" };
+  await storage.persistence.revertInvoiceToDraft({ invoice: draftInvoice, journalEntryId: invoiceJournalEntry.id });
+
+  const [invoicesSlice, ledgerSlice] = await Promise.all([
+    loadInvoicesSlice(invoice.workspaceId, draftInvoice, repos),
+    loadLedgerSlice(invoice.workspaceId, repos)
   ]);
   return { ...invoicesSlice, ...ledgerSlice };
 }
@@ -71,6 +131,8 @@ export async function recordInvoicePayment(
     ]);
     return { ...invoicesSlice, ...ledgerSlice };
   }
+
+  assertInvoiceIsIssued(invoice);
 
   const accounts = await repos.accounts.getByWorkspaceId(invoice.workspaceId);
   const journalEntry = createPaymentJournalEntry(invoice);
@@ -104,15 +166,9 @@ export async function updateSalesInvoice(
     throw new Error(`Invoice "${input.invoiceId}" was not found.`);
   }
 
-  if (existingInvoice.status === "paid") {
-    throw new Error("Paid invoice cannot be edited. Undo payment first.");
-  }
+  assertInvoiceIsDraft(existingInvoice);
 
-  const [accounts, parties, journalEntries] = await Promise.all([
-    repos.accounts.getByWorkspaceId(existingInvoice.workspaceId),
-    repos.parties.getByWorkspaceId(existingInvoice.workspaceId),
-    repos.journalEntries.getByWorkspaceId(existingInvoice.workspaceId)
-  ]);
+  const parties = await repos.parties.getByWorkspaceId(existingInvoice.workspaceId);
   const updatedInvoice: Invoice = {
     ...existingInvoice,
     number: input.number.trim(),
@@ -120,36 +176,13 @@ export async function updateSalesInvoice(
     partyId: input.partyId,
     total: input.total
   };
-  const sourceJournalEntry = journalEntries.find(
-    (entry) => entry.sourceType === "invoice" && entry.sourceId === existingInvoice.id
-  );
-  const journalEntry = {
-    ...createInvoiceJournalEntry(
-      {
-        workspaceId: existingInvoice.workspaceId,
-        partyId: input.partyId,
-        number: input.number,
-        issueDate: input.issueDate,
-        total: input.total,
-        currency: existingInvoice.currency
-      },
-      existingInvoice.id
-    ),
-    id: sourceJournalEntry?.id ?? createEntityId("je_invoice")
-  };
   const invoiceValidation = validateInvoice(updatedInvoice, parties);
 
   if (!invoiceValidation.ok) {
     throw new Error("Invoice data is invalid.");
   }
 
-  const journalValidation = validateJournalEntry(journalEntry, accounts);
-
-  if (!journalValidation.ok) {
-    throw new Error("Invoice journal entry is invalid.");
-  }
-
-  await storage.persistence.saveInvoiceJournalEntryData({ invoice: updatedInvoice, journalEntry });
+  await repos.invoices.save(updatedInvoice);
 
   const [invoicesSlice, ledgerSlice] = await Promise.all([
     loadInvoicesSlice(existingInvoice.workspaceId, updatedInvoice, repos),
@@ -169,21 +202,13 @@ export async function deleteSalesInvoice(
     throw new Error(`Invoice "${invoiceId}" was not found.`);
   }
 
-  if (invoice.status === "paid") {
-    throw new Error("Paid invoice cannot be deleted. Undo payment first.");
-  }
+  assertInvoiceIsDraft(invoice);
 
-  const [invoices, journalEntries] = await Promise.all([
-    repos.invoices.getByWorkspaceId(invoice.workspaceId),
-    repos.journalEntries.getByWorkspaceId(invoice.workspaceId)
-  ]);
-  const invoiceJournalEntryIds = journalEntries
-    .filter((entry) => entry.lines.some((line) => line.invoiceId === invoice.id))
-    .map((entry) => entry.id);
+  const invoices = await repos.invoices.getByWorkspaceId(invoice.workspaceId);
 
   await storage.persistence.deleteInvoiceWorkflowData({
     invoiceId: invoice.id,
-    journalEntryIds: invoiceJournalEntryIds
+    journalEntryIds: []
   });
 
   const nextInvoice = invoices.find((candidate) => candidate.id !== invoice.id);
@@ -195,7 +220,7 @@ export async function deleteSalesInvoice(
   return { ...invoicesSlice, ...ledgerSlice };
 }
 
-function createIssuedInvoice(input: CreateSalesInvoiceInput): Invoice {
+function createDraftInvoice(input: CreateSalesInvoiceInput): Invoice {
   return {
     id: createEntityId("inv"),
     workspaceId: input.workspaceId,
@@ -204,36 +229,36 @@ function createIssuedInvoice(input: CreateSalesInvoiceInput): Invoice {
     partyId: input.partyId,
     currency: input.currency,
     total: input.total,
-    status: "issued"
+    status: "draft"
   };
 }
 
 function createInvoiceJournalEntry(
-  input: CreateSalesInvoiceInput,
+  invoice: Invoice,
   invoiceId: string
 ): JournalEntry {
   return {
     id: createEntityId("je_invoice"),
-    workspaceId: input.workspaceId,
-    entryDate: input.issueDate,
+    workspaceId: invoice.workspaceId,
+    entryDate: invoice.issueDate,
     sourceType: "invoice",
     sourceId: invoiceId,
-    description: `Sales invoice ${input.number.trim()} issued`,
+    description: `Sales invoice ${invoice.number} issued`,
     lines: [
       {
         accountCode: "1200",
         side: "debit",
-        amount: input.total,
-        currency: input.currency,
-        partyId: input.partyId,
+        amount: invoice.total,
+        currency: invoice.currency,
+        partyId: invoice.partyId,
         invoiceId
       },
       {
         accountCode: "7600",
         side: "credit",
-        amount: input.total,
-        currency: input.currency,
-        partyId: input.partyId
+        amount: invoice.total,
+        currency: invoice.currency,
+        partyId: invoice.partyId
       }
     ]
   };
@@ -271,5 +296,4 @@ function createPaymentJournalEntry(invoice: Invoice): JournalEntry {
 function createEntityId(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
-
 

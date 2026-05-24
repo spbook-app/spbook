@@ -250,6 +250,24 @@ export async function deleteInvoiceWorkflowData(
   );
 }
 
+export async function revertInvoiceToDraft(
+  data: {
+    invoice: Invoice;
+    journalEntryId: string;
+  },
+  database: SpbookDatabase = db
+) {
+  await database.transaction(
+    "rw",
+    database.invoices,
+    database.journalEntries,
+    async () => {
+      await database.invoices.put(data.invoice);
+      await database.journalEntries.delete(data.journalEntryId);
+    }
+  );
+}
+
 export async function saveInvoicePaymentData(
   data: {
     invoice: Invoice;

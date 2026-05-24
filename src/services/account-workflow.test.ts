@@ -129,6 +129,7 @@ function makeMockStorage(overrides: Partial<WorkflowStorage["repos"]> = {}): Wor
       saveInvoiceWorkflowData: noop,
       saveInvoiceJournalEntryData: noop,
       deleteInvoiceWorkflowData: noop,
+      revertInvoiceToDraft: noop,
       saveInvoicePaymentData: noop,
       saveSupplierInvoiceWorkflowData: noop,
       saveSupplierInvoiceJournalEntryData: noop,

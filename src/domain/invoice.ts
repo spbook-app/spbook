@@ -3,6 +3,24 @@ import { parseMoneyAmount } from "./money";
 import { getPartyById, partyHasRole } from "./parties";
 import { invalid, valid, type ValidationIssue, type ValidationResult } from "./validation";
 
+export function assertInvoiceIsDraft(invoice: Invoice): void {
+  if (invoice.status !== "draft") {
+    throw new Error(`Invoice "${invoice.id}" must be in draft status, but is "${invoice.status}".`);
+  }
+}
+
+export function assertInvoiceIsIssued(invoice: Invoice): void {
+  if (invoice.status !== "issued") {
+    throw new Error(`Invoice "${invoice.id}" must be in issued status, but is "${invoice.status}".`);
+  }
+}
+
+export function assertInvoiceIsNotPaid(invoice: Invoice): void {
+  if (invoice.status === "paid") {
+    throw new Error(`Invoice "${invoice.id}" is already paid.`);
+  }
+}
+
 export function validateInvoice(invoice: Invoice, parties: Party[]): ValidationResult {
   const issues: ValidationIssue[] = [];
   const party = getPartyById(parties, invoice.partyId);

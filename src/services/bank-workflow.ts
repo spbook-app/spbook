@@ -5,7 +5,7 @@ import type {
   JournalEntry,
   SupplierInvoice
 } from "../domain";
-import { parseMoneyAmount, validateJournalEntry } from "../domain";
+import { assertInvoiceIsIssued, parseMoneyAmount, validateJournalEntry } from "../domain";
 import { isValidIban } from "../shared/lib/iban";
 import type { Repositories } from "../storage/interfaces";
 import { defaultWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
@@ -300,6 +300,8 @@ export async function matchInvoicePaymentFromBankTransaction(
   if (!invoice) {
     throw new Error(`Invoice "${invoiceId}" was not found.`);
   }
+
+  assertInvoiceIsIssued(invoice);
 
   ensureUnmatched(bankContext.bankTransaction);
   ensureSignedAmount(bankContext.bankTransaction, "incoming");

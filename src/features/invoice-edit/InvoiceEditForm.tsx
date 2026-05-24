@@ -58,7 +58,7 @@ export function InvoiceEditForm({
       <InvoiceEditableFields
         currency={invoice.currency}
         customerParties={customerParties}
-        disabled={invoice.status === "paid"}
+        disabled={invoice.status !== "draft"}
         issueDate={issueDate}
         number={number}
         partyId={partyId}
@@ -68,14 +68,14 @@ export function InvoiceEditForm({
         onPartyIdChange={setPartyId}
         onTotalChange={setTotal}
       />
-      {invoice.status === "paid" ? (
-        <p className="field-note">Paid invoices cannot be edited. Undo payment first.</p>
+      {invoice.status !== "draft" ? (
+        <p className="field-note">Issued invoices cannot be edited. Undo issue first.</p>
       ) : null}
       <div className="transaction-detail-actions">
         <button
           className="primary-button"
           type="submit"
-          disabled={actionState !== "idle" || invoice.status === "paid"}
+          disabled={actionState !== "idle" || invoice.status !== "draft"}
         >
           {actionState === "updating" ? "Saving invoice" : "Save invoice"}
         </button>

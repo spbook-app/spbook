@@ -4,7 +4,7 @@ import { createDatabase, type SpbookDatabase } from "../storage/db";
 import { createWorkflowStorage, type WorkflowStorage } from "../storage/workflow-persistence";
 import { initializeDefaultWorkspace } from "../storage/initialize-workspace";
 import { defaultCountryConfig } from "../app/country-config";
-import { saveBankTransaction } from "../storage/repositories";
+import { createRepositories, saveBankTransaction } from "../storage/repositories";
 import {
   createBankAccount,
   createBankTransaction,
@@ -17,7 +17,7 @@ import {
   updateBankTransaction
 } from "./bank-workflow";
 import { createWorkspaceAccount } from "./account-workflow";
-import { createSalesInvoice } from "./invoice-workflow";
+import { createSalesInvoice, issueSalesInvoice } from "./invoice-workflow";
 import { createParty } from "./party-workflow";
 import { createSupplierInvoice } from "./supplier-invoice-workflow";
 
@@ -375,6 +375,67 @@ describe("bank workflow", () => {
     expect(undoneOverview.journalEntries).toHaveLength(1);
   });
 
+  it("rejects matchInvoicePaymentFromBankTransaction for a draft invoice", async () => {
+    const initialization = await initializeDefaultWorkspace(defaultCountryConfig, database);
+    const partyOverview = await createParty(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "ACME d.o.o.",
+        type: "business",
+        roles: ["customer"]
+      },
+      createWorkflowStorage(database)
+    );
+    const accountOverview = await createBankAccount(
+      {
+        workspaceId: initialization.workspace.id,
+        name: "NLB EUR",
+        accountCode: "1100",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+    const draftOverview = await createSalesInvoice(
+      {
+        workspaceId: initialization.workspace.id,
+        partyId: partyOverview.parties[0]!.id,
+        number: "2026-0001",
+        issueDate: "2026-05-15",
+        total: "500.00",
+        currency: "EUR"
+      },
+      createWorkflowStorage(database)
+    );
+    const transactionOverview = await createBankTransaction(
+      {
+        workspaceId: initialization.workspace.id,
+        bankAccountId: accountOverview.bankAccounts[0]!.id,
+        bookingDate: "2026-05-16",
+        amount: "500.00",
+        currency: "EUR",
+        description: "Customer payment"
+      },
+      createWorkflowStorage(database)
+    );
+    const bankTransactionId = transactionOverview.bankTransactions![0]!.id;
+
+    await expect(
+      matchInvoicePaymentFromBankTransaction(
+        draftOverview.invoice!.id,
+        bankTransactionId,
+        createWorkflowStorage(database)
+      )
+    ).rejects.toThrow("must be in issued status");
+
+    const repos = createRepositories(database);
+    const bt = await repos.bankTransactions.getById(bankTransactionId);
+    const invoice = await repos.invoices.getById(draftOverview.invoice!.id);
+    const journalEntries = await repos.journalEntries.getByWorkspaceId(initialization.workspace.id);
+    expect(bt?.status).toBe("unmatched");
+    expect(invoice?.status).toBe("draft");
+    expect(journalEntries).toHaveLength(0);
+  });
+
   it("matches an outgoing bank transaction to a supplier invoice", async () => {
     const context = await createSupplierContext("40.00");
     const matchedOverview = await matchSupplierPaymentFromBankTransaction(
@@ -496,6 +557,7 @@ describe("bank workflow", () => {
       },
       createWorkflowStorage(database)
     );
+    await issueSalesInvoice(invoiceOverview.invoice!.id, createWorkflowStorage(database));
     const transactionOverview = await createBankTransaction(
       {
         workspaceId: initialization.workspace.id,
@@ -587,6 +649,7 @@ function makeMockStorage(overrides: Partial<WorkflowStorage["repos"]> = {}): Wor
       saveInvoiceWorkflowData: noop,
       saveInvoiceJournalEntryData: noop,
       deleteInvoiceWorkflowData: noop,
+      revertInvoiceToDraft: noop,
       saveInvoicePaymentData: noop,
       saveSupplierInvoiceWorkflowData: noop,
       saveSupplierInvoiceJournalEntryData: noop,

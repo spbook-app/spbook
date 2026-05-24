@@ -7,7 +7,9 @@ import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
 import { InvoiceCreateForm } from "../../features/invoice-create/InvoiceCreateForm";
 import { InvoiceDeleteButton } from "../../features/invoice-delete/InvoiceDeleteButton";
 import { InvoiceEditForm } from "../../features/invoice-edit/InvoiceEditForm";
+import { InvoiceIssueButton } from "../../features/invoice-issue/InvoiceIssueButton";
 import { InvoicePaymentPanel } from "../../features/invoice-payment/InvoicePaymentPanel";
+import { InvoiceUnissueButton } from "../../features/invoice-unissue/InvoiceUnissueButton";
 
 export type SalesInvoiceRoute =
   | { mode: "list" }
@@ -135,7 +137,7 @@ function InvoiceDetailPage({
             Cancel
           </Link>
         ) : null}
-        {mode === "detail" && invoice.status !== "paid" ? (
+        {mode === "detail" && invoice.status === "draft" ? (
           <Link
             className="secondary-button"
             to="/workspace/sales/invoices/$invoiceId/edit"
@@ -190,10 +192,14 @@ function InvoiceDetailPage({
             </div>
           ) : null}
           <LinkedJournalEntries entries={invoiceEntries} />
-          <InvoicePaymentPanel
-            bankTransactions={bankTransactions}
-            invoice={invoice}
-          />
+          <InvoiceIssueButton invoice={invoice} />
+          <InvoiceUnissueButton invoice={invoice} />
+          {invoice.status !== "draft" ? (
+            <InvoicePaymentPanel
+              bankTransactions={bankTransactions}
+              invoice={invoice}
+            />
+          ) : null}
           <InvoiceDeleteButton invoice={invoice} />
         </>
       )}

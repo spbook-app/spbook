@@ -5,6 +5,7 @@ import { createRepositories } from "./repositories";
 import {
   deleteInvoiceWorkflowData,
   deleteSupplierInvoiceWorkflowData,
+  revertInvoiceToDraft,
   saveBankTransactionPostingData,
   saveInvoiceJournalEntryData,
   saveInvoicePaymentData,
@@ -31,6 +32,11 @@ export interface WorkflowPersistence {
   deleteInvoiceWorkflowData(data: {
     invoiceId: string;
     journalEntryIds: string[];
+  }): Promise<void>;
+
+  revertInvoiceToDraft(data: {
+    invoice: Invoice;
+    journalEntryId: string;
   }): Promise<void>;
 
   saveInvoicePaymentData(data: {
@@ -89,6 +95,7 @@ export function createWorkflowPersistence(database: SpbookDatabase = db): Workfl
     saveInvoiceWorkflowData: (data) => saveInvoiceWorkflowData(data, database),
     saveInvoiceJournalEntryData: (data) => saveInvoiceJournalEntryData(data, database),
     deleteInvoiceWorkflowData: (data) => deleteInvoiceWorkflowData(data, database),
+    revertInvoiceToDraft: (data) => revertInvoiceToDraft(data, database),
     saveInvoicePaymentData: (data) => saveInvoicePaymentData(data, database),
     saveSupplierInvoiceWorkflowData: (data) => saveSupplierInvoiceWorkflowData(data, database),
     saveSupplierInvoiceJournalEntryData: (data) => saveSupplierInvoiceJournalEntryData(data, database),
