@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
 import type { PurchasesViewProps } from "../../shared/model/widget-props";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
@@ -75,6 +75,24 @@ export function PurchasesView(props: PurchasesViewProps & { route: PurchaseRoute
   return <SupplierInvoiceListPage parties={parties} supplierInvoices={supplierInvoices} />;
 }
 
+const supplierFilterOptions: Array<[string, string]> = [
+  ["", "All"],
+  ["unpaid", "Unpaid"],
+  ["received", "Received"],
+  ["approved", "Approved"],
+  ["paid", "Paid"],
+  ["cancelled", "Cancelled"],
+];
+
+function getSupplierCount(supplierInvoices: SupplierInvoice[], value: string): number {
+  if (!value) return supplierInvoices.length;
+  if (value === "unpaid")
+    return supplierInvoices.filter(
+      (i) => i.status === "received" || i.status === "approved"
+    ).length;
+  return supplierInvoices.filter((i) => i.status === value).length;
+}
+
 function SupplierInvoiceListPage({
   parties,
   supplierInvoices
@@ -82,6 +100,24 @@ function SupplierInvoiceListPage({
   parties: Party[];
   supplierInvoices: SupplierInvoice[];
 }) {
+  const navigate = useNavigate();
+  const { status = "" } = useSearch({ strict: false }) as { status?: string };
+
+  const filteredInvoices =
+    status === "unpaid"
+      ? supplierInvoices.filter(
+          (i) => i.status === "received" || i.status === "approved"
+        )
+      : status
+        ? supplierInvoices.filter((i) => i.status === status)
+        : supplierInvoices;
+
+  function handleFilterChange(value: string) {
+    void navigate({
+      href: `/workspace/purchases/supplier-invoices${value ? `?status=${encodeURIComponent(value)}` : ""}`,
+    });
+  }
+
   return (
     <section className="panel" aria-labelledby="supplier-invoices-title">
       <div className="panel-header">
@@ -96,11 +132,25 @@ function SupplierInvoiceListPage({
         </div>
       </div>
 
+      <div className="transaction-filter-chips" role="group" aria-label="Filter by status">
+        {supplierFilterOptions.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={`transaction-filter-chip${status === value ? " transaction-filter-chip--active" : ""}`}
+            onClick={() => handleFilterChange(value)}
+          >
+            {label}
+            <span>{getSupplierCount(supplierInvoices, value)}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="document-list" aria-label="Supplier invoices">
-        {supplierInvoices.length === 0 ? (
-          <p className="empty-state">No supplier invoices yet.</p>
+        {filteredInvoices.length === 0 ? (
+          <p className="empty-state">No invoices match the current filter.</p>
         ) : null}
-        {supplierInvoices.map((supplierInvoice) => {
+        {filteredInvoices.map((supplierInvoice) => {
           const party = parties.find((candidate) => candidate.id === supplierInvoice.partyId);
 
           return (

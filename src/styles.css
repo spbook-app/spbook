@@ -446,7 +446,37 @@ dd {
   background: #fbfaf6;
 }
 
-.metric-strip dd {
+.metric-strip a.metric-strip-item {
+  display: block;
+  min-width: 0;
+  padding: 18px;
+  background: #fbfaf6;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s;
+}
+
+.metric-strip a.metric-strip-item:hover {
+  background: #f0ede5;
+  cursor: pointer;
+}
+
+.metric-strip a.metric-strip-item:focus-visible {
+  outline: 2px solid #315d3e;
+  outline-offset: -2px;
+}
+
+.metric-label {
+  display: block;
+  color: #7a756b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.metric-value {
+  display: block;
   margin-top: 7px;
   font-size: 1.15rem;
   font-weight: 800;
@@ -892,6 +922,23 @@ td {
   font-size: 1.25rem;
 }
 
+.work-queue-item--link {
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.work-queue-item--link:hover {
+  background: #eceae2;
+  border-color: #b0ab9e;
+  cursor: pointer;
+}
+
+.work-queue-item--link:focus-visible {
+  outline: 2px solid #315d3e;
+  outline-offset: 2px;
+}
+
 .settings-details {
   margin-bottom: 18px;
 }
@@ -1236,6 +1283,35 @@ td {
   padding: 10px 14px;
   border-top: 1px solid #ebe7db;
   color: #25231f;
+}
+
+a.balance-row--link {
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s;
+}
+
+a.balance-row--link:hover {
+  background: #eceae2;
+  cursor: pointer;
+}
+
+a.journal-entry--link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+a.journal-entry--link:hover {
+  background: #eceae2;
+  border-color: #c8c3b8;
+  cursor: pointer;
+}
+
+a.journal-entry--link:focus-visible {
+  outline: 2px solid #315d3e;
+  outline-offset: 2px;
 }
 
 .journal-entry li:first-child {

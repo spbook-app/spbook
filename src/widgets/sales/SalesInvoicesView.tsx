@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import type { BankTransaction, Invoice, Party } from "../../domain";
 import type { SalesInvoicesViewProps } from "../../shared/model/widget-props";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
@@ -63,7 +63,28 @@ export function SalesInvoicesView(props: SalesInvoicesViewProps & { route: Sales
   return <InvoiceListPage invoices={invoices} parties={parties} />;
 }
 
+const invoiceFilterOptions: Array<[string, string]> = [
+  ["", "All"],
+  ["draft", "Draft"],
+  ["issued", "Issued"],
+  ["paid", "Paid"],
+  ["cancelled", "Cancelled"],
+];
+
 function InvoiceListPage({ invoices, parties }: { invoices: Invoice[]; parties: Party[] }) {
+  const navigate = useNavigate();
+  const { status = "" } = useSearch({ strict: false }) as { status?: string };
+
+  const filteredInvoices = status
+    ? invoices.filter((invoice) => invoice.status === status)
+    : invoices;
+
+  function handleFilterChange(value: string) {
+    void navigate({
+      href: `/workspace/sales/invoices${value ? `?status=${encodeURIComponent(value)}` : ""}`,
+    });
+  }
+
   return (
     <section className="panel" aria-labelledby="sales-invoices-title">
       <div className="panel-header">
@@ -73,11 +94,29 @@ function InvoiceListPage({ invoices, parties }: { invoices: Invoice[]; parties: 
         </Link>
       </div>
 
+      <div className="transaction-filter-chips" role="group" aria-label="Filter by status">
+        {invoiceFilterOptions.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={`transaction-filter-chip${status === value ? " transaction-filter-chip--active" : ""}`}
+            onClick={() => handleFilterChange(value)}
+          >
+            {label}
+            <span>
+              {value
+                ? invoices.filter((invoice) => invoice.status === value).length
+                : invoices.length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <div className="document-list" aria-label="Issued invoices">
-        {invoices.length === 0 ? (
-          <p className="empty-state">No issued invoices yet.</p>
+        {filteredInvoices.length === 0 ? (
+          <p className="empty-state">No invoices match the current filter.</p>
         ) : null}
-        {invoices.map((invoice) => {
+        {filteredInvoices.map((invoice) => {
           const party = parties.find((candidate) => candidate.id === invoice.partyId);
 
           return (

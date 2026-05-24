@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { Account, Invoice, SupplierInvoice } from "../../domain";
 import type { DashboardViewProps } from "../../shared/model/widget-props";
 import { BalancesTable } from "../../entities/account/BalancesTable";
@@ -20,6 +21,7 @@ export function DashboardView(props: DashboardViewProps) {
     (bankTransaction) => bankTransaction.status === "unmatched"
   );
   const recentJournalEntries = journalEntries.slice(-3).reverse();
+  const accountIds = new Map(accounts.map((account) => [account.code, account.id]));
 
   return (
     <div className="section-stack">
@@ -38,19 +40,34 @@ export function DashboardView(props: DashboardViewProps) {
             </div>
           </div>
           <div className="work-queue">
-            <WorkQueueItem label="Unpaid issued invoices" value={unpaidInvoices.length} />
-            <WorkQueueItem
-              label="Unpaid supplier invoices"
-              value={unpaidSupplierInvoices.length}
-            />
-            <WorkQueueItem
-              label="Unmatched bank transactions"
-              value={unmatchedBankTransactions.length}
-            />
+            <Link
+              className="work-queue-item work-queue-item--link"
+              to="/workspace/sales/invoices"
+              search={{ status: "issued" } as Record<string, string>}
+            >
+              <span>Unpaid issued invoices</span>
+              <strong>{unpaidInvoices.length}</strong>
+            </Link>
+            <Link
+              className="work-queue-item work-queue-item--link"
+              to="/workspace/purchases/supplier-invoices"
+              search={{ status: "unpaid" } as Record<string, string>}
+            >
+              <span>Unpaid supplier invoices</span>
+              <strong>{unpaidSupplierInvoices.length}</strong>
+            </Link>
+            <Link
+              className="work-queue-item work-queue-item--link"
+              to="/workspace/banking/transactions"
+              search={{ processingState: "needs_action" } as Record<string, string>}
+            >
+              <span>Unmatched bank transactions</span>
+              <strong>{unmatchedBankTransactions.length}</strong>
+            </Link>
           </div>
         </section>
 
-        <BalancesTable balances={balances.slice(0, 5)} accountNames={accountNames} />
+        <BalancesTable balances={balances.slice(0, 5)} accountNames={accountNames} accountIds={accountIds} />
       </div>
 
       <section className="panel panel-wide" aria-labelledby="recent-journal-title">
@@ -66,7 +83,12 @@ export function DashboardView(props: DashboardViewProps) {
             <p className="empty-state">No journal entries yet.</p>
           ) : null}
           {recentJournalEntries.map((entry) => (
-            <article className="journal-entry" key={entry.id}>
+            <Link
+              className="journal-entry journal-entry--link"
+              key={entry.id}
+              to="/workspace/accounting/journal-entries/$journalEntryId"
+              params={{ journalEntryId: entry.id }}
+            >
               <header>
                 <div>
                   <strong>{entry.description}</strong>
@@ -76,7 +98,7 @@ export function DashboardView(props: DashboardViewProps) {
                 </div>
                 <code>{entry.lines.length} lines</code>
               </header>
-            </article>
+            </Link>
           ))}
         </div>
       </section>
@@ -102,32 +124,24 @@ function MetricStrip({
   const latestSupplierInvoice = supplierInvoices.length > 0 ? supplierInvoices[supplierInvoices.length - 1] : null;
 
   return (
-    <dl className="metric-strip" aria-label="MVP summary">
-      <div>
-        <dt>Sales invoice</dt>
-        <dd>{latestInvoice?.number ?? "Not created"}</dd>
-      </div>
-      <div>
-        <dt>Supplier invoice</dt>
-        <dd>{latestSupplierInvoice?.number ?? "Not received"}</dd>
-      </div>
-      <div>
-        <dt>Posting accounts</dt>
-        <dd>{postingAccounts.length}</dd>
-      </div>
-      <div>
-        <dt>Journal entries</dt>
-        <dd>{journalEntryCount}</dd>
-      </div>
-    </dl>
-  );
-}
-
-function WorkQueueItem({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="work-queue-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="metric-strip" aria-label="MVP summary">
+      <Link className="metric-strip-item" to="/workspace/sales/invoices">
+        <span className="metric-label">Sales invoice</span>
+        <strong className="metric-value">{latestInvoice?.number ?? "Not created"}</strong>
+      </Link>
+      <Link className="metric-strip-item" to="/workspace/purchases/supplier-invoices">
+        <span className="metric-label">Supplier invoice</span>
+        <strong className="metric-value">{latestSupplierInvoice?.number ?? "Not received"}</strong>
+      </Link>
+      <Link className="metric-strip-item" to="/workspace/accounting/chart">
+        <span className="metric-label">Posting accounts</span>
+        <strong className="metric-value">{postingAccounts.length}</strong>
+      </Link>
+      <Link className="metric-strip-item" to="/workspace/accounting/journal-entries">
+        <span className="metric-label">Journal entries</span>
+        <strong className="metric-value">{journalEntryCount}</strong>
+      </Link>
     </div>
   );
 }
+
