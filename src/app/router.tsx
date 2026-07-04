@@ -67,6 +67,17 @@ import {
   getAccountById
 } from "../storage/repositories";
 import type { WorkspaceSection } from "../pages/workspace/model";
+import {
+  invoiceStatuses,
+  supplierInvoiceFilters,
+  type InvoiceStatus,
+  type SupplierInvoiceFilter
+} from "../domain/types";
+import {
+  bankTransactionQuickFilters,
+  type BankTransactionQuickFilterValue
+} from "../widgets/banking/bank-transaction-display";
+import { parseEnumParam } from "../shared/lib/parse-enum-param";
 
 // ---------------------------------------------------------------------------
 // Router context
@@ -102,6 +113,49 @@ const redirectToBankingAccounts = () => <Navigate to="/workspace/banking/account
 const redirectToAccountingJournal = () => (
   <Navigate to="/workspace/accounting/journal-entries" replace />
 );
+
+// ---------------------------------------------------------------------------
+// Typed URL search params for filtered list routes
+// ---------------------------------------------------------------------------
+
+export interface SalesInvoicesSearch {
+  status?: InvoiceStatus;
+}
+
+export interface SupplierInvoicesSearch {
+  status?: SupplierInvoiceFilter;
+}
+
+export interface BankTransactionsSearch {
+  bankAccountId?: string;
+  processingState?: BankTransactionQuickFilterValue;
+}
+
+function validateSalesInvoicesSearch(search: Record<string, unknown>): SalesInvoicesSearch {
+  const status = parseEnumParam(search.status, invoiceStatuses);
+  return status ? { status } : {};
+}
+
+function validateSupplierInvoicesSearch(
+  search: Record<string, unknown>
+): SupplierInvoicesSearch {
+  const status = parseEnumParam(search.status, supplierInvoiceFilters);
+  return status ? { status } : {};
+}
+
+function validateBankTransactionsSearch(
+  search: Record<string, unknown>
+): BankTransactionsSearch {
+  const result: BankTransactionsSearch = {};
+  if (typeof search.bankAccountId === "string" && search.bankAccountId) {
+    result.bankAccountId = search.bankAccountId;
+  }
+  const processingState = parseEnumParam(search.processingState, bankTransactionQuickFilters);
+  if (processingState) {
+    result.processingState = processingState;
+  }
+  return result;
+}
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: App
@@ -170,6 +224,7 @@ const salesInvoicesRoute = createRoute({
   getParentRoute: () => salesRoute,
   path: "invoices",
   component: passThrough,
+  validateSearch: validateSalesInvoicesSearch,
   staticData: { breadcrumb: "Invoices" }
 });
 
@@ -230,6 +285,7 @@ const supplierInvoicesRoute = createRoute({
   getParentRoute: () => purchasesRoute,
   path: "supplier-invoices",
   component: passThrough,
+  validateSearch: validateSupplierInvoicesSearch,
   staticData: { breadcrumb: "Supplier invoices" }
 });
 
@@ -363,6 +419,7 @@ const bankingTransactionsRoute = createRoute({
   getParentRoute: () => bankingRoute,
   path: "transactions",
   component: passThrough,
+  validateSearch: validateBankTransactionsSearch,
   staticData: { section: "bank-transactions", breadcrumb: "Transactions" }
 });
 

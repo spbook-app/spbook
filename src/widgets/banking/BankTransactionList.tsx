@@ -1,13 +1,14 @@
 import { useRef } from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import type { BankAccount, BankTransaction, Invoice, Party, SupplierInvoice } from "../../domain";
 import type { BankTransactionListProps } from "../../shared/model/widget-props";
 import { BankTransactionListItem } from "./BankTransactionListItem";
 import {
+  bankTransactionQuickFilters,
   getBankTransactionDisplayState,
   matchesQuickFilter,
   type BankTransactionDisplayState,
-  type BankTransactionQuickFilter
+  type BankTransactionQuickFilterValue
 } from "./bank-transaction-display";
 import { BankStatementImport } from "../../features/bank-statement-import/BankStatementImport";
 import { BankTransactionCreateForm } from "../../features/bank-transaction-create/BankTransactionCreateForm";
@@ -28,18 +29,29 @@ type BankTransactionListRow = {
   displayState: BankTransactionDisplayState;
 };
 
-const quickFilterOptions: Array<[BankTransactionQuickFilter, string]> = [
-  ["", "All"],
-  ["needs_action", "Needs action"],
-  ["needs_counterparty", "Needs counterparty"],
-  ["linked_needs_match", "Ready to match"],
-  ["invoice_candidate", "Invoice candidates"],
-  ["supplier_invoice_candidate", "Supplier candidates"],
-  ["matched", "Matched"],
-  ["posted_bank_fee", "Bank fees"],
-  ["ignored", "Ignored"],
-  ["imported", "Imported"],
-  ["manual_unmatched", "Manual"]
+const bankingTransactionsListRoute = getRouteApi("/workspace/banking/transactions");
+
+const quickFilterLabels: Record<BankTransactionQuickFilterValue, string> = {
+  needs_action: "Needs action",
+  needs_counterparty: "Needs counterparty",
+  linked_needs_match: "Ready to match",
+  invoice_candidate: "Invoice candidates",
+  supplier_invoice_candidate: "Supplier candidates",
+  matched: "Matched",
+  posted_bank_fee: "Bank fees",
+  ignored: "Ignored",
+  imported: "Imported",
+  manual_unmatched: "Manual"
+};
+
+// The "All" option is undefined: it clears the processingState search param.
+type QuickFilterOption = [BankTransactionQuickFilterValue | undefined, string];
+
+const quickFilterOptions: QuickFilterOption[] = [
+  [undefined, "All"],
+  ...bankTransactionQuickFilters.map(
+    (filter): QuickFilterOption => [filter, quickFilterLabels[filter]]
+  )
 ];
 
 export function BankTransactionList(
@@ -55,11 +67,7 @@ export function BankTransactionList(
     route
   } = props;
   const navigate = useNavigate();
-  const routeSearch = useSearch({ strict: false }) as {
-    bankAccountId?: string;
-    processingState?: string;
-  };
-  const listFilters = getBankTransactionListFilters(routeSearch);
+  const { bankAccountId = "", processingState } = bankingTransactionsListRoute.useSearch();
   const importDialogRef = useRef<HTMLDialogElement>(null);
   const bankTransactionRows = bankTransactions
     .map((bankTransaction): BankTransactionListRow => {
@@ -124,21 +132,21 @@ export function BankTransactionList(
 
       return dateCompare || right.bankTransaction.id.localeCompare(left.bankTransaction.id);
     });
-  const bankAccountFilteredRows = listFilters.bankAccountId
+  const bankAccountFilteredRows = bankAccountId
     ? bankTransactionRows.filter(
-        (row) => row.bankTransaction.bankAccountId === listFilters.bankAccountId
+        (row) => row.bankTransaction.bankAccountId === bankAccountId
       )
     : bankTransactionRows;
-  const filteredBankTransactionRows = listFilters.processingState
+  const filteredBankTransactionRows = processingState
     ? bankAccountFilteredRows.filter((row) =>
         matchesQuickFilter(
           row.displayState.processingState,
           row.displayState.isImported,
-          listFilters.processingState
+          processingState
         )
       )
     : bankAccountFilteredRows;
-  const quickFilterCounts = new Map<BankTransactionQuickFilter, number>(
+  const quickFilterCounts = new Map<BankTransactionQuickFilterValue | undefined, number>(
     quickFilterOptions.map(([value]) => [
       value,
       value
@@ -153,28 +161,22 @@ export function BankTransactionList(
     ])
   );
   const activeBankAccountFilter = bankAccounts.find(
-    (bankAccount) => bankAccount.id === listFilters.bankAccountId
+    (bankAccount) => bankAccount.id === bankAccountId
   );
-  const hasActiveListFilters = Boolean(
-    listFilters.bankAccountId || listFilters.processingState
-  );
+  const hasActiveListFilters = Boolean(bankAccountId || processingState);
 
-  function handleListFilterChange(filterName: "bankAccountId" | "processingState", value: string) {
-    const nextFilters = { ...listFilters, [filterName]: value };
-    const nextSearchParams = new URLSearchParams();
-
-    if (nextFilters.bankAccountId) {
-      nextSearchParams.set("bankAccountId", nextFilters.bankAccountId);
-    }
-
-    if (nextFilters.processingState) {
-      nextSearchParams.set("processingState", nextFilters.processingState);
-    }
-
-    const nextSearch = nextSearchParams.toString();
-
+  function handleBankAccountChange(value: string) {
     void navigate({
-      href: `/workspace/banking/transactions${nextSearch ? `?${nextSearch}` : ""}`,
+      to: "/workspace/banking/transactions",
+      search: (prev) => ({ ...prev, bankAccountId: value || undefined }),
+      replace: true
+    });
+  }
+
+  function handleProcessingStateChange(value: BankTransactionQuickFilterValue | undefined) {
+    void navigate({
+      to: "/workspace/banking/transactions",
+      search: (prev) => ({ ...prev, processingState: value }),
       replace: true
     });
   }
@@ -237,9 +239,9 @@ export function BankTransactionList(
           <button
             type="button"
             role="tab"
-            aria-selected={!listFilters.bankAccountId}
-            className={`bank-account-tab${!listFilters.bankAccountId ? " bank-account-tab--active" : ""}`}
-            onClick={() => handleListFilterChange("bankAccountId", "")}
+            aria-selected={!bankAccountId}
+            className={`bank-account-tab${!bankAccountId ? " bank-account-tab--active" : ""}`}
+            onClick={() => handleBankAccountChange("")}
           >
             All
           </button>
@@ -248,9 +250,9 @@ export function BankTransactionList(
               key={bankAccount.id}
               type="button"
               role="tab"
-              aria-selected={listFilters.bankAccountId === bankAccount.id}
-              className={`bank-account-tab${listFilters.bankAccountId === bankAccount.id ? " bank-account-tab--active" : ""}`}
-              onClick={() => handleListFilterChange("bankAccountId", bankAccount.id)}
+              aria-selected={bankAccountId === bankAccount.id}
+              className={`bank-account-tab${bankAccountId === bankAccount.id ? " bank-account-tab--active" : ""}`}
+              onClick={() => handleBankAccountChange(bankAccount.id)}
             >
               {bankAccount.name}
             </button>
@@ -268,7 +270,11 @@ export function BankTransactionList(
               className="secondary-button compact-button"
               type="button"
               onClick={() =>
-                void navigate({ href: "/workspace/banking/transactions", replace: true })
+                void navigate({
+                  to: "/workspace/banking/transactions",
+                  search: {},
+                  replace: true
+                })
               }
             >
               Clear filters
@@ -279,10 +285,10 @@ export function BankTransactionList(
           <div className="transaction-filter-chips" role="group" aria-label="Filter by state">
             {quickFilterOptions.map(([value, label]) => (
               <button
-                key={value}
+                key={value ?? "all"}
                 type="button"
-                className={`transaction-filter-chip${listFilters.processingState === value ? " transaction-filter-chip--active" : ""}`}
-                onClick={() => handleListFilterChange("processingState", value)}
+                className={`transaction-filter-chip${processingState === value ? " transaction-filter-chip--active" : ""}`}
+                onClick={() => handleProcessingStateChange(value)}
               >
                 {label}
                 <span>{quickFilterCounts.get(value) ?? 0}</span>
@@ -352,33 +358,4 @@ function BankTransactionNotFound({ bankTransactionId }: { bankTransactionId: str
       </div>
     </div>
   );
-}
-
-
-function getBankTransactionListFilters(search: {
-  bankAccountId?: string;
-  processingState?: string;
-}) {
-  const processingState = search.processingState;
-  const validProcessingStates: BankTransactionQuickFilter[] = [
-    "needs_action",
-    "needs_counterparty",
-    "linked_needs_match",
-    "invoice_candidate",
-    "supplier_invoice_candidate",
-    "matched",
-    "posted_bank_fee",
-    "ignored",
-    "imported",
-    "manual_unmatched"
-  ];
-
-  return {
-    bankAccountId: search.bankAccountId ?? "",
-    processingState: (
-      validProcessingStates.includes(processingState as BankTransactionQuickFilter)
-        ? processingState
-        : ""
-    ) as BankTransactionQuickFilter
-  };
 }

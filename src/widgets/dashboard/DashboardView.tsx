@@ -1,7 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import type { Account, Invoice, SupplierInvoice } from "../../domain";
+import {
+  isUnpaidSupplierInvoice,
+  type Account,
+  type Invoice,
+  type SupplierInvoice
+} from "../../domain";
 import type { DashboardViewProps } from "../../shared/model/widget-props";
 import { BalancesTable } from "../../entities/account/BalancesTable";
+import { requiresBankTransactionAction } from "../banking/bank-transaction-display";
 
 export function DashboardView(props: DashboardViewProps) {
   const {
@@ -13,13 +19,9 @@ export function DashboardView(props: DashboardViewProps) {
     balances,
     accountNames
   } = props;
-  const unpaidInvoices = invoices.filter((invoice) => invoice.status !== "paid");
-  const unpaidSupplierInvoices = supplierInvoices.filter(
-    (supplierInvoice) => supplierInvoice.status !== "paid"
-  );
-  const unmatchedBankTransactions = bankTransactions.filter(
-    (bankTransaction) => bankTransaction.status === "unmatched"
-  );
+  const unpaidInvoices = invoices.filter((invoice) => invoice.status === "issued");
+  const unpaidSupplierInvoices = supplierInvoices.filter(isUnpaidSupplierInvoice);
+  const unmatchedBankTransactions = bankTransactions.filter(requiresBankTransactionAction);
   const recentJournalEntries = journalEntries.slice(-3).reverse();
   const accountIds = new Map(accounts.map((account) => [account.code, account.id]));
 
@@ -43,7 +45,7 @@ export function DashboardView(props: DashboardViewProps) {
             <Link
               className="work-queue-item work-queue-item--link"
               to="/workspace/sales/invoices"
-              search={{ status: "issued" } as Record<string, string>}
+              search={{ status: "issued" }}
             >
               <span>Unpaid issued invoices</span>
               <strong>{unpaidInvoices.length}</strong>
@@ -51,7 +53,7 @@ export function DashboardView(props: DashboardViewProps) {
             <Link
               className="work-queue-item work-queue-item--link"
               to="/workspace/purchases/supplier-invoices"
-              search={{ status: "unpaid" } as Record<string, string>}
+              search={{ status: "unpaid" }}
             >
               <span>Unpaid supplier invoices</span>
               <strong>{unpaidSupplierInvoices.length}</strong>
@@ -59,7 +61,7 @@ export function DashboardView(props: DashboardViewProps) {
             <Link
               className="work-queue-item work-queue-item--link"
               to="/workspace/banking/transactions"
-              search={{ processingState: "needs_action" } as Record<string, string>}
+              search={{ processingState: "needs_action" }}
             >
               <span>Unmatched bank transactions</span>
               <strong>{unmatchedBankTransactions.length}</strong>

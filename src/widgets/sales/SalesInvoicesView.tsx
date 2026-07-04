@@ -1,6 +1,12 @@
 import { useMemo } from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import type { BankTransaction, Invoice, Party } from "../../domain";
+import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import {
+  invoiceStatuses,
+  type BankTransaction,
+  type Invoice,
+  type InvoiceStatus,
+  type Party
+} from "../../domain";
 import type { SalesInvoicesViewProps } from "../../shared/model/widget-props";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
 import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
@@ -63,25 +69,34 @@ export function SalesInvoicesView(props: SalesInvoicesViewProps & { route: Sales
   return <InvoiceListPage invoices={invoices} parties={parties} />;
 }
 
-const invoiceFilterOptions: Array<[string, string]> = [
+const salesInvoicesListRoute = getRouteApi("/workspace/sales/invoices");
+
+const invoiceStatusLabels: Record<InvoiceStatus, string> = {
+  draft: "Draft",
+  issued: "Issued",
+  paid: "Paid",
+  cancelled: "Cancelled"
+};
+
+const invoiceFilterOptions: Array<["" | InvoiceStatus, string]> = [
   ["", "All"],
-  ["draft", "Draft"],
-  ["issued", "Issued"],
-  ["paid", "Paid"],
-  ["cancelled", "Cancelled"],
+  ...invoiceStatuses.map(
+    (status): ["" | InvoiceStatus, string] => [status, invoiceStatusLabels[status]]
+  )
 ];
 
 function InvoiceListPage({ invoices, parties }: { invoices: Invoice[]; parties: Party[] }) {
   const navigate = useNavigate();
-  const { status = "" } = useSearch({ strict: false }) as { status?: string };
+  const { status = "" } = salesInvoicesListRoute.useSearch();
 
   const filteredInvoices = status
     ? invoices.filter((invoice) => invoice.status === status)
     : invoices;
 
-  function handleFilterChange(value: string) {
+  function handleFilterChange(value: "" | InvoiceStatus) {
     void navigate({
-      href: `/workspace/sales/invoices${value ? `?status=${encodeURIComponent(value)}` : ""}`,
+      to: "/workspace/sales/invoices",
+      search: value ? { status: value } : {}
     });
   }
 

@@ -55,7 +55,8 @@ export type Party = {
   active: boolean;
 };
 
-export type InvoiceStatus = "draft" | "issued" | "paid" | "cancelled";
+export const invoiceStatuses = ["draft", "issued", "paid", "cancelled"] as const;
+export type InvoiceStatus = (typeof invoiceStatuses)[number];
 
 export type Invoice = {
   id: string;
@@ -69,7 +70,12 @@ export type Invoice = {
   status: InvoiceStatus;
 };
 
-export type SupplierInvoiceStatus = "received" | "approved" | "paid" | "cancelled";
+export const supplierInvoiceStatuses = ["received", "approved", "paid", "cancelled"] as const;
+export type SupplierInvoiceStatus = (typeof supplierInvoiceStatuses)[number];
+
+/** Status filters for supplier invoice lists, including the virtual "unpaid" (received + approved). */
+export const supplierInvoiceFilters = ["unpaid", ...supplierInvoiceStatuses] as const;
+export type SupplierInvoiceFilter = (typeof supplierInvoiceFilters)[number];
 
 export type SupplierInvoice = {
   id: string;

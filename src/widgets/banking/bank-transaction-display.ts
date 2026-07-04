@@ -105,25 +105,35 @@ export function getBankTransactionDisplayState(
   };
 }
 
-export type BankTransactionQuickFilter =
-  | ""
-  | "needs_action"
-  | "needs_counterparty"
-  | "linked_needs_match"
-  | "invoice_candidate"
-  | "supplier_invoice_candidate"
-  | "matched"
-  | "posted_bank_fee"
-  | "ignored"
-  | "imported"
-  | "manual_unmatched";
+/** Selectable quick filters, excluding the empty "All" sentinel. */
+export const bankTransactionQuickFilters = [
+  "needs_action",
+  "needs_counterparty",
+  "linked_needs_match",
+  "invoice_candidate",
+  "supplier_invoice_candidate",
+  "matched",
+  "posted_bank_fee",
+  "ignored",
+  "imported",
+  "manual_unmatched"
+] as const;
+
+export type BankTransactionQuickFilterValue = (typeof bankTransactionQuickFilters)[number];
+
+/** Mirrors the "needs_action" quick filter: unmatched, excluding manual transactions without a counterparty. */
+export function requiresBankTransactionAction(bankTransaction: BankTransaction): boolean {
+  return (
+    bankTransaction.status === "unmatched" &&
+    Boolean(bankTransaction.partyId || bankTransaction.importSource)
+  );
+}
 
 export function matchesQuickFilter(
   processingState: BankTransactionProcessingState,
   isImported: boolean,
-  filter: BankTransactionQuickFilter
+  filter: BankTransactionQuickFilterValue
 ): boolean {
-  if (!filter) return true;
   if (filter === "needs_action") {
     return (
       processingState === "needs_counterparty" ||

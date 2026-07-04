@@ -3,6 +3,11 @@ import { parseMoneyAmount } from "./money";
 import { getPartyById, partyHasRole } from "./parties";
 import { invalid, valid, type ValidationIssue, type ValidationResult } from "./validation";
 
+/** The virtual "unpaid" filter: invoices awaiting payment (received or approved). */
+export function isUnpaidSupplierInvoice(supplierInvoice: SupplierInvoice): boolean {
+  return supplierInvoice.status === "received" || supplierInvoice.status === "approved";
+}
+
 export function validateSupplierInvoice(
   supplierInvoice: SupplierInvoice,
   parties: Party[]

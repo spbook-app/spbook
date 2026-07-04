@@ -1,6 +1,13 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import type { BankTransaction, Party, SupplierInvoice } from "../../domain";
+import {
+  isUnpaidSupplierInvoice,
+  supplierInvoiceFilters,
+  type BankTransaction,
+  type Party,
+  type SupplierInvoice,
+  type SupplierInvoiceFilter
+} from "../../domain";
 import type { PurchasesViewProps } from "../../shared/model/widget-props";
 import { LinkedJournalEntries } from "../../entities/journal/LinkedJournalEntries";
 import { PartyInvoiceDetails } from "../../entities/party/PartyInvoiceDetails";
@@ -75,21 +82,27 @@ export function PurchasesView(props: PurchasesViewProps & { route: PurchaseRoute
   return <SupplierInvoiceListPage parties={parties} supplierInvoices={supplierInvoices} />;
 }
 
-const supplierFilterOptions: Array<[string, string]> = [
+const supplierFilterLabels: Record<SupplierInvoiceFilter, string> = {
+  unpaid: "Unpaid",
+  received: "Received",
+  approved: "Approved",
+  paid: "Paid",
+  cancelled: "Cancelled"
+};
+
+const supplierFilterOptions: Array<["" | SupplierInvoiceFilter, string]> = [
   ["", "All"],
-  ["unpaid", "Unpaid"],
-  ["received", "Received"],
-  ["approved", "Approved"],
-  ["paid", "Paid"],
-  ["cancelled", "Cancelled"],
+  ...supplierInvoiceFilters.map(
+    (filter): ["" | SupplierInvoiceFilter, string] => [filter, supplierFilterLabels[filter]]
+  )
 ];
 
-function getSupplierCount(supplierInvoices: SupplierInvoice[], value: string): number {
+function getSupplierCount(
+  supplierInvoices: SupplierInvoice[],
+  value: "" | SupplierInvoiceFilter
+): number {
   if (!value) return supplierInvoices.length;
-  if (value === "unpaid")
-    return supplierInvoices.filter(
-      (i) => i.status === "received" || i.status === "approved"
-    ).length;
+  if (value === "unpaid") return supplierInvoices.filter(isUnpaidSupplierInvoice).length;
   return supplierInvoices.filter((i) => i.status === value).length;
 }
 
@@ -101,20 +114,25 @@ function SupplierInvoiceListPage({
   supplierInvoices: SupplierInvoice[];
 }) {
   const navigate = useNavigate();
-  const { status = "" } = useSearch({ strict: false }) as { status?: string };
+  // strict:false-style lookup: this page also renders under /workspace/purchases/owner-transactions,
+  // where the supplier-invoices route (and its search params) is not matched.
+  const search = useSearch({
+    from: "/workspace/purchases/supplier-invoices",
+    shouldThrow: false
+  });
+  const status = search?.status ?? "";
 
   const filteredInvoices =
     status === "unpaid"
-      ? supplierInvoices.filter(
-          (i) => i.status === "received" || i.status === "approved"
-        )
+      ? supplierInvoices.filter(isUnpaidSupplierInvoice)
       : status
         ? supplierInvoices.filter((i) => i.status === status)
         : supplierInvoices;
 
-  function handleFilterChange(value: string) {
+  function handleFilterChange(value: "" | SupplierInvoiceFilter) {
     void navigate({
-      href: `/workspace/purchases/supplier-invoices${value ? `?status=${encodeURIComponent(value)}` : ""}`,
+      to: "/workspace/purchases/supplier-invoices",
+      search: value ? { status: value } : {}
     });
   }
 
